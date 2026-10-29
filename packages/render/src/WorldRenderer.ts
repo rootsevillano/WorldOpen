@@ -1,6 +1,7 @@
 import { AgentActivity, AgentFlag, BuildingState, type BuildingUse, type MapLogic, type RenderFrame } from '@worldopen/contracts';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Heights, buildFootprints, buildTrees, loadGlb, type FootprintMesh } from './realMap';
 
 /** Latitud del mapa base, solo para la altura del sol (no se muestra en ningún sitio). */
 const LATITUDE_DEG = 37.3;
@@ -34,6 +35,12 @@ const DAMAGED = new THREE.Color(0x3b3b3b);
 
 export type Pick = { kind: 'agent'; id: number } | { kind: 'building'; id: string } | null;
 
+/** Recursos de dibujo de una región con map-pack (rutas ya resueltas a URL). */
+export interface RenderPack {
+  base: string;
+  render: { terrain?: string; roads?: string; trees?: string; heights?: string };
+}
+
 /**
  * Render 3D (Render API). Solo consume `RenderFrame` y el mapa lógico; no conoce el motor.
  * Las regiones sin GLB se dibujan con volúmenes simples a partir de `MapLogic`.
@@ -48,6 +55,10 @@ export class WorldRenderer {
   private readonly agents: THREE.InstancedMesh;
   private readonly mapGroup = new THREE.Group();
   private buildingMesh: THREE.InstancedMesh | null = null;
+  private footprints: FootprintMesh | null = null;
+  private heights: Heights | null = null;
+  private ground: THREE.Mesh;
+  private mapSeq = 0;
   private buildingIds: string[] = [];
   private buildingBase: THREE.Color[] = [];
   private buildingStates: Uint8Array = new Uint8Array(0);
@@ -91,6 +102,7 @@ export class WorldRenderer {
       new THREE.MeshStandardMaterial({ color: 0x8a8a5c, roughness: 1 }),
     );
     ground.name = 'GROUND';
+    this.ground = ground;
     this.scene.add(ground);
 
     this.agents = new THREE.InstancedMesh(
@@ -132,6 +144,10 @@ export class WorldRenderer {
       const hit = this.raycaster.intersectObject(this.buildingMesh, false)[0];
       if (hit?.instanceId !== undefined) return { kind: 'building', id: this.buildingIds[hit.instanceId]! };
     }
+    if (this.footprints) {
+      const hit = this.raycaster.intersectObject(this.footprints.mesh, false)[0];
+      if (hit?.faceIndex != null) return { kind: 'building', id: this.buildingIds[this.footprints.triangleBuilding[hit.faceIndex]!]! };
+    }
     return null;
   }
 
@@ -149,10 +165,28 @@ export class WorldRenderer {
     return this.following;
   }
 
-  /** Dibuja el mapa lógico: edificios como volúmenes por uso y calles como franjas. */
-  setMap(maps: MapLogic[]): void {
+  /**
+   * Dibuja el mapa. Mapa sintético: edificios como cajas y calles como franjas. Mapa real (map-pack): edificios
+   * extruidos desde su huella sobre su cota, y terreno, viales, árboles y cotas cargados del propio map-pack.
+   */
+  setMap(maps: MapLogic[], packs: RenderPack[] = []): void {
     this.mapGroup.clear();
+    this.buildingMesh = null;
+    this.footprints = null;
+    this.heights = null;
+    this.ground.visible = true;
+    const seq = ++this.mapSeq;
     const buildings = maps.flatMap((m) => m.buildings);
+    this.buildingIds = buildings.map((b) => b.id);
+    this.buildingStates = new Uint8Array(buildings.length);
+    if (buildings.some((b) => b.footprint?.length)) {
+      this.footprints = buildFootprints(buildings, USE_COLORS);
+      this.buildingBase = buildings.map((b) => new THREE.Color(USE_COLORS[b.use]));
+      this.mapGroup.add(this.footprints.mesh);
+      for (const pack of packs) void this.loadPack(pack, seq);
+      this.frameCamera(buildings, true);
+      return;
+    }
     const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
     const mesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ roughness: 0.9 }), buildings.length);
     mesh.name = 'BUILDINGS';
@@ -200,6 +234,50 @@ export class WorldRenderer {
     if (Number.isFinite(bounds.minX)) this.controls.target.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
   }
 
+  /** Centra la cámara en el núcleo (mediana de los edificios), no en el centro del término. */
+  private frameCamera(buildings: MapLogic['buildings'], real: boolean): void {
+    if (buildings.length === 0) return;
+    const xs = buildings.map((b) => b.centroid.x).sort((a, b) => a - b);
+    const zs = buildings.map((b) => b.centroid.z).sort((a, b) => a - b);
+    const cx = xs[Math.floor(xs.length / 2)]!;
+    const cz = zs[Math.floor(zs.length / 2)]!;
+    const cy = this.heights?.at(cx, cz) ?? 0;
+    this.controls.target.set(cx, cy, cz);
+    if (real) this.camera.position.set(cx + 350, cy + 520, cz + 760);
+  }
+
+  private async loadPack(pack: RenderPack, seq: number): Promise<void> {
+    const url = (p: string) => `${pack.base}/${p}`;
+    const stale = () => seq !== this.mapSeq;
+    if (pack.render.heights) {
+      const g = await (await fetch(url(pack.render.heights))).json();
+      if (stale()) return;
+      this.heights = new Heights(g);
+      this.ground.visible = false;
+    }
+    const tasks: Promise<void>[] = [];
+    for (const key of ['terrain', 'roads'] as const) {
+      const path = pack.render[key];
+      if (!path) continue;
+      tasks.push(loadGlb(url(path)).then((obj) => {
+        if (stale()) return;
+        obj.name = key.toUpperCase();
+        obj.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.isMesh) m.receiveShadow = true;
+        });
+        this.mapGroup.add(obj);
+        if (key === 'terrain') this.ground.visible = false;
+      }));
+    }
+    if (pack.render.trees) {
+      tasks.push(fetch(url(pack.render.trees)).then((r) => r.json()).then((t) => {
+        if (!stale()) this.mapGroup.add(buildTrees(t));
+      }));
+    }
+    await Promise.all(tasks);
+  }
+
   /** Recibe un frame del motor. Las posiciones se interpolan hasta el siguiente tick. */
   applyFrame(frame: RenderFrame): void {
     const now = performance.now();
@@ -220,6 +298,10 @@ export class WorldRenderer {
   }
 
   private updateBuildingStates(states: Uint8Array): void {
+    if (this.footprints) {
+      this.updateFootprintStates(states);
+      return;
+    }
     const mesh = this.buildingMesh;
     if (!mesh || states.length !== this.buildingStates.length) return;
     let changed = false;
@@ -231,6 +313,24 @@ export class WorldRenderer {
       changed = true;
     }
     if (changed && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+
+  private updateFootprintStates(states: Uint8Array): void {
+    const fp = this.footprints!;
+    if (states.length !== this.buildingStates.length) return;
+    const colors = fp.mesh.geometry.getAttribute('color') as THREE.BufferAttribute;
+    let changed = false;
+    for (let b = 0; b < states.length; b++) {
+      if (states[b] === this.buildingStates[b]) continue;
+      const s = states[b]!;
+      const c = s === BuildingState.Burning ? BURNING : s === BuildingState.Damaged ? DAMAGED : this.buildingBase[b]!;
+      const start = fp.ranges[b * 2]!;
+      const count = fp.ranges[b * 2 + 1]!;
+      for (let v = start; v < start + count; v++) colors.setXYZ(v, c.r, c.g, c.b);
+      this.buildingStates[b] = s;
+      changed = true;
+    }
+    if (changed) colors.needsUpdate = true;
   }
 
   private interpolated(frame: RenderFrame, i: number, now: number): [number, number, number] {
@@ -257,7 +357,7 @@ export class WorldRenderer {
         const [px, , pz] = this.interpolated(f, i, now);
         if (id === this.following) this.moveTarget(px, pz);
         if (this.selected?.kind === 'agent' && this.selected.id === id) {
-          this.marker.position.set(px, 0.2, pz);
+          this.marker.position.set(px, (this.heights?.at(px, pz) ?? 0) + 0.2, pz);
           this.marker.scale.setScalar(scale);
           this.marker.visible = true;
         }
@@ -265,7 +365,7 @@ export class WorldRenderer {
       if (indoors) continue;
       this.agentAtInstance[n] = id;
       const [x, y, z] = this.interpolated(f, i, now);
-      this.tmp.position.set(x, y, z);
+      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : y, z);
       this.tmp.rotation.set(0, f.agentHeadings[i]!, 0);
       this.tmp.scale.setScalar(scale);
       this.tmp.updateMatrix();

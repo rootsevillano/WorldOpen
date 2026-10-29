@@ -7,6 +7,8 @@ import {
   type EngineToHost,
   type HostToEngine,
   type LoggedCommand,
+  type MapLogic,
+  type WorldManifest,
   type QueryResultMap,
   type Timeline,
   type WorldStatus,
@@ -21,7 +23,11 @@ export interface HostOptions {
   frameIntervalMs?: number;
   /** Además del snapshot por día de juego, uno cada este tiempo real (servidor: acota lo que se pierde si se cae). */
   saveIntervalMs?: number;
+  /** Carga los mapas de las regiones con map-pack (ADR-0017). Sin él, solo se admiten mundos con mapa sintético. */
+  resolveMaps?: (manifest: WorldManifest) => Promise<Record<string, MapLogic>>;
 }
+
+const needsMaps = (m: WorldManifest) => m.regions.some((r) => r.mapPack !== null);
 
 const FRAME_INTERVAL_MS = 1000 / 30;
 const STATUS_INTERVAL_MS = 250;
@@ -62,6 +68,8 @@ export class EngineHostCore {
   private replayLog: LoggedCommand[] = [];
   private analysis: ReplayAnalysis | null = null;
   private seekSeq = 0;
+  /** Mapas del mundo cargado (para restaurar en saltos y análisis). */
+  private maps: Record<string, MapLogic> | undefined;
 
   constructor(
     private readonly post: Post,
@@ -173,6 +181,16 @@ export class EngineHostCore {
     return n;
   }
 
+  private async mapsFor(manifest: WorldManifest): Promise<Record<string, MapLogic> | undefined> {
+    if (!needsMaps(manifest)) return undefined;
+    if (!this.options.resolveMaps) throw new Error('Este host no puede cargar map-packs');
+    return this.options.resolveMaps(manifest);
+  }
+
+  private simOptions(maps: Record<string, MapLogic> | undefined) {
+    return maps ? { maps } : {};
+  }
+
   /** Una porción del análisis en segundo plano (la mitad del presupuesto de CPU de una porción). */
   private analyzeSlice(): void {
     const a = this.analysis!;
@@ -213,7 +231,7 @@ export class EngineHostCore {
       const snap = await store.getSnapshot(tl.worldId, t);
       // Un salto posterior deja obsoleto este.
       if (!snap || seq !== this.seekSeq) return;
-      const restored = Simulation.restore(sim.manifest, snap, this.replayLog);
+      const restored = Simulation.restore(sim.manifest, snap, this.replayLog, this.simOptions(this.maps));
       restored.step(t - snap.tick);
       restored.drainEvents();
       this.sim = restored;
@@ -299,9 +317,20 @@ export class EngineHostCore {
       }
     }
     if (msg.type === 'init') {
+      if (needsMaps(msg.manifest) && !(msg as { preloaded?: boolean }).preloaded) {
+        // Con map-pack, primero se cargan los mapas; el resto del init va detrás en la cola.
+        void this.enqueue(async () => {
+          const maps = await this.mapsFor(msg.manifest);
+          this.maps = maps;
+          this.handle({ ...msg, preloaded: true } as HostToEngine);
+        });
+        return;
+      }
+      if (!(msg as { preloaded?: boolean }).preloaded) this.maps = undefined;
+      const opts = this.simOptions(this.maps);
       const sim = msg.snapshot
-        ? Simulation.restore(msg.manifest, msg.snapshot, msg.log ?? [])
-        : new Simulation(msg.manifest);
+        ? Simulation.restore(msg.manifest, msg.snapshot, msg.log ?? [], opts)
+        : new Simulation(msg.manifest, opts);
       // Hasta que el mundo quede registrado en el almacén, no hay nada guardado (savedTick = −1).
       this.start(sim, 'created', false, -1);
       if (this.store) {
@@ -327,7 +356,8 @@ export class EngineHostCore {
         const log = await store.readCommands(msg.worldId);
         const summary = (await store.listWorlds()).find((w) => w.worldId === msg.worldId);
         const status = summary?.status ?? 'paused';
-        this.start(Simulation.restore(manifest, snapshot, log), status, status === 'ended', snapshot.tick);
+        this.maps = await this.mapsFor(manifest);
+        this.start(Simulation.restore(manifest, snapshot, log, this.simOptions(this.maps)), status, status === 'ended', snapshot.tick);
       });
       return;
     }
@@ -345,11 +375,12 @@ export class EngineHostCore {
         const summary = (await store.listWorlds()).find((w) => w.worldId === msg.worldId);
         const endTick = Math.max(summary?.lastTick ?? 0, snapshots.at(-1)!.tick);
         this.replayLog = log;
+        this.maps = await this.mapsFor(manifest);
         this.timeline = {
           worldId: manifest.worldId, name: manifest.name, time: manifest.time,
           startTick: first.tick, endTick, snapshots, commands: log,
         };
-        this.start(Simulation.restore(manifest, first, log), summary?.status ?? 'ended', true, snapshots.at(-1)!.tick, 'replay');
+        this.start(Simulation.restore(manifest, first, log, this.simOptions(this.maps)), summary?.status ?? 'ended', true, snapshots.at(-1)!.tick, 'replay');
       });
       return;
     }
@@ -369,7 +400,7 @@ export class EngineHostCore {
         void this.enqueue(async () => {
           const first = await store.getSnapshot(tl.worldId, tl.startTick);
           if (!first) throw new Error('Falta el snapshot inicial');
-          this.analysis = new ReplayAnalysis(sim.manifest, first, this.replayLog, tl.snapshots, tl.endTick, msg.everyTicks, msg.metrics);
+          this.analysis = new ReplayAnalysis(sim.manifest, first, this.replayLog, tl.snapshots, tl.endTick, msg.everyTicks, msg.metrics, this.simOptions(this.maps));
         });
         return;
       }

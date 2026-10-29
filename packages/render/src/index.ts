@@ -1,1 +1,1 @@
-export { WorldRenderer, type Pick } from './WorldRenderer';
+export { WorldRenderer, type Pick, type RenderPack } from './WorldRenderer';

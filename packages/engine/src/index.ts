@@ -17,3 +17,4 @@ export { RULESETS } from './rulesets/contemporary';
 export { World } from './world/world';
 export { metric, resolveBuilding, resolvePayload, REPORT_METRICS } from './metrics';
 export { ReplayAnalysis } from './study';
+export { parseMapPack, parseManifest, packKey } from './map/mappack';

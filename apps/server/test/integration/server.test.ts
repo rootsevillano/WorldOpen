@@ -5,16 +5,33 @@ import { PROTOCOL_VERSION, type EngineToHost, type HostToEngine } from '@worldop
 import { decode, encode } from '@worldopen/host';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
+import { SYNTHETIC_REGION, syntheticMap } from '@worldopen/engine';
 import { WorldOpenServer } from '../../src/server';
+
+/** Map-pack de prueba (formato real, contenido sintético) en una carpeta de instalados. */
+function fixturePacks(): string {
+  const root = mkdtempSync(join(tmpdir(), 'wo-packs-'));
+  const logic = syntheticMap(4, SYNTHETIC_REGION);
+  const dir = join(root, 'prueba-0.0.1');
+  mkdirSync(join(dir, 'logic'), { recursive: true });
+  writeFileSync(join(dir, 'manifest.json'), JSON.stringify({
+    schemaVersion: 1, id: 'prueba', version: '0.0.1', displayName: 'Villaprueba',
+    crs: { frame: 'local', axes: 'X=East,Y=Up,Z=-North', units: 'm' }, bounds: logic.bounds,
+    logic: { buildings: 'logic/buildings.json', streets: 'logic/streets.json' }, render: {}, attribution: [],
+  }));
+  writeFileSync(join(dir, 'logic/buildings.json'), JSON.stringify(logic.buildings));
+  writeFileSync(join(dir, 'logic/streets.json'), JSON.stringify(logic.streets));
+  return root;
+}
 
 const ADMIN_PW = 'contraseña-de-dios';
 const GUEST_PW = 'contraseña-invitada';
 const servers: WorldOpenServer[] = [];
 
-async function boot(dataDir = mkdtempSync(join(tmpdir(), 'wo-server-')), webDir?: string) {
+async function boot(dataDir = mkdtempSync(join(tmpdir(), 'wo-server-')), webDir?: string, extra: Partial<ConstructorParameters<typeof WorldOpenServer>[0]> = {}) {
   const server = new WorldOpenServer({
     dataDir, port: 0, ticksPerSecond: 300, framesPerSecond: 20, pumpMs: 5,
-    newWorld: { name: 'Pruebas', seed: 3, population: 20 }, ...(webDir ? { webDir } : {}),
+    newWorld: { name: 'Pruebas', seed: 3, population: 20 }, ...(webDir ? { webDir } : {}), ...extra,
   });
   servers.push(server);
   await server.users.load();
@@ -223,5 +240,19 @@ describe('Servidor · persistencia y web', () => {
     expect(await (await fetch(`${base}/cualquier/ruta`)).text()).toContain('WorldOpen');
     const escape = await fetch(`${base}/..%2f..%2fusers.json`);
     expect(escape.status === 403 || (await escape.text()).includes('WorldOpen')).toBe(true);
+  });
+
+  it('el mundo nuevo puede nacer sobre un map-pack; los map-packs se sirven solo con sesión', async () => {
+    const packs = fixturePacks();
+    const { base, server } = await boot(undefined, undefined, { mapPacksDir: packs, newWorldMapPack: 'prueba-0.0.1' });
+    await server.live.flush();
+    expect((await server.store.getManifest(server.live.current!.worldId))!.regions[0]).toMatchObject({ displayName: 'Villaprueba', mapPack: { id: 'prueba' } });
+    expect((await fetch(`${base}/map-packs/index.json`)).status).toBe(401);
+    const { header } = await login(base, 'invitada', GUEST_PW);
+    const index = await (await fetch(`${base}/map-packs/index.json`, { headers: { cookie: header } })).json();
+    expect(index.map((m: { id: string }) => m.id)).toEqual(['prueba']);
+    expect((await fetch(`${base}/map-packs/prueba-0.0.1/logic/streets.json`, { headers: { cookie: header } })).status).toBe(200);
+    expect((await fetch(`${base}/map-packs/..%2f..%2fusers.json`, { headers: { cookie: header } })).status).toBeGreaterThanOrEqual(403);
+    expect((await fetch(`${base}/map-packs/no-existe.json`, { headers: { cookie: header } })).status).toBe(404);
   });
 });

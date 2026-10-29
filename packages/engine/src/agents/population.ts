@@ -2,6 +2,7 @@ import { AgentActivity, AgentFlag, type BuildingUse } from '@worldopen/contracts
 import { personName } from '../content/names';
 import { Action, Occupation, RelationKind } from '../world/agents';
 import type { World } from '../world/world';
+import { WORK_SCALE_M, pickNearby } from './nearby';
 import { bond } from './social';
 
 /** Existencias iniciales que trae cada habitante a su casa. */
@@ -28,8 +29,11 @@ function pickHome(world: World): number {
   return homes[homes.length - 1]!;
 }
 
-/** Ocupación de un adulto en edad de trabajar: proporcional a los puestos disponibles; 15 % en paro. */
-function pickOccupation(world: World, age: number): [number, number] {
+/**
+ * Ocupación de un adulto en edad de trabajar: el tipo, proporcional a los puestos disponibles; el sitio, con
+ * preferencia por lo cercano a su casa. 15 % en paro.
+ */
+function pickOccupation(world: World, age: number, home: number): [number, number] {
   if (age >= 67) return [Occupation.Retired, -1];
   const rng = world.rng;
   if (rng.nextFloat() < 0.15) return [Occupation.Unemployed, -1];
@@ -44,7 +48,10 @@ function pickOccupation(world: World, age: number): [number, number] {
   if (total === 0) return [Occupation.Unemployed, -1];
   let r = rng.int(0, total - 1);
   for (const [occ, list] of options) {
-    if (r < list.length) return [occ, list[r]!];
+    if (r < list.length) {
+      const c = world.map.buildings[home]!.centroid;
+      return [occ, pickNearby(world, c.x, c.z, list, WORK_SCALE_M)];
+    }
     r -= list.length;
   }
   return [Occupation.Unemployed, -1];
@@ -61,7 +68,7 @@ export function spawnAgent(world: World, home = -1): number {
   a.age[i] = rng.int(18, 85);
   a.sociability[i] = rng.nextFloat();
   a.bravery[i] = rng.nextFloat();
-  const [occupation, workplace] = pickOccupation(world, a.age[i]!);
+  const [occupation, workplace] = pickOccupation(world, a.age[i]!, h);
   a.occupation[i] = occupation;
   a.workplace[i] = workplace;
   a.home[i] = h;

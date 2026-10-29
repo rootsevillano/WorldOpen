@@ -1,6 +1,6 @@
 import type { LoggedCommand, SeriesChunk, Snapshot, Verification, WorldManifest } from '@worldopen/contracts';
 import { metric } from './metrics';
-import { Simulation } from './simulation';
+import { Simulation, type SimulationOptions } from './simulation';
 
 /**
  * Análisis de un mundo guardado (visor de estudio, ADR-0015): reproduce el mundo desde un snapshot con el log completo,
@@ -22,9 +22,10 @@ export class ReplayAnalysis {
     readonly endTick: number,
     readonly everyTicks: number,
     readonly metrics: string[],
+    options: SimulationOptions = {},
   ) {
     if (everyTicks < 1) throw new Error('everyTicks debe ser ≥ 1');
-    this.sim = Simulation.restore(manifest, first, log);
+    this.sim = Simulation.restore(manifest, first, log, options);
     this.startTick = first.tick;
     this.hashes = new Map(snapshots.filter((s) => s.tick > first.tick && s.tick <= endTick).map((s) => [s.tick, s.hash]));
     this.verification = { checked: 0, failed: [], total: this.hashes.size };

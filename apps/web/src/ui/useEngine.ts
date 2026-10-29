@@ -11,7 +11,8 @@ import {
   type WorldSummary,
 } from '@worldopen/contracts';
 import { createManifest } from '@worldopen/engine';
-import { WorldRenderer, type Pick } from '@worldopen/render';
+import { WorldRenderer, type Pick, type RenderPack } from '@worldopen/render';
+import type { MapPackManifest, RegionRef } from '@worldopen/contracts';
 import { IndexedDbWorldStore } from '@worldopen/store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EngineClient } from '../engine-host/EngineClient';
@@ -56,6 +57,8 @@ export interface NewWorldOptions {
   name: string;
   seed: number;
   population: number;
+  /** `<id>-<versión>` de un map-pack instalado; sin él, mapa sintético. */
+  mapPack?: string;
 }
 
 export interface EngineState {
@@ -70,6 +73,8 @@ export interface EngineState {
   /** Último error visible (se borra solo a los pocos segundos). */
   error: string | null;
   worlds: WorldSummary[];
+  /** Map-packs disponibles para crear mundos. */
+  mapPacks: MapPackManifest[];
   selection: Pick;
   issuer: Issuer;
   session: AppSession;
@@ -100,6 +105,7 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
   const [worlds, setWorlds] = useState<WorldSummary[]>([]);
   const [selection, setSelection] = useState<Pick>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mapPacks, setMapPacks] = useState<MapPackManifest[]>([]);
   const logKey = useRef(0);
   const lastFrame = useRef<RenderFrame | null>(null);
   const store = useRef<IndexedDbWorldStore | null>(null);
@@ -144,7 +150,7 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
             setSelection(null);
             r.select(null);
             void engine.query('catalog').then(setCatalog);
-            void engine.query('map').then((maps) => r.setMap(maps));
+            void Promise.all([engine.query('map'), renderPacks(msg.manifest.regions)]).then(([maps, packs]) => r.setMap(maps, packs));
             push([{ tick: msg.tick, kind: 'ok', text: `Mundo «${msg.manifest.name}» listo (motor ${msg.engineVersion})` }]);
             refreshWorlds();
             break;
@@ -212,6 +218,7 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
         });
     }
 
+    void fetch('/map-packs/index.json').then((res) => (res.ok ? res.json() : [])).then(setMapPacks).catch(() => setMapPacks([]));
     setRenderer(r);
     (window as unknown as { __worldopen: unknown }).__worldopen = {
       get engine() {
@@ -261,11 +268,12 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
     population,
     error,
     worlds,
+    mapPacks,
     selection,
     issuer,
     session,
     select,
-    newWorld: (o) => client?.init(newManifest(o)),
+    newWorld: (o) => client?.init(newManifest(o, mapPacks.find((m) => `${m.id}-${m.version}` === o.mapPack))),
     openWorld: (id) => {
       const w = worlds.find((x) => x.worldId === id);
       // Un mundo terminado solo se puede estudiar.
@@ -292,14 +300,30 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
   };
 }
 
-function newManifest(o: NewWorldOptions): WorldManifest {
+function newManifest(o: NewWorldOptions, pack?: MapPackManifest): WorldManifest {
+  const regions: RegionRef[] | undefined = pack
+    ? [{ id: 'r1', displayName: pack.displayName, mapPack: { id: pack.id, version: pack.version }, offset: { x: 0, z: 0 } }]
+    : undefined;
   return createManifest({
     worldId: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     seed: o.seed,
     name: o.name,
     criteria: { 'society.initialPopulation': o.population },
+    ...(regions ? { regions } : {}),
   });
+}
+
+/** Recursos de dibujo de las regiones con map-pack (el render los descarga del propio map-pack). */
+async function renderPacks(regions: RegionRef[]): Promise<RenderPack[]> {
+  const out: RenderPack[] = [];
+  for (const r of regions) {
+    if (!r.mapPack) continue;
+    const base = `/map-packs/${r.mapPack.id}-${r.mapPack.version}`;
+    const m = (await (await fetch(`${base}/manifest.json`)).json()) as MapPackManifest;
+    out.push({ base, render: m.render });
+  }
+  return out;
 }
 
 const RESOURCE_ES: Record<number, string> = { 1: 'comida', 2: 'agua', 3: 'leña' };

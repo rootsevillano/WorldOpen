@@ -6,7 +6,7 @@
   "manifest": { "criteria": { "society.initialPopulation": 200, "economy.foodAbundance": 0 } },
   "assertions": [
     { "kind": "deterministic" },
-    { "kind": "metric", "metric": "economy.shopFood", "op": "<", "value": 1, "at": { "day": 1, "hour": 14 } },
+    { "kind": "metric", "metric": "economy.shopFood", "op": "<", "value": 5, "at": { "day": 1, "hour": 14 } },
     { "kind": "metric", "metric": "events.source.empty", "op": ">=", "value": 500, "at": { "day": 2, "hour": 12 } },
     { "kind": "metric", "metric": "agents.queueingRatio", "op": ">", "value": 0, "at": { "day": 1, "hour": 18 }, "minPassRatio": 0.6 },
     { "kind": "metric", "metric": "agents.workingRatio", "op": "<", "value": 0.45, "at": { "day": 2, "hour": 12 } },

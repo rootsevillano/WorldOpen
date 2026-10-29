@@ -5,6 +5,7 @@ import { FileWorldStore } from './fileStore';
 import { REPORT_METRICS, metric } from '@worldopen/engine';
 import { createSimulation, simulate } from './simulate';
 import { DEFAULT_WORLDS_DIR, runAndSave, studyWorld, verifyWorld } from './worlds';
+import { DEFAULT_MAPPACKS_DIR, fileMapResolver, installMapPack, listMapPacks } from './mappacks';
 
 const USAGE = `worldopen — motor de simulación WorldOpen (headless)
 
@@ -15,7 +16,10 @@ Uso:
   worldopen verify <worldId> [--worlds <dir>]       Reproduce un mundo y comprueba sus snapshots
   worldopen study <worldId> [--every <ticks>] [--metrics a,b] [--out <series.csv>] [--worlds <dir>]
                                                     Series de métricas del mundo en CSV
-  worldopen gate behavior <directorio de escenarios>
+  worldopen gate behavior <directorio de escenarios> [--map-pack <id-versión>]
+  worldopen mappack install <carpeta>             Instala (y valida) un map-pack generado por almensilla-3d
+  worldopen mappack list
+  (simulate, study y verify aceptan --map-pack <id-versión> / usan los map-packs instalados)
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -35,9 +39,11 @@ async function main(argv: string[]): Promise<number> {
         end: { type: 'boolean', default: false },
         name: { type: 'string' },
         worlds: { type: 'string', default: DEFAULT_WORLDS_DIR },
+        'map-pack': { type: 'string' },
       },
     });
     const opts = {
+      ...(values['map-pack'] ? { mapPack: values['map-pack'] } : {}),
       seed: Number(values.seed),
       ticks: Number(values.ticks),
       ...(values['minutes-per-tick'] ? { minutesPerTick: Number(values['minutes-per-tick']) } : {}),
@@ -83,6 +89,7 @@ async function main(argv: string[]): Promise<number> {
       },
     });
     const store = new FileWorldStore(values.worlds);
+    const resolveMaps = fileMapResolver(DEFAULT_MAPPACKS_DIR);
     if (cmd === 'worlds') {
       for (const w of await store.listWorlds()) console.log(`${w.worldId}  ${w.status.padEnd(7)}  tick ${w.lastTick}  ${w.createdAt}  ${w.name}`);
       return 0;
@@ -93,26 +100,41 @@ async function main(argv: string[]): Promise<number> {
       return 2;
     }
     if (cmd === 'study') {
-      const study = await studyWorld(store, id, Number(values.every), values.metrics?.split(','));
+      const study = await studyWorld(store, id, Number(values.every), values.metrics?.split(','), resolveMaps);
       if (values.out) writeFileSync(values.out, study.csv);
       else process.stdout.write(study.csv);
       const v = study.verification;
       console.error(`${study.rows} muestras · replay verificado en ${v.checked}/${v.total} snapshots${v.failed.length ? ` · FALLOS en ${v.failed.join(', ')}` : ''}`);
       return v.failed.length === 0 ? 0 : 1;
     }
-    const result = await verifyWorld(store, id);
+    const result = await verifyWorld(store, id, resolveMaps);
     for (const c of result.checked) console.log(`${c.ok ? '✓' : '✗'} tick ${c.tick}`);
     console.log(result.ok ? `Mundo ${id}: replay idéntico` : `Mundo ${id}: el replay NO coincide`);
     return result.ok ? 0 : 1;
   }
 
+  if (cmd === 'mappack') {
+    if (sub === 'list') {
+      for (const m of listMapPacks()) console.log(`${m.id}-${m.version}  «${m.displayName}»`);
+      return 0;
+    }
+    if (sub === 'install' && rest[0]) {
+      const m = installMapPack(rest[0]);
+      console.log(`Map-pack ${m.id}-${m.version} («${m.displayName}») instalado y validado en ${DEFAULT_MAPPACKS_DIR}`);
+      return 0;
+    }
+    console.error(USAGE);
+    return 2;
+  }
+
   if (cmd === 'gate' && sub === 'behavior') {
-    const dir = rest[0];
+    const { values: gv, positionals: gp } = parseArgs({ args: rest, allowPositionals: true, options: { 'map-pack': { type: 'string' } } });
+    const dir = gp[0];
     if (!dir) {
       console.error(USAGE);
       return 2;
     }
-    const results = runScenarioDir(dir);
+    const results = runScenarioDir(dir, gv['map-pack']);
     if (results.length === 0) {
       console.error(`No hay escenarios *.scenario.json en ${dir}`);
       return 1;

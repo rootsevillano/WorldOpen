@@ -70,7 +70,7 @@ function momentToTick(at: GameMoment, time: TimeConfig): number {
 
 const fmt = (v: CriterionValue) => (typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(2) : String(v));
 
-export function runScenario(file: string, scenario: Scenario): ScenarioResult {
+export function runScenario(file: string, scenario: Scenario, mapPack?: string): ScenarioResult {
   const time: TimeConfig = { ...DEFAULT_TIME, ...scenario.manifest?.time };
   const ticks = scenario.days * ticksPerDay(time);
   const commands = (seed: number): CommandEnvelope[] =>
@@ -88,7 +88,7 @@ export function runScenario(file: string, scenario: Scenario): ScenarioResult {
   const t0 = performance.now();
   const rejected: string[] = [];
   const runOnce = (seed: number) => {
-    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time } });
+    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time }, ...(mapPack ? { mapPack } : {}) });
     for (const c of commands(seed)) {
       const res = sim.submit({ ...c, payload: resolvePayload(sim, c.payload) });
       if (!res.ok) rejected.push(res.message);
@@ -151,10 +151,10 @@ export function runScenario(file: string, scenario: Scenario): ScenarioResult {
   };
 }
 
-export function runScenarioDir(dir: string): ScenarioResult[] {
+export function runScenarioDir(dir: string, mapPack?: string): ScenarioResult[] {
   const abs = resolve(dir);
   return readdirSync(abs)
     .filter((f) => f.endsWith('.scenario.json'))
     .sort()
-    .map((f) => runScenario(f, JSON.parse(readFileSync(join(abs, f), 'utf8')) as Scenario));
+    .map((f) => runScenario(f, JSON.parse(readFileSync(join(abs, f), 'utf8')) as Scenario, mapPack));
 }

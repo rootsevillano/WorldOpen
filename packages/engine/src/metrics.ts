@@ -12,7 +12,12 @@ export function resolveBuilding(sim: Simulation, ref: string): number {
   const m = /^@(\w+)\[(\d+)\]$/.exec(ref);
   if (!m) throw new Error(`Referencia de edificio inválida: ${ref}`);
   const map = sim.world.map;
-  const list = m[1] === 'homes' ? map.homes : map.byUse[m[1] as BuildingUse];
+  // `@populatedHome[n]`: la n-ésima vivienda con más residentes (desempate por índice).
+  const res = sim.world.buildings.residents;
+  const list =
+    m[1] === 'homes' ? map.homes
+    : m[1] === 'populatedHome' ? [...map.homes].sort((a, b) => res[b]! - res[a]! || a - b)
+    : map.byUse[m[1] as BuildingUse];
   const b = list?.[Number(m[2])];
   if (b === undefined) throw new Error(`No existe ${ref} en este mapa`);
   return b;
@@ -85,6 +90,8 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
         const loc = a.location[i]!;
         return loc >= 0 && loc !== a.home[i] && loc !== a.workplace[i] && a.action[i] !== Action.Provision && uses[loc]!.use !== 'residential';
       });
+    // Quien ha decidido salir por ocio, esté de camino o ya en el local.
+    case 'agents.goingOutRatio': return ratio((i) => a.action[i] === Action.GoOut);
     case 'agents.outdoorsRatio': return ratio((i) => a.location[i]! < 0);
     case 'agents.sleepingRatio': return ratio((i) => a.action[i] === Action.Sleep && a.location[i]! >= 0);
     case 'agents.workingRatio': return ratio((i) => a.action[i] === Action.Work && a.location[i] === a.workplace[i]);
@@ -99,6 +106,8 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.avgHealth': return mean(a.health);
     case 'economy.shopFood': return e!.shopFood;
     case 'economy.fountainWater': return e!.fountainWater;
+    // Proporción del agua de las fuentes sobre su capacidad (300 por fuente): comparable entre mapas.
+    case 'economy.fountainWaterRatio': return e!.fountainWater / Math.max(1, 300 * sim.world.map.byUse.publicServices.length);
     case 'economy.sawmillWood': return e!.sawmillWood;
     case 'economy.pantryFood': return e!.pantryFood;
     case 'economy.pantryWater': return e!.pantryWater;

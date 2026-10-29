@@ -1,6 +1,6 @@
 {
   "name": "heatwave-shelter",
-  "description": "V4 (2): Dios fija 45 °C a las 08:00; nadie sale por ocio ni al acabar la jornada (en daily-cycle sí); solo se va por la calle al trabajo o a casa, y nadie queda atrapado fuera.",
+  "description": "V4 (2): Dios fija 45 °C a las 08:00; nadie sale por ocio ni al acabar la jornada (en daily-cycle sí); solo se va por la calle al trabajo, a casa o a abastecerse (en el mapa real esos trayectos son largos), y nadie queda atrapado fuera.",
   "seeds": [1, 2, 3, 4, 5],
   "days": 1,
   "manifest": { "criteria": { "society.initialPopulation": 200 } },
@@ -11,7 +11,7 @@
     { "kind": "deterministic" },
     { "kind": "metric", "metric": "agents.leisureRatio", "op": "<=", "value": 0.005, "at": { "day": 0, "hour": 12 } },
     { "kind": "metric", "metric": "agents.leisureRatio", "op": "<=", "value": 0.005, "at": { "day": 0, "hour": 17 } },
-    { "kind": "metric", "metric": "agents.outdoorsRatio", "op": "<=", "value": 0.06, "at": { "day": 0, "hour": 14 } },
+    { "kind": "metric", "metric": "agents.goingOutRatio", "op": "<=", "value": 0.005, "at": { "day": 0, "hour": 14 } },
     { "kind": "metric", "metric": "agents.seekingShelterRatio", "op": "==", "value": 0, "at": { "day": 0, "hour": 14 } }
   ]
 }

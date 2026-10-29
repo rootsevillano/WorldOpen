@@ -8,6 +8,7 @@ import { PROTOCOL_VERSION, type EngineToHost, type HostToEngine, type WorldStore
 import { createManifest } from '@worldopen/engine';
 import { EngineHostCore, decode, encode } from '@worldopen/host';
 import { FileWorldStore } from '@worldopen/cli/fileStore';
+import { DEFAULT_MAPPACKS_DIR, fileMapResolver, listMapPacks, regionFor } from '@worldopen/cli/mappacks';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { LoginLimiter, SESSION_COOKIE, Sessions, readCookie, type Session } from './sessions';
 import { UserStore } from './users';
@@ -29,6 +30,10 @@ export interface ServerOptions {
   /** Cookie `Secure` (detrás de HTTPS). */
   secureCookies?: boolean;
   now?: () => number;
+  /** Carpeta de map-packs instalados (se sirven en /map-packs/). */
+  mapPacksDir?: string;
+  /** Map-pack del mundo nuevo, si no hay ninguno sin terminar (`<id>-<versión>`). */
+  newWorldMapPack?: string;
   /** Snapshot del mundo vivo cada este tiempo real (por defecto 30 s). */
   saveIntervalMs?: number;
   /** Intervalo del bucle del motor en ms. */
@@ -37,7 +42,7 @@ export interface ServerOptions {
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-  '.svg': 'image/svg+xml', '.png': 'image/png', '.glb': 'model/gltf-binary', '.wasm': 'application/wasm',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.glb': 'model/gltf-binary', '.wasm': 'application/wasm',
 };
 
 /** Mensajes que un observador puede enviar al mundo vivo. El resto exige `admin` (V2, ADR-0006). */
@@ -87,6 +92,10 @@ export class WorldOpenServer {
   private readonly now: () => number;
   private closing = false;
 
+  get mapPacksDir(): string {
+    return this.opts.mapPacksDir ?? DEFAULT_MAPPACKS_DIR;
+  }
+
   constructor(private readonly opts: ServerOptions) {
     this.now = opts.now ?? (() => performance.now());
     this.users = new UserStore(join(opts.dataDir, 'users.json'));
@@ -95,6 +104,7 @@ export class WorldOpenServer {
     this.live = new EngineHostCore((msg) => this.fromLive(msg), this.now, this.store, {
       frameIntervalMs: frameMs,
       saveIntervalMs: opts.saveIntervalMs ?? 30_000,
+      resolveMaps: fileMapResolver(this.mapPacksDir),
     });
     this.http = createServer((req, res) => void this.route(req, res).catch((err) => this.fail(res, err)));
     this.http.on('upgrade', (req, socket, head) => {
@@ -126,7 +136,11 @@ export class WorldOpenServer {
       const w = this.opts.newWorld ?? { name: 'Valdeolivo', seed: 1, population: 50 };
       this.live.handle({
         type: 'init', protocol: PROTOCOL_VERSION,
-        manifest: createManifest({ worldId: randomUUID(), createdAt: new Date().toISOString(), seed: w.seed, name: w.name, criteria: { 'society.initialPopulation': w.population } }),
+        manifest: createManifest({
+          worldId: randomUUID(), createdAt: new Date().toISOString(), seed: w.seed, name: w.name,
+          criteria: { 'society.initialPopulation': w.population },
+          ...(this.opts.newWorldMapPack ? { regions: [regionFor(this.mapPacksDir, this.opts.newWorldMapPack)] } : {}),
+        }),
       });
     }
     await ready;
@@ -338,6 +352,11 @@ export class WorldOpenServer {
       return this.json(res, 200, await this.store.listWorlds());
     }
     if (url.pathname.startsWith('/api/')) return this.json(res, 404, { error: 'No encontrado' });
+    if (url.pathname.startsWith('/map-packs/')) {
+      if (!session) return this.json(res, 401, { error: 'Sin sesión' });
+      if (url.pathname === '/map-packs/index.json') return this.json(res, 200, listMapPacks(this.mapPacksDir));
+      return this.serveFile(this.mapPacksDir, url.pathname.slice('/map-packs/'.length), res, false);
+    }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') return this.json(res, 405, { error: 'Método no permitido' });
     return this.serveStatic(url.pathname, res);
@@ -345,12 +364,18 @@ export class WorldOpenServer {
 
   private async serveStatic(pathname: string, res: ServerResponse): Promise<void> {
     if (!this.opts.webDir) return this.json(res, 404, { error: 'Sin web compilada (npm run build)' });
-    const root = resolve(this.opts.webDir);
+    return this.serveFile(this.opts.webDir, pathname, res, true);
+  }
+
+  /** Fichero dentro de `rootDir` (nunca fuera); con `spa`, lo desconocido devuelve index.html. */
+  private async serveFile(rootDir: string, pathname: string, res: ServerResponse, spa: boolean): Promise<void> {
+    const root = resolve(rootDir);
     let file = resolve(root, normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, ''));
     // Nada fuera de la carpeta de la web.
     if (file !== root && !file.startsWith(root + sep)) return this.json(res, 403, { error: 'Prohibido' });
     let info = await stat(file).catch(() => null);
     if (!info || info.isDirectory()) {
+      if (!spa) return this.json(res, 404, { error: 'No encontrado' });
       file = join(root, 'index.html');
       info = await stat(file).catch(() => null);
       if (!info) return this.json(res, 404, { error: 'No encontrado' });

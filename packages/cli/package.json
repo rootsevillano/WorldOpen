@@ -15,6 +15,7 @@
     "@worldopen/store": "0.1.0"
   },
   "exports": {
-    "./fileStore": "./src/fileStore.ts"
+    "./fileStore": "./src/fileStore.ts",
+    "./mappacks": "./src/mappacks.ts"
   }
 }

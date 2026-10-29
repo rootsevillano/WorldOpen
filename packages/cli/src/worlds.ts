@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import type { WorldStore } from '@worldopen/contracts';
+import type { MapLogic, WorldManifest, WorldStore } from '@worldopen/contracts';
 import { STUDY_METRICS } from '@worldopen/contracts';
 import { ReplayAnalysis, Simulation, tickToDate, ticksPerDay } from '@worldopen/engine';
 
@@ -30,17 +30,25 @@ export interface VerifyResult {
   ok: boolean;
 }
 
+type Resolver = (manifest: WorldManifest) => Promise<Record<string, MapLogic>>;
+
+async function optionsFor(manifest: WorldManifest, resolve?: Resolver) {
+  if (!manifest.regions.some((r) => r.mapPack)) return {};
+  if (!resolve) throw new Error('El mundo usa un map-pack: hace falta un resolvedor de mapas');
+  return { maps: await resolve(manifest) };
+}
+
 /**
  * Reproduce un mundo guardado desde su snapshot inicial con el log completo y comprueba que cada snapshot diario
  * guardado coincide bit a bit (ADR-0003/0004). Es la base del visor de estudio.
  */
-export async function verifyWorld(store: WorldStore, worldId: string): Promise<VerifyResult> {
+export async function verifyWorld(store: WorldStore, worldId: string, resolve?: Resolver): Promise<VerifyResult> {
   const manifest = await store.getManifest(worldId);
   if (!manifest) throw new Error(`No existe el mundo ${worldId}`);
   const first = await store.getSnapshot(worldId, 0);
   const last = await store.getSnapshot(worldId);
   if (!first || !last) throw new Error(`El mundo ${worldId} no tiene snapshots`);
-  const sim = Simulation.restore(manifest, first, await store.readCommands(worldId));
+  const sim = Simulation.restore(manifest, first, await store.readCommands(worldId), await optionsFor(manifest, resolve));
   const day = ticksPerDay(manifest.time);
   const checked: VerifyResult['checked'] = [];
   for (let t = first.tick + day; t <= last.tick + day; t += day) {
@@ -61,14 +69,14 @@ export interface StudyResult {
 }
 
 /** Exporta las series de métricas de un mundo guardado (una fila por muestra) en CSV: el visor de estudio sin UI. */
-export async function studyWorld(store: WorldStore, worldId: string, everyTicks: number, metrics: string[] = [...STUDY_METRICS]): Promise<StudyResult> {
+export async function studyWorld(store: WorldStore, worldId: string, everyTicks: number, metrics: string[] = [...STUDY_METRICS], resolve?: Resolver): Promise<StudyResult> {
   const manifest = await store.getManifest(worldId);
   if (!manifest) throw new Error(`No existe el mundo ${worldId}`);
   const snapshots = await store.listSnapshots(worldId);
   const first = snapshots[0] ? await store.getSnapshot(worldId, snapshots[0].tick) : null;
   if (!first) throw new Error(`El mundo ${worldId} no tiene snapshots`);
   const end = snapshots.at(-1)!.tick;
-  const analysis = new ReplayAnalysis(manifest, first, await store.readCommands(worldId), snapshots, end, everyTicks, metrics);
+  const analysis = new ReplayAnalysis(manifest, first, await store.readCommands(worldId), snapshots, end, everyTicks, metrics, await optionsFor(manifest, resolve));
   while (!analysis.done) analysis.advance(10_000);
   const chunk = analysis.takeChunk();
   const lines = [['tick', 'day', 'time', ...metrics].join(',')];

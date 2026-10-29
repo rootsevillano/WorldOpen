@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { CommandEnvelope, CriterionValue, GameDate, WorldManifest } from '@worldopen/contracts';
 import { Simulation, createManifest, tickToDate } from '@worldopen/engine';
 import { REPORT_METRICS, metric } from '@worldopen/engine';
+import { DEFAULT_MAPPACKS_DIR, loadRegion, regionFor } from './mappacks';
 
 export interface SimulateOptions {
   seed: number;
@@ -11,6 +12,9 @@ export interface SimulateOptions {
   agents?: number;
   commands?: CommandEnvelope[];
   manifest?: Partial<WorldManifest>;
+  /** Map-pack instalado (`<id>-<versión>`) en lugar del mapa sintético (ADR-0017). */
+  mapPack?: string;
+  mapPacksDir?: string;
 }
 
 export interface SimulateReport {
@@ -38,8 +42,11 @@ export function createSimulation(opts: Omit<SimulateOptions, 'ticks'>): Simulati
       ...opts.manifest?.criteria,
       ...(opts.agents === undefined ? {} : { 'society.initialPopulation': opts.agents }),
     },
+    ...(opts.mapPack ? { regions: [regionFor(opts.mapPacksDir ?? DEFAULT_MAPPACKS_DIR, opts.mapPack)] } : {}),
   });
-  return new Simulation(manifest);
+  const dir = opts.mapPacksDir ?? DEFAULT_MAPPACKS_DIR;
+  const maps = Object.fromEntries(manifest.regions.filter((r) => r.mapPack).map((r) => [r.id, loadRegion(dir, r)]));
+  return new Simulation(manifest, Object.keys(maps).length > 0 ? { maps } : {});
 }
 
 /** Ejecuta un mundo en headless tan rápido como sea posible. */

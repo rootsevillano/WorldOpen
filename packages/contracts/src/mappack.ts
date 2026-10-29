@@ -10,12 +10,27 @@ export interface MapPackManifest {
   version: string;
   /** Nombre ficticio por defecto de la región. */
   displayName: string;
-  crs: { epsg: number; origin: { e: number; n: number }; axes: 'X=East,Y=Up,Z=-North'; units: 'm' };
+  /**
+   * Marco local en metros. No se publica el origen absoluto: geolocalizaría el lugar real (ADR-0017). Las regiones
+   * de un mismo mundo se colocan con `RegionRef.offset`, calculado por el pipeline que genera los map-packs.
+   */
+  crs: { frame: 'local'; axes: 'X=East,Y=Up,Z=-North'; units: 'm' };
   bounds: { minX: number; minZ: number; maxX: number; maxZ: number };
   /** Rutas relativas dentro del map-pack. */
-  logic: { buildings: string; streets: string; navGrid: string };
-  render: { buildings?: string; roads?: string; terrain?: string; trees?: string; ortho?: string };
+  logic: { buildings: string; streets: string; navGrid?: string };
+  render: { buildings?: string; roads?: string; terrain?: string; trees?: string; heights?: string; ortho?: string };
   attribution: string[];
+}
+
+/** Rejilla de cotas del terreno dibujado (render): para apoyar agentes y edificios sobre el relieve. */
+export interface HeightGrid {
+  cellSizeM: number;
+  /** Esquina de la fila 0 / columna 0 (fila 0 = z mínima). */
+  origin: { x: number; z: number };
+  cols: number;
+  rows: number;
+  encoding: 'float32-le-base64';
+  heights: string;
 }
 
 export type BuildingUse =
@@ -40,6 +55,12 @@ export interface BuildingRecord {
   entrances: { x: number; z: number; streetNodeId: number | null }[];
   /** Overrides manuales (E3): función concreta del edificio, p. ej. `bakery`. */
   role?: string;
+  /** Huella para dibujar sin GLB: polígonos exteriores como pares x, z planos. */
+  footprint?: number[][];
+  /** Cota del terreno en la base del edificio (m). */
+  baseY?: number;
+  /** Altura del edificio (m). */
+  heightM?: number;
 }
 
 export interface StreetGraph {

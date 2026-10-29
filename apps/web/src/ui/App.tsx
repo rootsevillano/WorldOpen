@@ -45,6 +45,7 @@ export function App({ session }: { session: AppSession }) {
         {isAdmin && engine.client && engine.status && !readOnly && !studying && <TimeControls client={engine.client} status={engine.status} />}
         <WorldsPanel
           worlds={engine.worlds}
+          mapPacks={engine.mapPacks}
           status={engine.status}
           isAdmin={isAdmin}
           shared={session.mode === 'server'}

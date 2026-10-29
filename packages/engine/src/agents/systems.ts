@@ -16,6 +16,7 @@ import {
   usable,
 } from './economy';
 import { inShift, nightFactor, thermalDiscomfort } from './environment';
+import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { remember } from './social';
 
 /**
@@ -221,8 +222,8 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   if (action === Action.GoHome || action === Action.Sleep) target = action === Action.GoHome ? home : -1;
   else if (action === Action.Work) target = a.workplace[i]!;
   else if (action === Action.GoOut) {
-    target = map.venues[world.rng.int(0, map.venues.length - 1)]!;
-    if (!usable(world, target)) target = -1;
+    // Un local cercano (y distinto del actual), con preferencia por la cercanía.
+    target = pickNearby(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!, map.venues, LEISURE_SCALE_M, (v) => usable(world, v) && v !== a.location[i]);
   } else if (action === Action.Provision) {
     target = chooseSource(world, i, a.seeking[i]!);
     if (target < 0) {

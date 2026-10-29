@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import type { HostToEngine } from '@worldopen/contracts';
 import { IndexedDbWorldStore } from '@worldopen/store';
+import { fetchMapResolver } from './mapResolver';
 import { EngineHostCore } from '@worldopen/host';
 
 /** Host Web Worker: el motor corre aquí, fuera del hilo de render (master prompt §2). */
@@ -12,6 +13,7 @@ const core = new EngineHostCore(
   () => performance.now(),
   // El histórico de mundos vive en IndexedDB (disponible en Web Workers).
   new IndexedDbWorldStore(),
+  { resolveMaps: fetchMapResolver(`${scope.location.origin}/map-packs`) },
 );
 
 let timer: ReturnType<typeof setTimeout> | null = null;

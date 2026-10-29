@@ -1,4 +1,4 @@
-import type { EngineStatus, WorldSummary } from '@worldopen/contracts';
+import type { EngineStatus, MapPackManifest, WorldSummary } from '@worldopen/contracts';
 import { useState } from 'react';
 import type { NewWorldOptions } from './useEngine';
 
@@ -7,6 +7,7 @@ const STATUS_ES: Record<string, string> = { created: 'nuevo', running: 'en march
 /** Histórico de mundos (T5): crear, abrir y terminar. Un mundo terminado se abre en solo lectura. */
 export function WorldsPanel(props: {
   worlds: WorldSummary[];
+  mapPacks: MapPackManifest[];
   status: EngineStatus | null;
   isAdmin: boolean;
   /** Mundo compartido en un servidor: crear/abrir/terminar afecta a todos. */
@@ -20,6 +21,7 @@ export function WorldsPanel(props: {
   const [name, setName] = useState('Nuevo mundo');
   const [seed, setSeed] = useState(1);
   const [population, setPopulation] = useState(50);
+  const [mapPack, setMapPack] = useState('');
   const current = props.status?.worldId;
 
   return (
@@ -43,12 +45,20 @@ export function WorldsPanel(props: {
               className="new-world"
               onSubmit={(e) => {
                 e.preventDefault();
-                props.onNew({ name, seed, population });
+                props.onNew({ name, seed, population, ...(mapPack ? { mapPack } : {}) });
               }}
             >
               <input aria-label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
               <input aria-label="Semilla" type="number" value={seed} onChange={(e) => setSeed(e.target.valueAsNumber || 0)} />
               <input aria-label="Habitantes" type="number" min={0} max={10000} value={population} onChange={(e) => setPopulation(e.target.valueAsNumber || 0)} />
+              <select aria-label="Mapa" value={mapPack} onChange={(e) => setMapPack(e.target.value)}>
+                <option value="">Mapa sintético</option>
+                {props.mapPacks.map((m) => (
+                  <option key={`${m.id}-${m.version}`} value={`${m.id}-${m.version}`}>
+                    {m.displayName} ({m.version})
+                  </option>
+                ))}
+              </select>
               <button type="submit">Crear</button>
             </form>
           )}

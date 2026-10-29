@@ -10,6 +10,7 @@ const USAGE = `worldopen-server — servidor de WorldOpen (Fase 5)
 
 Uso:
   npm run server -- start [--port 8787] [--host 127.0.0.1] [--data data/server] [--web apps/web/dist] [--tps 1]
+                         [--map-pack <id-versión>]   (mapa del mundo nuevo si no hay ninguno sin terminar)
   npm run server -- user add <nombre> --role admin|observer     (contraseña: WORLDOPEN_PASSWORD o por teclado)
   npm run server -- user list
   npm run server -- user remove <nombre>
@@ -35,6 +36,7 @@ async function main(argv: string[]): Promise<number> {
       tps: { type: 'string', default: '1' },
       role: { type: 'string' },
       secure: { type: 'boolean', default: false },
+      'map-pack': { type: 'string' },
     },
   });
   const [cmd, sub, name] = positionals;
@@ -72,6 +74,7 @@ async function main(argv: string[]): Promise<number> {
       host: values.host,
       ticksPerSecond: Number(values.tps),
       secureCookies: values.secure,
+      ...(values['map-pack'] ? { newWorldMapPack: values['map-pack'] } : {}),
     });
     const addr = await server.start();
     if (server.users.list().length === 0) {
