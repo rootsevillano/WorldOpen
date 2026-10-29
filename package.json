@@ -1,0 +1,31 @@
+{
+  "name": "worldopen",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @worldopen/web run dev",
+    "build": "npm --workspace @worldopen/web run build",
+    "simulate": "npm --workspace @worldopen/cli run worldopen -- simulate",
+    "typecheck": "tsc -p packages/engine && tsc -p packages/render && tsc -p packages/cli && tsc -p apps/web && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "gate:unit": "vitest run test/unit",
+    "gate:integration": "vitest run test/integration",
+    "gate:behavior": "npm --workspace @worldopen/cli run worldopen -- gate behavior ../../gates/behavior",
+    "gate:all": "npm run typecheck && npm run gate:unit && npm run gate:integration && npm run gate:behavior"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

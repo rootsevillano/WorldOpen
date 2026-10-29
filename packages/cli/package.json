@@ -1,0 +1,16 @@
+{
+  "name": "@worldopen/cli",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "worldopen": "./bin/worldopen.mjs"
+  },
+  "scripts": {
+    "worldopen": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@worldopen/contracts": "0.1.0",
+    "@worldopen/engine": "0.1.0"
+  }
+}

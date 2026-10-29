@@ -1,0 +1,16 @@
+{
+  "name": "world-alive",
+  "description": "Fase 1: el mundo avanza 3 días sin agentes ni errores, aplica criterios de Dios y es determinista.",
+  "seeds": [1, 2, 3, 4, 5],
+  "days": 3,
+  "commands": [
+    { "type": "criteria.set", "version": 1, "atHour": 12, "payload": { "key": "climate.baseTemperatureC", "value": 38 } },
+    { "type": "criteria.set", "version": 1, "atHour": 30, "payload": { "key": "world.era", "value": "historical" } }
+  ],
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "clock.elapsedDays", "op": "==", "value": 3 },
+    { "kind": "metric", "metric": "criteria.climate.baseTemperatureC", "op": "==", "value": 38 },
+    { "kind": "metric", "metric": "criteria.world.era", "op": "==", "value": "historical" }
+  ]
+}

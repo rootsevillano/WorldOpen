@@ -1,0 +1,26 @@
+name: Quality Gates
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Gate 0 · Typecheck
+        run: npm run typecheck
+      - name: Gate 1 · Unit
+        run: npm run gate:unit
+      - name: Gate 2 · Integration
+        run: npm run gate:integration
+      - name: Gate 3 · Behavior (headless)
+        run: npm run gate:behavior
+      - name: Build web
+        run: npm run build

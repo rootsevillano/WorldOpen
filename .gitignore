@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.log
+.vite/
+# Map-packs y mundos guardados: se descargan/generan, no se versionan (ADR-0007, D7)
+data/map-packs/
+data/worlds/
+reports/

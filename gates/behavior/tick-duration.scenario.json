@@ -1,0 +1,15 @@
+{
+  "name": "tick-duration",
+  "description": "T1: con ticks de 10 minutos, 2 días siguen siendo 2 días y los comandos por hora caen en su momento.",
+  "seeds": [1, 2],
+  "days": 2,
+  "manifest": { "time": { "minutesPerTick": 10, "start": { "year": 1, "month": 3, "day": 21, "hour": 6, "minute": 0 } } },
+  "commands": [
+    { "type": "criteria.set", "version": 1, "atHour": 20, "payload": { "key": "economy.foodAbundance", "value": 0.1 } }
+  ],
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "clock.elapsedDays", "op": "==", "value": 2 },
+    { "kind": "metric", "metric": "criteria.economy.foodAbundance", "op": "<", "value": 0.2 }
+  ]
+}
