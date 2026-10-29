@@ -108,10 +108,11 @@ describe('Inspector', () => {
   it('quien comparte casa es familia', () => {
     const sim = new Simulation(manifest(1, { criteria: { 'society.initialPopulation': 80 } }));
     const a = sim.world.agents;
-    let pair = -1;
-    for (let i = 1; i < a.count && pair < 0; i++) if (a.home[i] === a.home[0]) pair = i;
-    expect(pair).toBeGreaterThan(0);
-    const rel = sim.agent(a.ids[0]!)!.relations.find((r) => r.agentId === a.ids[pair]);
+    let pair: [number, number] | null = null;
+    for (let i = 0; i < a.count && !pair; i++) for (let j = i + 1; j < a.count && !pair; j++) if (a.home[i] === a.home[j]) pair = [i, j];
+    expect(pair).not.toBeNull();
+    const [i, j] = pair!;
+    const rel = sim.agent(a.ids[i]!)!.relations.find((r) => r.agentId === a.ids[j]);
     expect(rel).toMatchObject({ kind: 'family' });
   });
 });
