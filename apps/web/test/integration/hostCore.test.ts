@@ -1,5 +1,6 @@
 import { PROTOCOL_VERSION, type EngineToHost } from '@worldopen/contracts';
 import { createManifest } from '@worldopen/engine';
+import { MemoryWorldStore } from '@worldopen/store';
 import { describe, expect, it } from 'vitest';
 import { EngineHostCore } from '../../src/engine-host/hostCore';
 
@@ -87,5 +88,68 @@ describe('Simulation Protocol — EngineHostCore', () => {
     const last = out.filter((m) => m.type === 'frame').at(-1);
     expect(last && last.type === 'frame' && last.frame.tick).toBeGreaterThan(0);
     expect(last && last.type === 'frame' && last.frame.tick).toBeLessThan(200);
+  });
+});
+
+describe('Persistencia en el host (ADR-0004)', () => {
+  const godCmd = (id: string, value: number) => ({
+    type: 'command' as const,
+    envelope: { id, type: 'criteria.set', version: 1, issuer: { userId: 'god', role: 'admin' as const }, payload: { key: 'society.sociability', value } },
+  });
+
+  it('guarda cada día y al pausar; reabrir el mundo reproduce el mismo estado', async () => {
+    const store = new MemoryWorldStore();
+    const out: EngineToHost[] = [];
+    let clock = 0;
+    const core = new EngineHostCore((m) => out.push(m), () => clock, store);
+    const m = createManifest({ worldId: 'w-saved', createdAt: '2026-01-01T00:00:00Z', seed: 3 });
+    core.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: m });
+    core.handle(godCmd('c1', 0.9));
+    core.handle({ type: 'control', action: 'setSpeed', ticksPerSecond: 600 });
+    core.handle({ type: 'control', action: 'play' });
+    for (let k = 0; k < 400; k++) {
+      clock += 10;
+      core.pump(clock); // 4 s × 600 ticks/s ≈ 2400 ticks: cruza un día
+    }
+    core.handle({ type: 'control', action: 'pause' });
+    await core.flush();
+    const status = out.filter((x) => x.type === 'status').at(-1)!;
+    const tick = status.type === 'status' ? status.status.tick : -1;
+    expect((await store.listWorlds())[0]).toMatchObject({ worldId: 'w-saved', status: 'paused', lastTick: tick });
+    expect(await store.readCommands('w-saved')).toHaveLength(1);
+
+    core.handle({ type: 'query', requestId: 'h', query: { kind: 'snapshot' } });
+    const original = out.filter((x) => x.type === 'queryResult').at(-1)!;
+
+    const out2: EngineToHost[] = [];
+    const reopened = new EngineHostCore((x) => out2.push(x), () => 0, store);
+    reopened.handle({ type: 'load', protocol: PROTOCOL_VERSION, worldId: 'w-saved' });
+    await reopened.flush();
+    expect(out2.find((x) => x.type === 'ready')).toMatchObject({ worldId: 'w-saved', tick });
+    reopened.handle({ type: 'query', requestId: 'h2', query: { kind: 'snapshot' } });
+    const restored = out2.filter((x) => x.type === 'queryResult').at(-1)!;
+    expect(restored.type === 'queryResult' && (restored.result as { hash: number }).hash).toBe(
+      original.type === 'queryResult' && (original.result as { hash: number }).hash,
+    );
+  });
+
+  it('terminar el mundo lo deja en solo lectura', async () => {
+    const store = new MemoryWorldStore();
+    const out: EngineToHost[] = [];
+    const core = new EngineHostCore((m) => out.push(m), () => 0, store);
+    core.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: createManifest({ worldId: 'w-end', createdAt: '2026-01-01T00:00:00Z', seed: 1 }) });
+    core.handle({ type: 'step', ticks: 30 });
+    core.handle({ type: 'end' });
+    await core.flush();
+    core.handle(godCmd('late', 0.1));
+    expect(out.find((m) => m.type === 'commandRejected')).toMatchObject({ reason: 'read_only' });
+    expect((await store.listWorlds())[0]).toMatchObject({ status: 'ended', lastTick: 30 });
+
+    const out2: EngineToHost[] = [];
+    const viewer = new EngineHostCore((x) => out2.push(x), () => 0, store);
+    viewer.handle({ type: 'load', protocol: PROTOCOL_VERSION, worldId: 'w-end' });
+    await viewer.flush();
+    const st = out2.filter((m) => m.type === 'status').at(-1);
+    expect(st?.type === 'status' && st.status).toMatchObject({ readOnly: true, worldStatus: 'ended', tick: 30 });
   });
 });

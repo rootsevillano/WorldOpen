@@ -61,9 +61,9 @@ describe('Comandos y criterios', () => {
 
   it('el catálogo publica comandos y criterios ordenados', () => {
     const cat = new Simulation(manifest()).catalog();
-    expect(cat.commands.map((c) => c.type)).toEqual(['agent.remove', 'agent.spawn', 'criteria.set']);
+    expect(cat.commands.map((c) => c.type)).toEqual(['agent.remove', 'agent.spawn', 'criteria.set', 'disaster.fire']);
     expect(cat.criteria.map((c) => c.key)).toEqual([
-      'climate.baseTemperatureC', 'economy.foodAbundance', 'society.initialPopulation', 'society.sociability', 'world.era',
+      'climate.baseTemperatureC', 'economy.foodAbundance', 'economy.waterSupply', 'society.initialPopulation', 'society.sociability', 'world.era',
     ]);
     expect(cat.values['climate.baseTemperatureC']).toBe(18);
   });

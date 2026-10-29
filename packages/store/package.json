@@ -1,0 +1,17 @@
+{
+  "name": "@worldopen/store",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./conformance": "./test/conformance.ts",
+    "./rules": "./src/rules.ts"
+  },
+  "dependencies": {
+    "@worldopen/contracts": "0.1.0"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.5"
+  }
+}

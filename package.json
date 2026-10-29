@@ -15,7 +15,7 @@
     "dev": "npm --workspace @worldopen/web run dev",
     "build": "npm --workspace @worldopen/web run build",
     "simulate": "npm --workspace @worldopen/cli run worldopen -- simulate",
-    "typecheck": "tsc -p packages/engine && tsc -p packages/render && tsc -p packages/cli && tsc -p apps/web && tsc -p tsconfig.test.json",
+    "typecheck": "tsc -p packages/engine && tsc -p packages/store && tsc -p packages/render && tsc -p packages/cli && tsc -p apps/web && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "gate:unit": "vitest run test/unit",
     "gate:integration": "vitest run test/integration",

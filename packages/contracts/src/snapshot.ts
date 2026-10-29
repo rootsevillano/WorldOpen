@@ -16,6 +16,8 @@ export interface Snapshot {
     /** Ruta en curso por agente: pares x, z (o `null`). */
     paths: (number[] | null)[];
   };
+  /** Estado dinámico de los edificios (existencias, incendios…), columnas por índice de edificio. */
+  buildings: { columns: Record<string, number[]> };
   /** Comandos aceptados pero programados para un tick futuro (`appliedAtTick` = tick previsto). */
   pendingCommands: LoggedCommand[];
   /** `Simulation.hash()` en este tick, para verificar la restauración. */

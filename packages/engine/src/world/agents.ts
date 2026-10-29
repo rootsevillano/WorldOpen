@@ -4,15 +4,53 @@
  */
 type Column = Uint8Array | Uint16Array | Uint32Array | Int32Array | Float32Array;
 
-/** Acción en curso decidida por la Utility AI (ADR-0008). */
+/** Acción en curso decidida por la Utility AI (ADR-0008). El orden define las columnas de `scores`. */
 export const Action = {
   Stay: 0,
   GoHome: 1,
   GoOut: 2,
   SeekShelter: 3,
   Sleep: 4,
+  Provision: 5,
+  Work: 6,
 } as const;
 export type Action = (typeof Action)[keyof typeof Action];
+export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work'] as const;
+export const ACTION_COUNT = ACTION_NAMES.length;
+
+export const Occupation = {
+  Unemployed: 0,
+  Retired: 1,
+  Shopkeeper: 2,
+  Farmer: 3,
+  Sawyer: 4,
+  CivilServant: 5,
+} as const;
+export type Occupation = (typeof Occupation)[keyof typeof Occupation];
+export const OCCUPATION_NAMES = ['unemployed', 'retired', 'shopkeeper', 'farmer', 'sawyer', 'civilServant'] as const;
+
+/** Recurso: 0 = ninguno. */
+export const Resource = { None: 0, Food: 1, Water: 2, Wood: 3 } as const;
+export type Resource = (typeof Resource)[keyof typeof Resource];
+export const RESOURCE_NAMES = ['none', 'food', 'water', 'wood'] as const;
+
+/** Tipos de recuerdo (S6). */
+export const Memory = {
+  None: 0,
+  FoodEmpty: 1,
+  WaterEmpty: 2,
+  WoodEmpty: 3,
+  Fire: 4,
+  NewFriend: 5,
+  LostHome: 6,
+} as const;
+export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome'] as const;
+
+export const RelationKind = { None: 0, Family: 1, Acquaintance: 2, Friend: 3 } as const;
+export const RELATION_NAMES = ['none', 'family', 'acquaintance', 'friend'] as const;
+
+export const MEMORY_SLOTS = 8;
+export const RELATION_SLOTS = 8;
 
 export class AgentStore {
   readonly capacity: number;
@@ -32,11 +70,17 @@ export class AgentStore {
   readonly sociability: Float32Array;
   readonly bravery: Float32Array;
   readonly home: Int32Array;
+  readonly occupation: Uint8Array;
+  readonly workplace: Int32Array;
 
   // — Necesidades, 0 = crítica, 1 = satisfecha (S3) —
   readonly energy: Float32Array;
   readonly shelter: Float32Array;
   readonly social: Float32Array;
+  readonly hunger: Float32Array;
+  readonly thirst: Float32Array;
+  readonly work: Float32Array;
+  readonly health: Float32Array;
 
   // — Estado de la acción —
   /** Edificio en el que está (−1 = en la calle). */
@@ -46,6 +90,23 @@ export class AgentStore {
   readonly action: Uint8Array;
   /** Índice del siguiente waypoint de `paths`. */
   readonly pathPos: Uint16Array;
+  /** Recurso que busca (acción Provision). */
+  readonly seeking: Uint8Array;
+  readonly carryKind: Uint8Array;
+  readonly carryAmount: Float32Array;
+  /** Minutos de servicio pendientes en una tienda/fuente, o de comida en casa. */
+  readonly busyLeft: Uint16Array;
+  /** Puntuaciones de la última decisión (stride `ACTION_COUNT`). */
+  readonly scores: Float32Array;
+
+  // — Memoria (anillo) y relaciones (huecos fijos) —
+  readonly memTick: Uint32Array;
+  readonly memKind: Uint8Array;
+  readonly memBuilding: Int32Array;
+  readonly memHead: Uint8Array;
+  readonly relId: Uint32Array;
+  readonly relAffinity: Float32Array;
+  readonly relKind: Uint8Array;
 
   /** Ruta en curso (pares x, z) o `null`. */
   readonly paths: (Float64Array | null)[] = [];
@@ -55,31 +116,57 @@ export class AgentStore {
 
   constructor(capacity: number) {
     this.capacity = capacity;
-    this.ids = new Uint32Array(capacity);
-    this.positions = new Float32Array(capacity * 3);
-    this.headings = new Float32Array(capacity);
-    this.activities = new Uint8Array(capacity);
-    this.flags = new Uint8Array(capacity);
-    this.sex = new Uint8Array(capacity);
-    this.age = new Uint8Array(capacity);
-    this.sociability = new Float32Array(capacity);
-    this.bravery = new Float32Array(capacity);
-    this.home = new Int32Array(capacity);
-    this.energy = new Float32Array(capacity);
-    this.shelter = new Float32Array(capacity);
-    this.social = new Float32Array(capacity);
-    this.location = new Int32Array(capacity);
-    this.target = new Int32Array(capacity);
-    this.action = new Uint8Array(capacity);
-    this.pathPos = new Uint16Array(capacity);
+    const c = capacity;
+    this.ids = new Uint32Array(c);
+    this.positions = new Float32Array(c * 3);
+    this.headings = new Float32Array(c);
+    this.activities = new Uint8Array(c);
+    this.flags = new Uint8Array(c);
+    this.sex = new Uint8Array(c);
+    this.age = new Uint8Array(c);
+    this.sociability = new Float32Array(c);
+    this.bravery = new Float32Array(c);
+    this.home = new Int32Array(c);
+    this.occupation = new Uint8Array(c);
+    this.workplace = new Int32Array(c);
+    this.energy = new Float32Array(c);
+    this.shelter = new Float32Array(c);
+    this.social = new Float32Array(c);
+    this.hunger = new Float32Array(c);
+    this.thirst = new Float32Array(c);
+    this.work = new Float32Array(c);
+    this.health = new Float32Array(c);
+    this.location = new Int32Array(c);
+    this.target = new Int32Array(c);
+    this.action = new Uint8Array(c);
+    this.pathPos = new Uint16Array(c);
+    this.seeking = new Uint8Array(c);
+    this.carryKind = new Uint8Array(c);
+    this.carryAmount = new Float32Array(c);
+    this.busyLeft = new Uint16Array(c);
+    this.scores = new Float32Array(c * ACTION_COUNT);
+    this.memTick = new Uint32Array(c * MEMORY_SLOTS);
+    this.memKind = new Uint8Array(c * MEMORY_SLOTS);
+    this.memBuilding = new Int32Array(c * MEMORY_SLOTS);
+    this.memHead = new Uint8Array(c);
+    this.relId = new Uint32Array(c * RELATION_SLOTS);
+    this.relAffinity = new Float32Array(c * RELATION_SLOTS);
+    this.relKind = new Uint8Array(c * RELATION_SLOTS);
     // Orden fijo: define la serialización y el hash.
     this.columns = [
       ['ids', this.ids, 1], ['positions', this.positions, 3], ['headings', this.headings, 1],
       ['activities', this.activities, 1], ['flags', this.flags, 1], ['sex', this.sex, 1], ['age', this.age, 1],
       ['sociability', this.sociability, 1], ['bravery', this.bravery, 1], ['home', this.home, 1],
+      ['occupation', this.occupation, 1], ['workplace', this.workplace, 1],
       ['energy', this.energy, 1], ['shelter', this.shelter, 1], ['social', this.social, 1],
+      ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
-      ['pathPos', this.pathPos, 1],
+      ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['scores', this.scores, ACTION_COUNT],
+      ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
+      ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
+      ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],
+      ['relKind', this.relKind, RELATION_SLOTS],
     ];
   }
 
@@ -93,17 +180,23 @@ export class AgentStore {
     this.positions[i * 3 + 1] = y;
     this.positions[i * 3 + 2] = z;
     this.home[i] = -1;
+    this.workplace[i] = -1;
     this.location[i] = -1;
     this.target[i] = -1;
     this.energy[i] = 1;
     this.shelter[i] = 1;
     this.social[i] = 1;
+    this.hunger[i] = 1;
+    this.thirst[i] = 1;
+    this.work[i] = 1;
+    this.health[i] = 1;
+    this.memBuilding.fill(-1, i * MEMORY_SLOTS, (i + 1) * MEMORY_SLOTS);
     this.paths[i] = null;
     this.names[i] = '';
     return i;
   }
 
-  /** Índice actual del agente o −1. Lineal: para uso puntual (comandos), no en el bucle de ticks. */
+  /** Índice actual del agente o −1. Lineal: para uso puntual (comandos, inspector), no en el bucle de ticks. */
   indexOf(id: number): number {
     for (let i = 0; i < this.count; i++) if (this.ids[i] === id) return i;
     return -1;

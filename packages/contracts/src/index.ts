@@ -10,3 +10,4 @@ export * from './snapshot';
 export * from './protocol';
 export * from './store';
 export * from './mappack';
+export * from './inspect';

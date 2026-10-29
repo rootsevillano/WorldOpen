@@ -9,7 +9,9 @@ export { tickToDate, ticksPerDay, validateTimeConfig, DEFAULT_TIME, MINUTES_PER_
 export { syntheticMap } from './map/synthetic';
 export { NavMap } from './map/navigation';
 export { nightFactor, temperature, thermalDiscomfort } from './agents/environment';
-export { Action, AgentStore } from './world/agents';
+export { Action, AgentStore, Occupation, Resource, ACTION_NAMES } from './world/agents';
+export { BuildingStore } from './world/buildings';
+export { inShift, dayOfWeek, minuteOfDay } from './agents/environment';
 export type { Ruleset } from './rulesets/ruleset';
 export { RULESETS } from './rulesets/contemporary';
 export { World } from './world/world';

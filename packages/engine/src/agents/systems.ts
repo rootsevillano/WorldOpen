@@ -1,11 +1,25 @@
-import { AgentActivity, AgentFlag } from '@worldopen/contracts';
+import { AgentActivity, AgentFlag, BuildingState } from '@worldopen/contracts';
 import { headingOf } from '../math/angles';
-import { Action } from '../world/agents';
+import { ACTION_COUNT, Action, Memory, Resource } from '../world/agents';
 import type { World } from '../world/world';
-import { nightFactor, thermalDiscomfort } from './environment';
+import {
+  DRINK_BELOW,
+  EAT_BELOW,
+  PANTRY_TARGET,
+  SERVICE_MINUTES,
+  chooseSource,
+  employed,
+  homeWarm,
+  sourceOpen,
+  stockOf,
+  unload,
+  usable,
+} from './economy';
+import { inShift, nightFactor, thermalDiscomfort } from './environment';
+import { remember } from './social';
 
 /**
- * Sistemas de supervivencia de la Fase 2 (ADR-0008): necesidades → decisión (Utility AI) → movimiento.
+ * Sistemas de los agentes (ADR-0008): necesidades → decisión (Utility AI) → movimiento.
  * Todas las tasas son "por minuto de juego" y se escalan con `minutesPerTick` (ADR-0009).
  */
 
@@ -15,6 +29,12 @@ const SHELTER_INDOORS = 1 / 60;
 const SHELTER_OUTDOORS = 1 / (5 * 60);
 const SOCIAL_AT_HOME = 1 / (5 * 60);
 const SOCIAL_AT_VENUE = 1 / 40;
+const HUNGER_DRAIN = 1 / (7 * 60);
+const THIRST_DRAIN = 1 / (5 * 60);
+const WORK_MISSED = 1 / (4 * 60);
+const WORK_DONE = 1 / (2 * 60);
+const HEALTH_LOSS = 1 / (48 * 60);
+const HEALTH_GAIN = 1 / (24 * 60);
 /** Velocidad a pie (m por minuto de juego). */
 const WALK = 75;
 /** Cada agente reevalúa su acción cada 15 minutos de juego (escalonado por id). */
@@ -22,23 +42,77 @@ const DECISION_MINUTES = 15;
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
+/** Casa utilizable o, si ardió, el servicio público más cercano como refugio (G3). */
+export function effectiveHome(world: World, i: number): number {
+  const home = world.agents.home[i]!;
+  if (usable(world, home)) return home;
+  const c = world.map.buildings[home]!.centroid;
+  let best = -1;
+  let bestD = Infinity;
+  for (const p of world.map.byUse.publicServices) {
+    if (!usable(world, p)) continue;
+    const q = world.map.buildings[p]!.centroid;
+    const d = (q.x - c.x) * (q.x - c.x) + (q.z - c.z) * (q.z - c.z);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best >= 0 ? best : home;
+}
+
 export function needsSystem(world: World): void {
   const a = world.agents;
   const dt = world.time.minutesPerTick;
   const night = nightFactor(world);
-  const exposure = 1 + night + 1.5 * thermalDiscomfort(world);
+  const discomfort = thermalDiscomfort(world);
+  const exposure = 1 + night + 1.5 * discomfort;
+  const shift = inShift(world);
   const map = world.map;
   for (let i = 0; i < a.count; i++) {
     const loc = a.location[i]!;
-    const sleeping = a.action[i] === Action.Sleep && loc === a.home[i];
+    const home = a.home[i]!;
+    const sleeping = a.action[i] === Action.Sleep && loc >= 0;
     a.energy[i] = clamp01(a.energy[i]! + dt * (sleeping ? ENERGY_SLEEP : -ENERGY_DRAIN));
-    a.shelter[i] = clamp01(a.shelter[i]! + dt * (loc >= 0 ? SHELTER_INDOORS : -SHELTER_OUTDOORS * exposure));
-    if (loc >= 0 && loc !== a.home[i] && map.buildings[loc]!.use !== 'residential') {
+    const slow = sleeping ? 0.25 : 1;
+    a.hunger[i] = clamp01(a.hunger[i]! - dt * HUNGER_DRAIN * slow);
+    a.thirst[i] = clamp01(a.thirst[i]! - dt * THIRST_DRAIN * slow);
+
+    // Bajo techo se recupera el cobijo, salvo en una casa fría sin leña.
+    let shelterRate = -SHELTER_OUTDOORS * exposure;
+    if (loc >= 0) shelterRate = loc === home && !homeWarm(world, home) ? -SHELTER_OUTDOORS * 0.5 * (1 + discomfort) : SHELTER_INDOORS;
+    a.shelter[i] = clamp01(a.shelter[i]! + dt * shelterRate);
+
+    if (loc >= 0 && loc !== home && map.buildings[loc]!.use !== 'residential') {
       a.social[i] = clamp01(a.social[i]! + dt * SOCIAL_AT_VENUE);
-    } else if (loc === a.home[i] && !sleeping) {
+    } else if (loc === home && !sleeping) {
       a.social[i] = clamp01(a.social[i]! - dt * SOCIAL_AT_HOME);
     }
+
+    if (shift && employed(world, i)) {
+      a.work[i] = clamp01(a.work[i]! + dt * (loc === a.workplace[i] ? WORK_DONE : -WORK_MISSED));
+    }
+
+    const starving = a.hunger[i] === 0 || a.thirst[i] === 0;
+    a.health[i] = clamp01(a.health[i]! + dt * (starving ? -HEALTH_LOSS : HEALTH_GAIN));
   }
+}
+
+/** Puntuación de abastecerse de cada recurso para el hogar del agente (0 si no procede). */
+function provisionScore(world: World, i: number, r: number, night: number, busyHouseholds: Uint8Array): number {
+  const a = world.agents;
+  const home = a.home[i]!;
+  const residents = Math.max(1, world.buildings.residents[home]!);
+  const pantry = stockOf(world, home, r);
+  const shortage = 1 - clamp01(pantry / (residents * PANTRY_TARGET[r]!));
+  let urgency = 0;
+  if (r === Resource.Food) urgency = pantry < 1 ? (1 - a.hunger[i]!) * 1.2 : 0;
+  else if (r === Resource.Water) urgency = pantry < 1 ? (1 - a.thirst[i]!) * 1.4 : 0;
+  else urgency = homeWarm(world, home) ? 0 : 0.6;
+  let s = shortage * (r === Resource.Wood ? 0.35 : 0.55) + urgency - night * 0.5;
+  // Si otro miembro del hogar ya va a por ello, casi nadie más va.
+  if (busyHouseholds[home]! & (1 << r)) s *= 0.15;
+  return s;
 }
 
 export function decisionSystem(world: World): void {
@@ -48,74 +122,123 @@ export function decisionSystem(world: World): void {
   const night = nightFactor(world);
   const discomfort = thermalDiscomfort(world);
   const outdoorAppeal = 1 - (discomfort > 1 ? 1 : discomfort);
+  const shift = inShift(world);
   const map = world.map;
 
+  // Hogares que ya tienen a alguien abasteciéndose de cada recurso (máscara de bits por edificio).
+  const busyHouseholds = new Uint8Array(map.buildings.length);
   for (let i = 0; i < a.count; i++) {
-    // Los que van de camino no deciden, salvo para buscar cobijo si el exterior se vuelve hostil.
+    const r = a.action[i] === Action.Provision ? a.seeking[i]! || a.carryKind[i]! : a.carryKind[i]!;
+    if (r !== Resource.None) busyHouseholds[a.home[i]!]! |= 1 << r;
+  }
+
+  for (let i = 0; i < a.count; i++) {
+    // Abasteciéndose (cola o servicio en curso) o comiendo: no se interrumpe.
+    if (a.busyLeft[i]! > 0) continue;
     const moving = a.paths[i] !== null;
-    if ((world.tick + a.ids[i]!) % every !== 0) continue;
+    const due = (world.tick + a.ids[i]!) % every === 0;
+    const stranded = a.action[i] === Action.Provision && a.seeking[i] === Resource.None && a.carryKind[i] === Resource.None && !moving;
+    if (!due && !stranded) continue;
     if (moving && a.action[i] === Action.SeekShelter) continue;
 
     const loc = a.location[i]!;
-    const home = a.home[i]!;
+    const home = effectiveHome(world, i);
     const atHome = loc === home;
     const atVenue = loc >= 0 && !atHome;
     const energy = a.energy[i]!;
     const shelter = a.shelter[i]!;
     const social = a.social[i]!;
     const current = a.action[i]!;
+    const base = i * ACTION_COUNT;
+    a.scores.fill(0, base, base + ACTION_COUNT);
 
     // De camino, la opción por defecto es seguir (nunca quedarse parado en la calle).
     let best: Action = moving ? (current as Action) : Action.Stay;
     let bestScore = (moving ? 0.6 : 0.25 + (loc >= 0 && shelter > 0.8 ? 0.15 : 0)) + rng.nextFloat() * 0.05;
+    a.scores[base + best] = bestScore;
     const consider = (action: Action, score: number) => {
       const s = score + rng.nextFloat() * 0.05;
+      a.scores[base + action] = s;
       if (s > bestScore) {
         best = action;
         bestScore = s;
       }
     };
 
+    // Llevar la carga a casa es prioritario.
+    const carrying = a.carryKind[i] !== Resource.None;
+
     if (atHome) {
       const tired = 1 - energy;
       consider(Action.Sleep, night * (0.6 + tired) + tired * tired * 0.8 + (current === Action.Sleep && night > 0 ? 0.3 : 0));
     } else {
+      const pantryFood = stockOf(world, home, Resource.Food) >= 1 && a.hunger[i]! < EAT_BELOW ? (1 - a.hunger[i]!) * 0.6 : 0;
+      const pantryWater = stockOf(world, home, Resource.Water) >= 1 && a.thirst[i]! < DRINK_BELOW ? (1 - a.thirst[i]!) * 0.6 : 0;
       consider(
         Action.GoHome,
-        0.3 * (1 - shelter) + night * 0.9 + (1 - energy) * 0.6 + (atVenue && social > 0.95 ? 0.5 : 0) + (current === Action.GoHome ? 0.2 : 0),
+        0.3 * (1 - shelter) + night * 0.9 + (1 - energy) * 0.6 + pantryFood + pantryWater + (carrying ? 1 : 0) +
+          (atVenue && social > 0.95 && current !== Action.Work ? 0.5 : 0) + (current === Action.GoHome ? 0.2 : 0),
       );
     }
-    if (night < 0.5 && map.venues.length > 0) {
-      consider(Action.GoOut, (1 - social) * (0.4 + 0.8 * a.sociability[i]!) * (1 - night) * outdoorAppeal - (atVenue ? 0.2 : 0));
+    if (!carrying) {
+      if (shift && employed(world, i)) {
+        consider(Action.Work, 0.55 + (1 - a.work[i]!) * 0.8 + (current === Action.Work ? 0.2 : 0));
+      }
+      if (night < 0.5 && map.venues.length > 0) {
+        consider(Action.GoOut, (1 - social) * (0.4 + 0.8 * a.sociability[i]!) * (1 - night) * outdoorAppeal - (atVenue ? 0.2 : 0));
+      }
+      let bestR: number = Resource.None;
+      let bestP = -Infinity;
+      for (const r of [Resource.Food, Resource.Water, Resource.Wood]) {
+        if (!sourceOpen(world, r)) continue;
+        const p = provisionScore(world, i, r, night, busyHouseholds);
+        if (p > bestP) {
+          bestP = p;
+          bestR = r;
+        }
+      }
+      if (bestR !== Resource.None) {
+        consider(Action.Provision, bestP);
+        if (best === Action.Provision) a.seeking[i] = bestR;
+      }
     }
     if (loc < 0) {
       const lack = 1 - shelter;
       consider(Action.SeekShelter, lack * lack * 1.6 * (1.2 - 0.4 * a.bravery[i]!));
     }
 
-    if (best === current && moving) continue;
-    apply(world, i, best);
+    if (best === current && moving && best !== Action.Provision) continue;
+    startAction(world, i, best, home);
   }
 }
 
-function apply(world: World, i: number, action: Action): void {
+export function startAction(world: World, i: number, action: Action, home: number): void {
   const a = world.agents;
   const map = world.map;
   a.action[i] = action;
   let target = -1;
-  if (action === Action.GoHome) target = a.home[i]!;
+  if (action === Action.GoHome || action === Action.Sleep) target = action === Action.GoHome ? home : -1;
+  else if (action === Action.Work) target = a.workplace[i]!;
   else if (action === Action.GoOut) {
     target = map.venues[world.rng.int(0, map.venues.length - 1)]!;
-    if (target === a.location[i]) target = -1;
+    if (!usable(world, target)) target = -1;
+  } else if (action === Action.Provision) {
+    target = chooseSource(world, i, a.seeking[i]!);
+    if (target < 0) {
+      // No queda ninguna fuente que el agente crea útil: se rinde por ahora.
+      a.action[i] = Action.Stay;
+      a.seeking[i] = Resource.None;
+    }
   } else if (action === Action.SeekShelter) {
-    target = nearestShelter(world, i);
+    target = nearestShelter(world, i, home);
     world.emit('agent.seekingShelter', { agentId: a.ids[i], name: a.names[i], building: map.buildings[target]!.id });
   }
 
   if (target < 0 || target === a.location[i]) {
     a.paths[i] = null;
     a.target[i] = -1;
-    a.activities[i] = activityAt(world, i);
+    if (target >= 0) arrive(world, i, target);
+    else a.activities[i] = activityAt(world, i);
     return;
   }
   const x = a.positions[i * 3]!;
@@ -133,18 +256,19 @@ function apply(world: World, i: number, action: Action): void {
   a.activities[i] = action === Action.SeekShelter ? AgentActivity.Fleeing : AgentActivity.Moving;
 }
 
-/** Casa o local más cercano en línea recta (desempate por índice). */
-function nearestShelter(world: World, i: number): number {
+/** Casa (o refugio) o local más cercano en línea recta (desempate por índice). */
+function nearestShelter(world: World, i: number, home: number): number {
   const a = world.agents;
   const x = a.positions[i * 3]!;
   const z = a.positions[i * 3 + 2]!;
-  let best = a.home[i]!;
+  let best = home;
   const d2 = (b: number) => {
     const c = world.map.buildings[b]!.centroid;
     return (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
   };
   let bestD = d2(best);
   for (const v of world.map.venues) {
+    if (!usable(world, v)) continue;
     const d = d2(v);
     if (d < bestD) {
       bestD = d;
@@ -158,8 +282,25 @@ function activityAt(world: World, i: number): AgentActivity {
   const a = world.agents;
   const loc = a.location[i]!;
   if (loc < 0) return AgentActivity.Idle;
-  if (loc === a.home[i]) return a.action[i] === Action.Sleep ? AgentActivity.Sleeping : AgentActivity.Idle;
+  if (a.action[i] === Action.Sleep) return AgentActivity.Sleeping;
+  if (a.action[i] === Action.Work && loc === a.workplace[i]) return AgentActivity.Working;
+  if (loc === a.home[i]) return AgentActivity.Idle;
   return AgentActivity.Socializing;
+}
+
+/** Entrada en un edificio. */
+function arrive(world: World, i: number, target: number): void {
+  const a = world.agents;
+  a.location[i] = target;
+  a.flags[i] = AgentFlag.Indoors;
+  const action = a.action[i]!;
+  if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
+    a.busyLeft[i] = SERVICE_MINUTES;
+  } else if (action !== Action.Sleep && action !== Action.Work) {
+    a.action[i] = Action.Stay;
+  }
+  if (target === effectiveHome(world, i)) unload(world, i);
+  a.activities[i] = activityAt(world, i);
 }
 
 export function movementSystem(world: World): void {
@@ -194,14 +335,18 @@ export function movementSystem(world: World): void {
     a.positions[i * 3 + 2] = z;
     a.pathPos[i] = k;
     if (k * 2 >= path.length) {
-      // Llegada: entra en el edificio.
       const target = a.target[i]!;
       a.paths[i] = null;
-      a.location[i] = target;
       a.target[i] = -1;
-      a.flags[i] = AgentFlag.Indoors;
-      if (a.action[i] !== Action.Sleep) a.action[i] = Action.Stay;
-      a.activities[i] = activityAt(world, i);
+      if (world.buildings.state[target] === BuildingState.Burning) {
+        // Llega y está ardiendo: lo recuerda y decidirá otra cosa en el siguiente tick.
+        remember(world, i, Memory.Fire, target);
+        a.action[i] = Action.SeekShelter;
+        a.location[i] = -1;
+        startAction(world, i, Action.SeekShelter, effectiveHome(world, i));
+        continue;
+      }
+      arrive(world, i, target);
     }
   }
 }

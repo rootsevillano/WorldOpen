@@ -1,5 +1,9 @@
+import { disasterSystem } from '../agents/disasters';
+import { economySystem, serviceSystem } from '../agents/economy';
+import { socialSystem } from '../agents/social';
 import { decisionSystem, movementSystem, needsSystem } from '../agents/systems';
 import { agentRemoveV1, agentSpawnV1 } from '../commands/agents';
+import { disasterFireV1 } from '../commands/disasters';
 import type { Ruleset } from './ruleset';
 
 /** Ruleset del MVP (época contemporánea; `world.era` prepara la histórica). */
@@ -15,7 +19,13 @@ export const contemporary: Ruleset = {
     {
       key: 'economy.foodAbundance',
       type: 'number', min: 0, max: 1, default: 0.7,
-      description: 'Abundancia de comida en el mundo (0 = escasez, 1 = sobra).',
+      description: 'Abundancia de comida: escala cosechas e importaciones diarias (0 = escasez, 1 = sobra).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'economy.waterSupply',
+      type: 'number', min: 0, max: 1, default: 1,
+      description: 'Caudal del agua corriente de las casas (0 = corte: hay que ir a las fuentes públicas).',
       mutableBy: 'admin',
     },
     {
@@ -37,11 +47,15 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
   ],
-  commands: [agentSpawnV1, agentRemoveV1],
+  commands: [agentSpawnV1, agentRemoveV1, disasterFireV1],
   systems: [
+    { name: 'disasters', run: disasterSystem },
+    { name: 'economy', run: economySystem },
     { name: 'needs', run: needsSystem },
     { name: 'decision', run: decisionSystem },
     { name: 'movement', run: movementSystem },
+    { name: 'service', run: serviceSystem },
+    { name: 'social', run: socialSystem },
   ],
 };
 

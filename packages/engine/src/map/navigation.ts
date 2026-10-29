@@ -22,6 +22,10 @@ export class NavMap {
   readonly homes: number[];
   /** Índices de edificios "de destino" (comercio, servicios públicos), en orden. */
   readonly venues: number[];
+  /** Índices de edificios por uso, en orden (fuentes de recursos y puestos de trabajo). */
+  readonly byUse: Record<BuildingUse, number[]> = {
+    residential: [], agriculture: [], industrial: [], office: [], retail: [], publicServices: [], unknown: [],
+  };
   /** Nodo de calle de la entrada principal de cada edificio. */
   readonly entranceNode: Int32Array;
 
@@ -51,6 +55,7 @@ export class NavMap {
     this.buildings.forEach((b, i) => {
       if (b.use === 'residential' && b.dwellings > 0) this.homes.push(i);
       if (VENUE_USES.includes(b.use)) this.venues.push(i);
+      this.byUse[b.use].push(i);
       const entrance = b.entrances[0];
       this.entranceNode[i] =
         entrance?.streetNodeId != null ? this.indexOfNode(entrance.streetNodeId) : this.nearestNode(b.centroid.x, b.centroid.z);

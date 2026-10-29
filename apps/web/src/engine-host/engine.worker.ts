@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import type { HostToEngine } from '@worldopen/contracts';
+import { IndexedDbWorldStore } from '@worldopen/store';
 import { EngineHostCore } from './hostCore';
 
 /** Host Web Worker: el motor corre aquí, fuera del hilo de render (master prompt §2). */
@@ -9,6 +10,8 @@ const PUMP_MS = 8;
 const core = new EngineHostCore(
   (msg, transfer) => scope.postMessage(msg, transfer ?? []),
   () => performance.now(),
+  // El histórico de mundos vive en IndexedDB (disponible en Web Workers).
+  new IndexedDbWorldStore(),
 );
 
 let timer: ReturnType<typeof setTimeout> | null = null;

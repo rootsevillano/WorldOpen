@@ -1,6 +1,9 @@
 import {
   ENGINE_VERSION,
+  type AgentDetail,
+  type BuildingDetail,
   type CatalogResult,
+  type EconomySummary,
   type CommandEnvelope,
   type CommandRejectionReason,
   type LoggedCommand,
@@ -10,7 +13,9 @@ import {
   type Snapshot,
   type WorldManifest,
 } from '@worldopen/contracts';
+import { seedStocks } from './agents/economy';
 import { spawnAgent } from './agents/population';
+import { agentDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
 import { CommandRegistry } from './commands/registry';
 import { CriteriaRegistry } from './criteria/registry';
@@ -88,6 +93,7 @@ export class Simulation {
     );
 
     if (!options.skipPopulation) {
+      seedStocks(this.world);
       const initial = this.world.criteria['society.initialPopulation'];
       const n = typeof initial === 'number' ? Math.min(initial, this.world.agents.capacity) : 0;
       for (let k = 0; k < n; k++) spawnAgent(this.world);
@@ -105,6 +111,7 @@ export class Simulation {
     w.rng = new Rng(snapshot.rngState);
     w.criteria = { ...snapshot.criteria };
     w.agents.restore(snapshot.agents);
+    w.buildings.restore(snapshot.buildings);
     for (const entry of snapshot.pendingCommands) sim.enqueueLogged(entry);
     if (sim.hash() !== snapshot.hash) throw new Error('El snapshot restaurado no coincide con su hash');
     // Los comandos del log ya pendientes en el snapshot no se duplican.
@@ -167,6 +174,18 @@ export class Simulation {
     };
   }
 
+  agent(id: number): AgentDetail | null {
+    return agentDetail(this.world, id);
+  }
+
+  building(id: string): BuildingDetail | null {
+    return buildingDetail(this.world, id);
+  }
+
+  economy(): EconomySummary {
+    return economySummary(this.world);
+  }
+
   mapLogic(): MapLogic[] {
     return this.world.map.logic;
   }
@@ -184,6 +203,7 @@ export class Simulation {
       agentHeadings: a.headings.slice(0, n),
       agentActivities: a.activities.slice(0, n),
       agentFlags: a.flags.slice(0, n),
+      buildingStates: this.world.buildings.state.slice(),
     };
   }
 
@@ -203,6 +223,11 @@ export class Simulation {
     for (const [name, col, stride] of a.eachColumn()) {
       h.str(name);
       for (let k = 0; k < a.count * stride; k++) h.f64(col[k]!);
+    }
+    const bs = w.buildings;
+    for (const [name, col] of bs.eachColumn()) {
+      h.str(name);
+      for (let k = 0; k < bs.count; k++) h.f64(col[k]!);
     }
     for (let i = 0; i < a.count; i++) {
       h.str(a.names[i]!);
@@ -226,6 +251,7 @@ export class Simulation {
       rngState: w.rng.state,
       criteria: { ...w.criteria },
       agents: w.agents.serialize(),
+      buildings: w.buildings.serialize(),
       pendingCommands: this.queue.map(({ appliedAtTick, envelope }) => ({ appliedAtTick, envelope })),
       hash: this.hash(),
     };

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@worldopen/contracts": "0.1.0",
-    "@worldopen/engine": "0.1.0"
+    "@worldopen/engine": "0.1.0",
+    "@worldopen/store": "0.1.0"
   }
 }

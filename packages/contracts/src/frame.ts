@@ -18,6 +18,8 @@ export interface RenderFrame {
   agentActivities: Uint8Array;
   /** Banderas por agente (ver `AgentFlag`). */
   agentFlags: Uint8Array;
+  /** Estado por edificio, en el orden de `MapLogic.buildings` concatenado por región (ver `BuildingState`). */
+  buildingStates: Uint8Array;
 }
 
 export const AgentFlag = {
@@ -33,6 +35,8 @@ export const AgentActivity = {
   Working: 4,
   Socializing: 5,
   Fleeing: 6,
+  /** Haciendo cola o siendo atendido en una tienda, fuente o aserradero. */
+  Queueing: 7,
 } as const;
 export type AgentActivity = (typeof AgentActivity)[keyof typeof AgentActivity];
 
@@ -44,5 +48,6 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.agentHeadings.buffer,
     frame.agentActivities.buffer,
     frame.agentFlags.buffer,
+    frame.buildingStates.buffer,
   ] as ArrayBuffer[];
 }

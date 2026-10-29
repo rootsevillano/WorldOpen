@@ -2,12 +2,15 @@ import {
   PROTOCOL_VERSION,
   ENGINE_VERSION,
   frameTransferables,
+  type EngineQuery,
   type EngineStatus,
   type EngineToHost,
   type HostToEngine,
   type QueryResultMap,
+  type WorldStatus,
+  type WorldStore,
 } from '@worldopen/contracts';
-import { Simulation, tickToDate } from '@worldopen/engine';
+import { Simulation, tickToDate, ticksPerDay } from '@worldopen/engine';
 
 export type Post = (msg: EngineToHost, transfer?: ArrayBuffer[]) => void;
 
@@ -17,7 +20,8 @@ const STATUS_INTERVAL_MS = 250;
 const MAX_SLICE_MS = 12;
 
 /**
- * Host del motor (ADR-0002): traduce el Simulation Protocol a llamadas a `Simulation` y decide el ritmo.
+ * Host del motor (ADR-0002): traduce el Simulation Protocol a llamadas a `Simulation`, decide el ritmo y, si tiene
+ * `WorldStore`, guarda el mundo (ADR-0004): un snapshot por día de juego, al pausar y al terminar.
  * No conoce temporizadores: quien lo aloja llama a `pump(nowMs)` periódicamente (Worker hoy, servidor mañana).
  */
 export class EngineHostCore {
@@ -32,15 +36,42 @@ export class EngineHostCore {
   private tpsWindowTicks = 0;
   private measuredTps = 0;
 
-  constructor(private readonly post: Post, private readonly now: () => number) {}
+  // Persistencia.
+  private worldStatus: WorldStatus = 'created';
+  private readOnly = false;
+  private savedTick = -1;
+  private savedLogCount = 0;
+  private saving = false;
+  private chain: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly post: Post,
+    private readonly now: () => number,
+    private readonly store: WorldStore | null = null,
+  ) {}
 
   handle(msg: HostToEngine): void {
     try {
       this.dispatch(msg);
     } catch (err) {
-      this.running = false;
-      this.post({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+      this.fail(err);
     }
+  }
+
+  /** Espera a que terminen las escrituras pendientes en el `WorldStore` (tests y cierre). */
+  flush(): Promise<void> {
+    return this.chain;
+  }
+
+  private fail(err: unknown): void {
+    this.running = false;
+    this.post({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+  }
+
+  /** Encadena una operación asíncrona de persistencia; los errores se notifican sin parar el host. */
+  private enqueue(op: () => Promise<void>): Promise<void> {
+    this.chain = this.chain.then(op).catch((err) => this.fail(err));
+    return this.chain;
   }
 
   /** Avanza la simulación según el tiempo real transcurrido. Devuelve `true` si sigue en marcha. */
@@ -51,9 +82,9 @@ export class EngineHostCore {
       try {
         const done = this.advance(sim, nowMs);
         this.tpsWindowTicks += done;
+        if (this.store && !this.saving && sim.tick - this.savedTick >= ticksPerDay(sim.manifest.time)) this.save();
       } catch (err) {
-        this.running = false;
-        this.post({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+        this.fail(err);
       }
     }
     this.lastPumpMs = nowMs;
@@ -90,18 +121,77 @@ export class EngineHostCore {
     return n;
   }
 
+  /** Guarda log nuevo + snapshot + estado. Una escritura a la vez. */
+  private save(status?: WorldStatus): Promise<void> {
+    const sim = this.sim;
+    const store = this.store;
+    if (!sim || !store || this.readOnly) return this.chain;
+    this.saving = true;
+    const snapshot = sim.snapshot();
+    const log = sim.commandLog();
+    const worldId = sim.manifest.worldId;
+    const nextStatus = status ?? (this.running ? 'running' : 'paused');
+    return this.enqueue(async () => {
+      try {
+        // Se calcula al ejecutar (las escrituras van en serie): nunca se duplica un tramo del log.
+        await store.appendCommands(worldId, log.slice(this.savedLogCount));
+        await store.putSnapshot(worldId, snapshot);
+        await store.setStatus(worldId, nextStatus, snapshot.tick);
+        this.savedLogCount = log.length;
+        this.savedTick = snapshot.tick;
+        this.worldStatus = nextStatus;
+      } finally {
+        this.saving = false;
+      }
+    });
+  }
+
+  private start(sim: Simulation, status: WorldStatus, readOnly: boolean, savedTick: number): void {
+    this.sim = sim;
+    this.running = false;
+    this.worldStatus = status;
+    this.readOnly = readOnly;
+    this.savedTick = savedTick;
+    this.savedLogCount = sim.commandLog().length;
+    this.post({ type: 'ready', protocol: PROTOCOL_VERSION, engineVersion: ENGINE_VERSION, worldId: sim.manifest.worldId, tick: sim.tick, manifest: sim.manifest });
+    this.publishFrame(this.now());
+    this.publishStatus(this.now());
+  }
+
   private dispatch(msg: HostToEngine): void {
-    if (msg.type === 'init') {
+    if (msg.type === 'init' || msg.type === 'load') {
       if (msg.protocol !== PROTOCOL_VERSION) {
         throw new Error(`Protocolo ${msg.protocol} incompatible (motor: ${PROTOCOL_VERSION})`);
       }
-      this.sim = msg.snapshot
+    }
+    if (msg.type === 'init') {
+      const sim = msg.snapshot
         ? Simulation.restore(msg.manifest, msg.snapshot, msg.log ?? [])
         : new Simulation(msg.manifest);
-      this.running = false;
-      this.post({ type: 'ready', protocol: PROTOCOL_VERSION, engineVersion: ENGINE_VERSION, worldId: msg.manifest.worldId, tick: this.sim.tick });
-      this.publishFrame(this.now());
-      this.publishStatus(this.now());
+      this.start(sim, 'created', false, this.store ? sim.tick : -1);
+      if (this.store) {
+        const store = this.store;
+        const snapshot = sim.snapshot();
+        void this.enqueue(async () => {
+          await store.createWorld(msg.manifest);
+          await store.putSnapshot(msg.manifest.worldId, snapshot);
+        });
+      }
+      return;
+    }
+    if (msg.type === 'load') {
+      const store = this.store;
+      if (!store) throw new Error('Este host no tiene almacén de mundos');
+      void this.enqueue(async () => {
+        const manifest = await store.getManifest(msg.worldId);
+        if (!manifest) throw new Error(`No existe el mundo ${msg.worldId}`);
+        const snapshot = await store.getSnapshot(msg.worldId);
+        if (!snapshot) throw new Error(`El mundo ${msg.worldId} no tiene snapshots`);
+        const log = await store.readCommands(msg.worldId);
+        const summary = (await store.listWorlds()).find((w) => w.worldId === msg.worldId);
+        const status = summary?.status ?? 'paused';
+        this.start(Simulation.restore(manifest, snapshot, log), status, status === 'ended', snapshot.tick);
+      });
       return;
     }
 
@@ -109,13 +199,22 @@ export class EngineHostCore {
     if (!sim) throw new Error(`Mensaje "${msg.type}" antes de "init"`);
 
     switch (msg.type) {
+      case 'end':
+        this.running = false;
+        void this.save('ended').then(() => {
+          this.readOnly = true;
+          this.publishStatus(this.now());
+        });
+        return;
       case 'control':
         if (msg.action === 'play') {
+          if (this.readOnly) throw new Error('El mundo ha terminado: es de solo lectura');
           this.running = true;
           this.lastPumpMs = null;
           this.tickDebt = 0;
         } else if (msg.action === 'pause') {
           this.running = false;
+          if (this.store && sim.tick !== this.savedTick) void this.save('paused');
         } else if (msg.action === 'setSpeed') {
           if (msg.ticksPerSecond !== 'max' && !(msg.ticksPerSecond >= 0)) throw new Error('ticksPerSecond inválido');
           this.ticksPerSecond = msg.ticksPerSecond;
@@ -123,12 +222,17 @@ export class EngineHostCore {
         this.publishStatus(this.now());
         return;
       case 'step':
+        if (this.readOnly) throw new Error('El mundo ha terminado: es de solo lectura');
         sim.step(msg.ticks);
         this.flushEvents(sim);
         this.publishFrame(this.now());
         this.publishStatus(this.now());
         return;
       case 'command': {
+        if (this.readOnly) {
+          this.post({ type: 'commandRejected', commandId: msg.envelope.id, reason: 'read_only', message: 'El mundo ha terminado: es de solo lectura' });
+          return;
+        }
         const res = sim.submit(msg.envelope);
         this.post(
           res.ok
@@ -137,16 +241,21 @@ export class EngineHostCore {
         );
         return;
       }
-      case 'query': {
-        const results: { [K in keyof QueryResultMap]: () => QueryResultMap[K] } = {
-          catalog: () => sim.catalog(),
-          snapshot: () => sim.snapshot(),
-          log: () => sim.commandLog(),
-          map: () => sim.mapLogic(),
-        };
-        this.post({ type: 'queryResult', requestId: msg.requestId, kind: msg.query.kind, result: results[msg.query.kind]() });
+      case 'query':
+        this.post({ type: 'queryResult', requestId: msg.requestId, kind: msg.query.kind, result: this.query(sim, msg.query) });
         return;
-      }
+    }
+  }
+
+  private query(sim: Simulation, q: EngineQuery): QueryResultMap[EngineQuery['kind']] {
+    switch (q.kind) {
+      case 'catalog': return sim.catalog();
+      case 'snapshot': return sim.snapshot();
+      case 'log': return sim.commandLog();
+      case 'map': return sim.mapLogic();
+      case 'agent': return sim.agent(q.agentId);
+      case 'building': return sim.building(q.buildingId);
+      case 'economy': return sim.economy();
     }
   }
 
@@ -171,6 +280,10 @@ export class EngineHostCore {
       measuredTps: this.running ? this.measuredTps : 0,
       tick: this.sim.tick,
       date: tickToDate(this.sim.tick, this.sim.manifest.time),
+      worldId: this.sim.manifest.worldId,
+      worldStatus: this.worldStatus,
+      readOnly: this.readOnly,
+      savedTick: this.savedTick,
     };
     this.post({ type: 'status', status });
   }

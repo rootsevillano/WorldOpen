@@ -28,7 +28,9 @@ export type CommandRejectionReason =
   | 'unknown_command'
   | 'removed_command'
   | 'unauthorized'
-  | 'invalid_payload';
+  | 'invalid_payload'
+  /** Mundo terminado u observador: no admite cambios. */
+  | 'read_only';
 
 /** Comando aceptado tal y como queda en el log del mundo (ADR-0004). */
 export interface LoggedCommand {

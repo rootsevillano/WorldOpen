@@ -90,6 +90,9 @@ function pickUse(rng: Rng, bi: number, bj: number, center: number, n: number): B
   if (bi === center && bj === center) return rng.nextFloat() < 0.5 ? 'publicServices' : 'retail';
   if (bi === n - 1 && bj === 0) return 'industrial';
   const r = rng.nextFloat();
+  // Corona exterior: huertas y olivar (E4).
+  const edge = bi === 0 || bj === 0 || bi === n - 1 || bj === n - 1;
+  if (edge && r < 0.2) return 'agriculture';
   if (r < 0.1) return 'retail';
   if (r < 0.14) return 'publicServices';
   return 'residential';

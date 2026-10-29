@@ -3,12 +3,14 @@ import type { CriteriaRegistry } from '../criteria/registry';
 import type { NavMap } from '../map/navigation';
 import type { Rng } from '../math/rng';
 import { AgentStore } from './agents';
+import { BuildingStore } from './buildings';
 
 /** Estado mutable del mundo. Solo lo tocan los sistemas y los comandos, dentro de un tick. */
 export class World {
   tick = 0;
   criteria: CriteriaValues;
   readonly agents: AgentStore;
+  readonly buildings: BuildingStore;
   private pendingEvents: SimEvent[] = [];
 
   constructor(
@@ -22,6 +24,7 @@ export class World {
   ) {
     this.criteria = criteria;
     this.agents = new AgentStore(agentCapacity);
+    this.buildings = new BuildingStore(map.buildings.length);
   }
 
   num(key: string): number {

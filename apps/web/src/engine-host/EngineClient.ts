@@ -47,6 +47,14 @@ export class EngineClient {
     this.send({ type: 'init', protocol: PROTOCOL_VERSION, manifest });
   }
 
+  load(worldId: string): void {
+    this.send({ type: 'load', protocol: PROTOCOL_VERSION, worldId });
+  }
+
+  end(): void {
+    this.send({ type: 'end' });
+  }
+
   play(): void {
     this.send({ type: 'control', action: 'play' });
   }
@@ -78,6 +86,15 @@ export class EngineClient {
     return new Promise((resolve) => {
       this.pending.set(requestId, resolve as (r: unknown) => void);
       this.send({ type: 'query', requestId, query: { kind } as EngineQuery });
+    });
+  }
+
+  /** Consulta con parámetros (inspector). */
+  ask<Q extends EngineQuery>(query: Q): Promise<QueryResultMap[Q['kind']]> {
+    const requestId = `q${this.seq++}`;
+    return new Promise((resolve) => {
+      this.pending.set(requestId, resolve as (r: unknown) => void);
+      this.send({ type: 'query', requestId, query });
     });
   }
 

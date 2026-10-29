@@ -6,10 +6,42 @@ import type { World } from '../world/world';
  * Sin funciones trascendentes (ADR-0003): curvas lineales a trozos.
  */
 
-function minuteOfDay(world: World): number {
+function totalMinutes(world: World): number {
   const s = world.time.start;
-  const total = s.hour * 60 + s.minute + world.tick * world.time.minutesPerTick;
+  return s.hour * 60 + s.minute + world.tick * world.time.minutesPerTick;
+}
+
+export function minuteOfDay(world: World): number {
+  const total = totalMinutes(world);
   return total - Math.floor(total / MINUTES_PER_DAY) * MINUTES_PER_DAY;
+}
+
+/** Día de la semana 0–6 contado desde el día de inicio del mundo; 5 y 6 son festivos. */
+export function dayOfWeek(world: World): number {
+  return Math.floor(totalMinutes(world) / MINUTES_PER_DAY) % 7;
+}
+
+/** Jornada laboral: días 0–4, de 08:00 a 15:00. */
+export function inShift(world: World): boolean {
+  const m = minuteOfDay(world);
+  return dayOfWeek(world) < 5 && m >= 480 && m < 900;
+}
+
+/** Comercios abiertos de 08:00 a 21:00. */
+export function shopsOpen(world: World): boolean {
+  const m = minuteOfDay(world);
+  return m >= 480 && m < 1260;
+}
+
+/** Factor estacional de la cosecha (E4). */
+export function harvestFactor(world: World): number {
+  const s = world.time.start;
+  const day = (s.month - 1) * 30 + (s.day - 1) + Math.floor(totalMinutes(world) / MINUTES_PER_DAY);
+  const month = Math.floor((day % 360) / 30) + 1;
+  if (month <= 2 || month === 12) return 0.5;
+  if (month <= 5) return 1;
+  if (month <= 8) return 1.3;
+  return 1.1;
 }
 
 /** 0 = pleno día, 1 = noche cerrada. Transiciones 06:00–07:30 y 20:30–22:00. */
