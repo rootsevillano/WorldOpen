@@ -1,37 +1,35 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-29 (cierre de la Fase 1)_
+_Actualizado: 2026-10-29 (cierre de la Fase 2 con mapa sintético)_
 
 ## Implementado
 
 | Pieza | Ruta | Estado |
 |---|---|---|
-| Contratos TS | `packages/contracts/src` | Protocolo v1, RenderFrame, comandos, criterios, manifiesto, snapshot (con comandos pendientes), WorldStore (interfaz), map-pack v1 (esquema) |
-| PRNG determinista | `engine/src/math/rng.ts` | sfc32 + splitmix32, estado serializable |
-| Hash de estado | `engine/src/math/hash.ts` | FNV-1a 32 bits |
+| Contratos TS | `packages/contracts/src` | Protocolo **v2** (frames con `agentFlags`, `query map`), `MapLogic`, snapshot por columnas, WorldStore (interfaz), map-pack v1 |
+| PRNG / hash / atan2 | `engine/src/math/` | sfc32 + splitmix32; FNV-1a; atan2 polinómico determinista (error < 1e-4 rad) |
 | Reloj de juego | `engine/src/time/clock.ts` | `minutesPerTick` parametrizable, calendario 12×30, estaciones |
-| Criterios | `engine/src/criteria/registry.ts` | Definición, valores iniciales, validación por rol |
-| Comandos | `engine/src/commands/` | Registro versionado con estados active/deprecated/removed; `criteria.set` v1 |
-| Ruleset | `engine/src/rulesets/contemporary.ts` | 4 criterios; sin sistemas todavía |
-| Agentes (almacén) | `engine/src/world/agents.ts` | SoA sobre TypedArrays, capacidad 10 000. **Sin IA ni comandos de alta** |
-| Simulación | `engine/src/simulation.ts` | step, submit, log, snapshot/restore, replay, frame, catálogo |
-| Host del motor | `apps/web/src/engine-host/` | `EngineHostCore` (agnóstico) + Web Worker + `EngineClient` |
-| Render | `packages/render` | Suelo sintético, agentes instanciados, sol por hora/estación |
-| UI | `apps/web/src/ui` | HUD, control del tiempo, Modo Dios (criterios desde el catálogo), log de eventos |
-| CLI | `packages/cli` | `worldopen simulate`, `worldopen gate behavior` |
-| CI | `.github/workflows/ci.yml` | Gates 0–3 + build |
+| Criterios y comandos | `engine/src/criteria`, `engine/src/commands` | Registro versionado; `criteria.set`, `agent.spawn`, `agent.remove` |
+| Mapa sintético | `engine/src/map/synthetic.ts` | Pueblo ficticio 5×5 manzanas, 100 edificios por uso, calles con nombres inventados |
+| Navegación | `engine/src/map/navigation.ts` | `NavMap`: viviendas/locales, A* determinista, rutas edificio→edificio |
+| Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | SoA (17 columnas), población inicial ponderada por viviendas, nombres ficticios; necesidades (energía, cobijo, social); Utility AI (Stay, GoHome, GoOut, SeekShelter, Sleep); movimiento a 75 m/min |
+| Entorno | `engine/src/agents/environment.ts` | Noche (rampas lineales), temperatura diaria ±6 °C, incomodidad térmica |
+| Host del motor | `apps/web/src/engine-host/` | Worker + `EngineHostCore` + `EngineClient` |
+| Render | `packages/render` | Mapa lógico como volúmenes y calles; agentes instanciados, interpolados por id, color por actividad, ocultos bajo techo |
+| UI | `apps/web/src/ui` | HUD con población, control del tiempo, Modo Dios (criterios + "Crear habitante"), log con nombres |
+| CLI | `packages/cli` | `simulate` (con `--agents`, `--max-ms`, métricas en el informe), `gate behavior` con aserciones en día/hora |
 
 ## Gates (última ejecución: 2026-10-29)
-- Typecheck: ✅ (TS 7.0.2, 5 proyectos)
-- Unit + Integration: ✅ 41 tests (engine: rng, reloj, comandos, pureza, determinismo/snapshot/replay; web: protocolo del host)
-- Behavior: ✅ 2/2 (`world-alive` 5 seeds × 3 días; `tick-duration` 10 min/tick)
-- Visual: ✅ app en http://localhost:5180 sin errores de consola; criterios aplicados desde el panel aparecen en el log;
-  60× mide 60 ticks/s; máx ≈ 1.1 M ticks/s (mundo vacío).
-- Headless: 10 000 ticks en ≈ 2 ms (mundo vacío). El objetivo de rendimiento real se mide con agentes (Fase 2).
+- Typecheck ✅ · Unit + Integration ✅ 56 tests
+- Behavior ✅ 5/5: `survival-5`, `daily-cycle` (200 agentes), `heatwave-shelter` (200), `tick-duration`, `world-alive`
+- Perf ✅ 2 000 agentes × 10 000 ticks en 3.6 s (≈ 2 800 ticks/s; objetivo ≥ 20 ticks/s y < 60 s)
+- Visual ✅ mapa, monigotes caminando e interpolados, sin errores de consola (comprobado con 125 habitantes)
 
-## No implementado (pendiente)
-- Agentes con necesidades/IA, map-pack real, WorldStore (IndexedDB/ficheros), comandos del Modo Dios del MVP,
-  inspector/seguir, roles con login (fase servidor).
+## Comportamiento observado (200 agentes, clima por defecto)
+- 08:00–18:00: 15–25 % fuera de casa (comercios/servicios), 2–6 % caminando.
+- 19:00–21:00: vuelven y se acuestan; de 21:00 a 07:00, 100 % en casa durmiendo.
+- Ola de calor (45 °C desde las 08:00): en una hora todos en casa; nadie sale; la necesidad social cae a 0 a las 15:00.
 
-## Cómo ejecutar
-`npm install` · `npm run dev` · `npm run simulate -- --ticks 10000` · `npm run gate:all`
+## No implementado
+- Map-pack real (depende de `almensilla-3d`), WorldStore (IndexedDB/ficheros), inspector/seguir agente,
+  `disaster.fire`, economía (comida/agua/madera), memoria y relaciones, LOD de simulación, auth (fase servidor).

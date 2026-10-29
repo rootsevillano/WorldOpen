@@ -9,10 +9,12 @@ export interface Snapshot {
   criteria: CriteriaValues;
   agents: {
     nextId: number;
-    ids: number[];
-    positions: number[];
-    headings: number[];
-    activities: number[];
+    count: number;
+    /** Columnas numéricas del almacén de agentes (nombre → valores, `count × stride`). */
+    columns: Record<string, number[]>;
+    names: string[];
+    /** Ruta en curso por agente: pares x, z (o `null`). */
+    paths: (number[] | null)[];
   };
   /** Comandos aceptados pero programados para un tick futuro (`appliedAtTick` = tick previsto). */
   pendingCommands: LoggedCommand[];

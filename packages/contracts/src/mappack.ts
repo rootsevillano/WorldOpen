@@ -56,6 +56,17 @@ export interface StreetGraph {
   }[];
 }
 
+/**
+ * Parte lógica de una región ya cargada, tal y como la usa el motor (y el render cuando no hay GLB).
+ * Procede de un map-pack o del generador sintético.
+ */
+export interface MapLogic {
+  regionId: string;
+  bounds: { minX: number; minZ: number; maxX: number; maxZ: number };
+  buildings: BuildingRecord[];
+  streets: StreetGraph;
+}
+
 export const NavCell = { Blocked: 0, Open: 1, Street: 2, Building: 3, Water: 4 } as const;
 export type NavCell = (typeof NavCell)[keyof typeof NavCell];
 

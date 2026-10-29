@@ -26,4 +26,6 @@ Se publica como asset de una Release de GitHub. WorldOpen lo descarga a `data/ma
 
 ## Trabajo pendiente en `almensilla-3d` (Fase 2)
 - `tools/gis/build_logic_buildings.py`, `build_street_graph.py`, `build_nav_grid.py`, `pack_map.py` + tests.
-- Hasta entonces, WorldOpen usa un mapa sintético (`mapPack: null`).
+- Hasta entonces, WorldOpen usa un mapa sintético (`mapPack: null`): `engine/src/map/synthetic.ts`, cuadrícula de 5×5
+  manzanas (74 m de paso, calles de 10 m), 100 edificios, 36 cruces; determinista por semilla y región, respeta `offset`.
+- El motor ya acepta `SimulationOptions.maps` (por región) para inyectar un `MapLogic` cargado de un map-pack.

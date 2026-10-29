@@ -1,0 +1,16 @@
+{
+  "name": "heatwave-shelter",
+  "description": "V4 (2): Dios fija 45 °C a las 08:00; la población busca cobijo y deja de salir (comparar con daily-cycle), y la necesidad social queda sin cubrir.",
+  "seeds": [1, 2, 3, 4, 5],
+  "days": 1,
+  "manifest": { "criteria": { "society.initialPopulation": 200 } },
+  "commands": [
+    { "type": "criteria.set", "version": 1, "atHour": 2, "payload": { "key": "climate.baseTemperatureC", "value": 45 } }
+  ],
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "agents.awayFromHomeRatio", "op": "<=", "value": 0.02, "at": { "day": 0, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.outdoorsRatio", "op": "==", "value": 0, "at": { "day": 0, "hour": 14 } },
+    { "kind": "metric", "metric": "agents.avgSocial", "op": "<=", "value": 0.1, "at": { "day": 0, "hour": 15 } }
+  ]
+}

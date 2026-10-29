@@ -10,7 +10,7 @@ describe('Comandos y criterios', () => {
     expect(sim.world.criteria['economy.foodAbundance']).toBe(0.7);
     sim.step();
     expect(sim.world.criteria['economy.foodAbundance']).toBe(0.2);
-    expect(sim.drainEvents()).toEqual([
+    expect(sim.drainEvents().filter((e) => e.type === 'criteria.changed')).toEqual([
       { tick: 0, type: 'criteria.changed', data: { key: 'economy.foodAbundance', previous: 0.7, value: 0.2 } },
     ]);
     expect(sim.commandLog()).toHaveLength(1);
@@ -56,14 +56,14 @@ describe('Comandos y criterios', () => {
     const a = new Simulation(manifest());
     a.commands.setStatus('criteria.set', 1, 'removed');
     const b = new Simulation(manifest());
-    expect(b.commands.describe()[0]!.status).toBe('active');
+    expect(b.commands.describe().find((c) => c.type === 'criteria.set')!.status).toBe('active');
   });
 
   it('el catálogo publica comandos y criterios ordenados', () => {
     const cat = new Simulation(manifest()).catalog();
-    expect(cat.commands.map((c) => c.type)).toEqual(['criteria.set']);
+    expect(cat.commands.map((c) => c.type)).toEqual(['agent.remove', 'agent.spawn', 'criteria.set']);
     expect(cat.criteria.map((c) => c.key)).toEqual([
-      'climate.baseTemperatureC', 'economy.foodAbundance', 'society.sociability', 'world.era',
+      'climate.baseTemperatureC', 'economy.foodAbundance', 'society.initialPopulation', 'society.sociability', 'world.era',
     ]);
     expect(cat.values['climate.baseTemperatureC']).toBe(18);
   });

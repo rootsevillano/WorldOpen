@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import type { CommandEnvelope, GameDate, WorldManifest } from '@worldopen/contracts';
+import type { CommandEnvelope, CriterionValue, GameDate, WorldManifest } from '@worldopen/contracts';
 import { Simulation, createManifest, tickToDate } from '@worldopen/engine';
+import { REPORT_METRICS, metric } from './metrics';
 
 export interface SimulateOptions {
   seed: number;
   ticks: number;
   minutesPerTick?: number;
+  /** Población inicial (criterio `society.initialPopulation`). */
+  agents?: number;
   commands?: CommandEnvelope[];
   manifest?: Partial<WorldManifest>;
 }
@@ -19,19 +22,29 @@ export interface SimulateReport {
   commandsApplied: number;
   events: number;
   rejected: { id: string; message: string }[];
+  metrics: Record<string, CriterionValue | undefined>;
   elapsedMs: number;
   ticksPerSecond: number;
 }
 
-/** Ejecuta un mundo en headless tan rápido como sea posible. */
-export function simulate(opts: SimulateOptions): { sim: Simulation; report: SimulateReport } {
+/** Crea una simulación con manifiesto por defecto (el host CLI aporta `worldId` y fecha). */
+export function createSimulation(opts: Omit<SimulateOptions, 'ticks'>): Simulation {
   const base = createManifest({ worldId: randomUUID(), createdAt: new Date().toISOString(), seed: opts.seed });
   const manifest = createManifest({
     ...base,
     ...opts.manifest,
     time: { ...base.time, ...opts.manifest?.time, ...(opts.minutesPerTick ? { minutesPerTick: opts.minutesPerTick } : {}) },
+    criteria: {
+      ...opts.manifest?.criteria,
+      ...(opts.agents === undefined ? {} : { 'society.initialPopulation': opts.agents }),
+    },
   });
-  const sim = new Simulation(manifest);
+  return new Simulation(manifest);
+}
+
+/** Ejecuta un mundo en headless tan rápido como sea posible. */
+export function simulate(opts: SimulateOptions): { sim: Simulation; report: SimulateReport } {
+  const sim = createSimulation(opts);
   const rejected: SimulateReport['rejected'] = [];
   for (const c of opts.commands ?? []) {
     const res = sim.submit(c);
@@ -50,14 +63,15 @@ export function simulate(opts: SimulateOptions): { sim: Simulation; report: Simu
   return {
     sim,
     report: {
-      worldId: manifest.worldId,
+      worldId: sim.manifest.worldId,
       seed: opts.seed,
       ticks: sim.tick,
-      finalDate: tickToDate(sim.tick, manifest.time),
+      finalDate: tickToDate(sim.tick, sim.manifest.time),
       hash: sim.hash().toString(16).padStart(8, '0'),
       commandsApplied: sim.commandLog().length,
       events,
       rejected,
+      metrics: Object.fromEntries(REPORT_METRICS.map((m) => [m, metric(sim, m)])),
       elapsedMs: Math.round(elapsedMs * 10) / 10,
       ticksPerSecond: Math.round(opts.ticks / Math.max(elapsedMs / 1000, 1e-6)),
     },

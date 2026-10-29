@@ -3,6 +3,7 @@ import type { CriteriaValues, CriterionDefinition } from './criteria';
 import type { SimEvent } from './events';
 import type { RenderFrame } from './frame';
 import type { WorldManifest } from './manifest';
+import type { MapLogic } from './mappack';
 import type { Snapshot } from './snapshot';
 import type { GameDate } from './time';
 
@@ -18,7 +19,7 @@ export type HostToEngine =
   | { type: 'command'; envelope: CommandEnvelope }
   | { type: 'query'; requestId: string; query: EngineQuery };
 
-export type EngineQuery = { kind: 'catalog' } | { kind: 'snapshot' } | { kind: 'log' };
+export type EngineQuery = { kind: 'catalog' } | { kind: 'snapshot' } | { kind: 'log' } | { kind: 'map' };
 
 export interface CatalogResult {
   commands: CommandDescriptor[];
@@ -30,6 +31,8 @@ export interface QueryResultMap {
   catalog: CatalogResult;
   snapshot: Snapshot;
   log: LoggedCommand[];
+  /** Mapas lógicos de todas las regiones (el render los usa si la región no trae GLB). */
+  map: MapLogic[];
 }
 
 export interface EngineStatus {

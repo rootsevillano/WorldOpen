@@ -23,6 +23,13 @@ export function GodPanel({ client, catalog }: { client: EngineClient; catalog: C
           {editable.map((def) => (
             <CriterionField key={def.key} def={def} value={catalog.values[def.key]} onApply={(v) => client.setCriterion(def.key, v)} />
           ))}
+          <div className="god-actions">
+            {catalog.commands.some((c) => c.type === 'agent.spawn' && c.status !== 'removed') && (
+              <button type="button" onClick={() => client.command('agent.spawn', 1, { count: 1 })}>
+                + Crear habitante
+              </button>
+            )}
+          </div>
           <p className="muted small">
             Comandos: {catalog.commands.map((c) => `${c.type} v${c.version}${c.status !== 'active' ? ` (${c.status})` : ''}`).join(', ')}
           </p>

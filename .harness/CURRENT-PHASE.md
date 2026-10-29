@@ -1,30 +1,31 @@
 # CURRENT PHASE
 
-**Fase actual:** Fase 1 — Harness & Foundation · ✅ **completada** (2026-10-29) · ⏸️ pendiente de revisión del usuario (O3)
-**Siguiente:** Fase 2 — MVP de supervivencia
+**Fase actual:** Fase 2 — MVP de supervivencia · ✅ **completada con mapa sintético** (2026-10-29) · ⏸️ revisión del usuario (O3)
+**Siguiente:** Fase 2b — conectar el mapa real (`almensilla-3d`) · después, Fase 3 — MVP completo
 
-## Fase 1 — entregado
-- Respuestas de `DISCOVERY_INTERROGATION.md` incorporadas a `MEMORY.md` y a 11 ADR (`DECISIONS/`).
-- Contratos (`CONTRACTS/` + `packages/contracts`): Simulation API, Render API, Command API, World Store, Map-pack.
-- Esqueleto: monorepo npm (contracts, engine, render, cli, web), motor en Web Worker, CLI headless, gates y CI.
+## Fase 2 — entregado
+Objetivo del master prompt cumplido sobre el mapa sintético: 5 habitantes deciden moverse según sus necesidades
+(cobijo, energía, social) y el render 3D lo muestra a partir de los frames del Worker.
+- Behavior Gates de los comportamientos V4 (1) ciclo diario y (2) reacción colectiva a un evento divino (ola de calor).
+- Decisión del usuario (2026-10-29): empezar con mapa sintético mientras se resuelve el acceso a `almensilla-3d`.
 
-## Fase 2 — plan propuesto
-Objetivo (master prompt): un tick en el que **5 entidades** en el mapa 3D toman decisiones de movimiento según una
-necesidad básica (buscar cobijo), comunicándose Worker ⇄ Render.
+## Fase 2b — map-pack real (plan)
+1. En `almensilla-3d`: `build_logic_buildings.py` (tabla de edificios con ids opacos y portales de AD),
+   `build_street_graph.py` (grafo desde `osm_roads.geojson`), `pack_map.py` (+ test de nombres prohibidos).
+2. En WorldOpen: cargador de map-pack (descarga a `data/map-packs/`, validación de esquema y nombres prohibidos) que
+   pasa `MapLogic` por `SimulationOptions.maps`; el render carga los GLB de `render/` en vez de volúmenes.
+3. Repetir los Behavior Gates sobre el mapa real (las distancias son mayores: revisar umbrales de cobijo).
 
-1. **`almensilla-3d`** (repo aparte): pasos de pipeline `build_logic_buildings.py`, `build_street_graph.py`,
-   `build_nav_grid.py`, `pack_map.py` + tests, con anonimización (ids opacos, sin nombres reales). Requiere acceso de
-   escritura a ese repo.
-2. WorldOpen: cargador de map-pack (`logic/` en el motor, `render/` en el render) con test de nombres prohibidos.
-3. Motor: necesidades (cobijo + energía), Utility AI mínima, rutas A* sobre el grafo de calles, movimiento por tick.
-4. Comandos `agent.spawn` / `agent.remove`; población de 5 agentes ficticios con hogar asignado.
-5. Render: GLB del map-pack + agentes interpolados entre frames.
-6. Behavior Gate: "al anochecer ≥ 80 % de los agentes está en su hogar" (5 seeds). Visual Gate con capturas.
+## Fase 3 — MVP completo (propuesta, por orden)
+1. WorldStore (IndexedDB + ficheros) e histórico de mundos (T5).
+2. Inspector de agente/edificio y "seguir" con la cámara (G1).
+3. Economía de recursos (comida, agua, madera) → V4 (3): escasez que provoca colas o desplazamientos.
+4. Memoria acotada y relaciones (S6); `disaster.fire` (G1).
+5. Escala a 2 000 agentes con LOD de simulación y medición en el navegador.
 
 ## Bloqueos / decisiones abiertas
-- **Acceso a `almensilla-3d`**: es privado; en su día el push falló por credenciales. La Fase 2 necesita añadirle pasos
-  al pipeline (o bien que el usuario lo clone aquí). Sin eso, la Fase 2 puede avanzar con un mapa sintético.
-- **Nombre ficticio del pueblo**: provisional "Valdeolivo" (`engine/src/manifest.ts`). El usuario puede cambiarlo.
-- **Invitados con usuario/contraseña**: el modelo de roles existe y está probado en el motor; el login real requiere
-  servidor y se hará en la fase "mundo vivo con la pestaña cerrada" (ADR-0006).
-- **Git**: repositorio inicializado con `origin` = `github.com/rootsevillano/WorldOpen`; commits locales, el push lo hace el usuario.
+- **Acceso a `almensilla-3d`** (privado) para la Fase 2b.
+- **Nombre ficticio del pueblo:** provisional "Valdeolivo".
+- **Login de invitados:** requiere servidor (ADR-0006).
+- Ajuste fino de la Utility AI: hoy la gente se acuesta pronto (19–21 h) y el cobijo no llega a ser crítico en un
+  pueblo pequeño; se recalibrará con el mapa real y la economía.

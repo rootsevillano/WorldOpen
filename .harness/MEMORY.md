@@ -63,3 +63,12 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-29) Las funciones trascendentes de `Math` (`sin`, `cos`, `exp`, `pow`…) no están garantizadas bit a bit
   entre motores JS (V8 vs SpiderMonkey). El motor solo usa `+ − × ÷ sqrt` y aproximaciones propias. ADR-0003.
 - (2026-10-29) TypeScript 7 (compilador nativo) se usa solo para `typecheck`; Vite/Vitest/tsx transpilan.
+- (2026-10-29) El snapshot debe incluir los comandos aceptados aún no aplicados (`pendingCommands`); si no, un mundo
+  restaurado los pierde. Al restaurar con log, se deduplican por `envelope.id`.
+- (2026-10-29) Fase 2 con mapa sintético por decisión del usuario. Calibración de la Utility AI (tasas por minuto de
+  juego en `engine/src/agents/systems.ts`): hay que medir con la sonda de métricas por hora antes de fijar umbrales
+  de Behavior Gates; con 5 agentes las proporciones instantáneas son muy ruidosas → escenarios de 200 agentes.
+- (2026-10-29) En el navegador integrado, con el panel oculto, `requestAnimationFrame` no corre: verificar el render
+  con capturas (fuerzan el pintado), no con contadores actualizados en el bucle de render.
+- (2026-10-29) El registro de consola del navegador integrado no se limpia al recargar: para el Visual Gate, contar
+  errores nuevos con un listener `error` instalado tras la recarga.

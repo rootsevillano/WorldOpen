@@ -6,7 +6,7 @@ import { simulate } from './simulate';
 const USAGE = `worldopen — motor de simulación WorldOpen (headless)
 
 Uso:
-  worldopen simulate --ticks <n> [--seed <n>] [--minutes-per-tick <n>] [--out <report.json>]
+  worldopen simulate --ticks <n> [--seed <n>] [--agents <n>] [--minutes-per-tick <n>] [--out <report.json>] [--max-ms <n>]
   worldopen gate behavior <directorio de escenarios>
 `;
 
@@ -19,6 +19,8 @@ function main(argv: string[]): number {
       options: {
         ticks: { type: 'string', default: '1440' },
         seed: { type: 'string', default: '1' },
+        agents: { type: 'string' },
+        'max-ms': { type: 'string' },
         'minutes-per-tick': { type: 'string' },
         out: { type: 'string' },
       },
@@ -27,10 +29,16 @@ function main(argv: string[]): number {
       seed: Number(values.seed),
       ticks: Number(values.ticks),
       ...(values['minutes-per-tick'] ? { minutesPerTick: Number(values['minutes-per-tick']) } : {}),
+      ...(values.agents ? { agents: Number(values.agents) } : {}),
     });
     const json = JSON.stringify(report, null, 2);
     if (values.out) writeFileSync(values.out, json + '\n');
     console.log(json);
+    // Gate de rendimiento (P3): falla si la simulación tarda más de --max-ms.
+    if (values['max-ms'] && report.elapsedMs > Number(values['max-ms'])) {
+      console.error(`Rendimiento: ${report.elapsedMs} ms > ${values['max-ms']} ms`);
+      return 1;
+    }
     return 0;
   }
 

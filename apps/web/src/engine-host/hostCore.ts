@@ -142,6 +142,7 @@ export class EngineHostCore {
           catalog: () => sim.catalog(),
           snapshot: () => sim.snapshot(),
           log: () => sim.commandLog(),
+          map: () => sim.mapLogic(),
         };
         this.post({ type: 'queryResult', requestId: msg.requestId, kind: msg.query.kind, result: results[msg.query.kind]() });
         return;

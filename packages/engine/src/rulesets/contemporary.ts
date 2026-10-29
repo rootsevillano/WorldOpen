@@ -1,13 +1,15 @@
+import { decisionSystem, movementSystem, needsSystem } from '../agents/systems';
+import { agentRemoveV1, agentSpawnV1 } from '../commands/agents';
 import type { Ruleset } from './ruleset';
 
-/** Ruleset del MVP. En la Fase 1 solo declara criterios; los sistemas llegan con la Fase 2. */
+/** Ruleset del MVP (época contemporánea; `world.era` prepara la histórica). */
 export const contemporary: Ruleset = {
   id: 'contemporary',
   criteria: [
     {
       key: 'climate.baseTemperatureC',
       type: 'number', min: -10, max: 50, default: 18,
-      description: 'Temperatura media de referencia (°C). El clima la varía solo; Dios puede fijarla.',
+      description: 'Temperatura media de referencia (°C); el día oscila ±6 °C. Dios puede fijarla (ola de calor).',
       mutableBy: 'both',
     },
     {
@@ -23,14 +25,24 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.initialPopulation',
+      type: 'number', min: 0, max: 10000, default: 5,
+      description: 'Habitantes al crear el mundo. Después, la población cambia con comandos.',
+      mutableBy: 'system',
+    },
+    {
       key: 'world.era',
       type: 'enum', options: ['contemporary', 'historical'], default: 'contemporary',
       description: 'Época del mundo: condiciona tecnología, oficios y costumbres disponibles.',
       mutableBy: 'admin',
     },
   ],
-  commands: [],
-  systems: [],
+  commands: [agentSpawnV1, agentRemoveV1],
+  systems: [
+    { name: 'needs', run: needsSystem },
+    { name: 'decision', run: decisionSystem },
+    { name: 'movement', run: movementSystem },
+  ],
 };
 
 export const RULESETS: Record<string, Ruleset> = { [contemporary.id]: contemporary };

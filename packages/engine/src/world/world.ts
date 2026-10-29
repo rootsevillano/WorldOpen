@@ -1,5 +1,6 @@
 import type { CriteriaValues, SimEvent, TimeConfig } from '@worldopen/contracts';
 import type { CriteriaRegistry } from '../criteria/registry';
+import type { NavMap } from '../map/navigation';
 import type { Rng } from '../math/rng';
 import { AgentStore } from './agents';
 
@@ -16,9 +17,17 @@ export class World {
     readonly criteriaRegistry: CriteriaRegistry,
     criteria: CriteriaValues,
     agentCapacity: number,
+    /** Mapa estático (no forma parte del snapshot: se reconstruye del manifiesto). */
+    readonly map: NavMap,
   ) {
     this.criteria = criteria;
     this.agents = new AgentStore(agentCapacity);
+  }
+
+  num(key: string): number {
+    const v = this.criteria[key];
+    if (typeof v !== 'number') throw new Error(`El criterio ${key} no es numérico`);
+    return v;
   }
 
   emit(type: string, data: Record<string, unknown>): void {

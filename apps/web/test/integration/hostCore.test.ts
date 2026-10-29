@@ -61,7 +61,7 @@ describe('Simulation Protocol — EngineHostCore', () => {
     core.handle({ type: 'step', ticks: 1 });
     expect(of('commandAccepted')).toEqual([{ type: 'commandAccepted', commandId: 'a', appliedAtTick: 0 }]);
     expect(of('commandRejected')[0]).toMatchObject({ commandId: 'b', reason: 'unauthorized' });
-    expect(of('events')[0]!.events[0]).toMatchObject({ type: 'criteria.changed', data: { value: 1 } });
+    expect(of('events').flatMap((m) => m.events).find((e) => e.type === 'criteria.changed')).toMatchObject({ type: 'criteria.changed', data: { value: 1 } });
   });
 
   it('queries: catálogo, snapshot y log', () => {

@@ -1,4 +1,4 @@
-import type { CatalogResult, EngineStatus, Issuer, SimEvent, WorldManifest } from '@worldopen/contracts';
+import { AgentActivity, AgentFlag, type CatalogResult, type EngineStatus, type Issuer, type RenderFrame, type SimEvent, type WorldManifest } from '@worldopen/contracts';
 import { createManifest } from '@worldopen/engine';
 import { WorldRenderer } from '@worldopen/render';
 import { useEffect, useRef, useState } from 'react';
@@ -15,12 +15,30 @@ export interface LogEntry {
   kind: 'event' | 'ok' | 'error';
 }
 
+export interface PopulationSummary {
+  total: number;
+  indoors: number;
+  walking: number;
+  sleeping: number;
+}
+
+function summarize(f: RenderFrame): PopulationSummary {
+  const s = { total: f.agentCount, indoors: 0, walking: 0, sleeping: 0 };
+  for (let i = 0; i < f.agentCount; i++) {
+    if (f.agentFlags[i]! & AgentFlag.Indoors) s.indoors++;
+    else s.walking++;
+    if (f.agentActivities[i] === AgentActivity.Sleeping) s.sleeping++;
+  }
+  return s;
+}
+
 export interface EngineState {
   client: EngineClient | null;
   manifest: WorldManifest | null;
   status: EngineStatus | null;
   catalog: CatalogResult | null;
   log: LogEntry[];
+  population: PopulationSummary | null;
   issuer: Issuer;
 }
 
@@ -31,7 +49,9 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [catalog, setCatalog] = useState<CatalogResult | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [population, setPopulation] = useState<PopulationSummary | null>(null);
   const logKey = useRef(0);
+  const lastFrame = useRef<RenderFrame | null>(null);
 
   useEffect(() => {
     if (!canvas.current) return;
@@ -45,13 +65,16 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
       switch (msg.type) {
         case 'ready':
           void engine.query('catalog').then(setCatalog);
+          void engine.query('map').then((maps) => renderer.setMap(maps));
           push([{ tick: msg.tick, kind: 'ok', text: `Mundo listo (motor ${msg.engineVersion})` }]);
           break;
         case 'frame':
           renderer.applyFrame(msg.frame);
+          lastFrame.current = msg.frame;
           break;
         case 'status':
           setStatus(msg.status);
+          if (lastFrame.current) setPopulation(summarize(lastFrame.current));
           break;
         case 'events':
           push(msg.events.map((e) => ({ tick: e.tick, kind: 'event', text: describeEvent(e) })));
@@ -79,10 +102,14 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
     };
   }, [canvas]);
 
-  return { client, manifest, status, catalog, log, issuer: LOCAL_ADMIN };
+  return { client, manifest, status, catalog, log, population, issuer: LOCAL_ADMIN };
 }
 
 function describeEvent(e: SimEvent): string {
+  const d = e.data;
+  if (e.type === 'agent.spawned') return `Llega ${String(d.name)} (vive en ${String(d.home)})`;
+  if (e.type === 'agent.removed') return `${String(d.name)} ha desaparecido del mundo`;
+  if (e.type === 'agent.seekingShelter') return `${String(d.name)} busca cobijo en ${String(d.building)}`;
   if (e.type === 'criteria.changed') return `Criterio ${String(e.data.key)}: ${String(e.data.previous)} → ${String(e.data.value)}`;
   return `${e.type} ${JSON.stringify(e.data)}`;
 }

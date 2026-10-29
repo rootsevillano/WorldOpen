@@ -3,7 +3,8 @@
 Motor de simulación de mundos autónomos: una población ficticia vive, decide y reacciona en un pueblo ficticio
 construido sobre un mapeado real. El administrador ("Dios") fija y cambia los criterios del mundo; los demás observan.
 
-> Estado: **Fase 1 — Harness & Foundation** completada. Sin agentes todavía (llegan en la Fase 2).
+> Estado: **Fase 2 — MVP de supervivencia** completada sobre un mapa sintético: habitantes ficticios con necesidades
+> (cobijo, energía, social) que deciden moverse por el pueblo, vuelven a casa de noche y se refugian en una ola de calor.
 > Visión, decisiones y estado: [`.harness/`](.harness/).
 
 ## Requisitos
@@ -22,16 +23,18 @@ Abre http://localhost:5180. HUD con fecha y hora de juego, control del tiempo (p
 **Modo Dios** para cambiar criterios.
 
 ```bash
-npm run simulate -- --ticks 10000 --seed 7
+npm run simulate -- --ticks 10000 --seed 7 --agents 200
 ```
-Simulación headless (sin gráficos). Opciones: `--minutes-per-tick <n>`, `--out <informe.json>`.
+Simulación headless (sin gráficos) con informe de métricas. Opciones: `--minutes-per-tick <n>`, `--out <informe.json>`,
+`--max-ms <n>`.
 
 ## Quality Gates
 
 ```bash
 npm run gate:all
 ```
-Typecheck → unit → integration → behavior (escenarios en [`gates/behavior/`](gates/behavior/)). Se ejecutan también
+Typecheck → unit → integration → behavior (escenarios en [`gates/behavior/`](gates/behavior/)) → rendimiento
+(2 000 agentes × 10 000 ticks). Se ejecutan también
 en GitHub Actions. El Visual Gate se hace en el navegador.
 
 ## Estructura

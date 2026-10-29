@@ -1,12 +1,13 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { CommandEnvelope, CriterionValue, WorldManifest } from '@worldopen/contracts';
-import { DEFAULT_TIME, ticksPerDay, type Simulation } from '@worldopen/engine';
-import { simulate } from './simulate';
+import type { CommandEnvelope, CriterionValue, TimeConfig, WorldManifest } from '@worldopen/contracts';
+import { DEFAULT_TIME, MINUTES_PER_DAY, ticksPerDay } from '@worldopen/engine';
+import { metric } from './metrics';
+import { createSimulation } from './simulate';
 
 /**
  * Behavior Gate (ADR-0011). Escenario declarativo: se ejecuta con cada seed y se evalúan aserciones
- * estadísticas sobre el estado final. Las métricas de comportamiento de agentes llegan en la Fase 2.
+ * estadísticas sobre el estado en momentos concretos del tiempo de juego.
  */
 export interface Scenario {
   name: string;
@@ -19,11 +20,18 @@ export interface Scenario {
   assertions: Assertion[];
 }
 
+/** Momento de juego: día (0 = el del inicio) y hora del reloj. Sin `at`, se evalúa al final. */
+export interface GameMoment {
+  day: number;
+  hour: number;
+  minute?: number;
+}
+
 export type Assertion =
   /** Dos ejecuciones con la misma seed producen el mismo hash. */
   | { kind: 'deterministic' }
-  /** Métrica evaluada al final de cada seed; debe cumplirse en al menos `minPassRatio` de ellas (1 por defecto). */
-  | { kind: 'metric'; metric: string; op: '==' | '!=' | '<' | '<=' | '>' | '>='; value: CriterionValue; minPassRatio?: number };
+  /** Métrica evaluada en `at` para cada seed; debe cumplirse en al menos `minPassRatio` de ellas (1 por defecto). */
+  | { kind: 'metric'; metric: string; op: '==' | '!=' | '<' | '<=' | '>' | '>='; value: CriterionValue; at?: GameMoment; minPassRatio?: number };
 
 export interface AssertionResult {
   assertion: Assertion;
@@ -40,14 +48,6 @@ export interface ScenarioResult {
   elapsedMs: number;
 }
 
-/** Métricas disponibles. Se amplían en cada fase con comportamientos observables. */
-function metric(sim: Simulation, name: string): CriterionValue | undefined {
-  if (name === 'clock.elapsedDays') return Math.floor(sim.tick / ticksPerDay(sim.manifest.time));
-  if (name === 'agents.count') return sim.world.agents.count;
-  if (name.startsWith('criteria.')) return sim.world.criteria[name.slice('criteria.'.length)];
-  return undefined;
-}
-
 function compare(a: CriterionValue, op: string, b: CriterionValue): boolean {
   switch (op) {
     case '==': return a === b;
@@ -60,45 +60,74 @@ function compare(a: CriterionValue, op: string, b: CriterionValue): boolean {
   }
 }
 
+/** Tick en que el reloj marca `at` (día relativo al inicio, hora del reloj). */
+function momentToTick(at: GameMoment, time: TimeConfig): number {
+  const startMinute = time.start.hour * 60 + time.start.minute;
+  const minutes = at.day * MINUTES_PER_DAY + at.hour * 60 + (at.minute ?? 0) - startMinute;
+  if (minutes < 0) throw new Error(`Momento anterior al inicio del mundo: día ${at.day} ${at.hour}:${at.minute ?? 0}`);
+  return Math.round(minutes / time.minutesPerTick);
+}
+
+const fmt = (v: CriterionValue) => (typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(2) : String(v));
+
 export function runScenario(file: string, scenario: Scenario): ScenarioResult {
-  const time = { ...DEFAULT_TIME, ...scenario.manifest?.time };
+  const time: TimeConfig = { ...DEFAULT_TIME, ...scenario.manifest?.time };
   const ticks = scenario.days * ticksPerDay(time);
-  const minutesPerTick = time.minutesPerTick;
   const commands = (seed: number): CommandEnvelope[] =>
     (scenario.commands ?? []).map(({ atHour, ...c }, i) => ({
       ...c,
       id: `${scenario.name}-${seed}-${i}`,
       issuer: { userId: 'gate', role: 'admin' },
-      ...(atHour === undefined ? {} : { atTick: Math.round((atHour * 60) / minutesPerTick) }),
+      ...(atHour === undefined ? {} : { atTick: Math.round((atHour * 60) / time.minutesPerTick) }),
     }));
 
+  const metricAssertions = scenario.assertions.filter((a): a is Extract<Assertion, { kind: 'metric' }> => a.kind === 'metric');
+  const checkpoints = [...new Set(metricAssertions.map((a) => (a.at ? momentToTick(a.at, time) : ticks)))].sort((x, y) => x - y);
+  if (checkpoints.some((t) => t > ticks)) throw new Error(`${scenario.name}: hay aserciones posteriores al final del escenario`);
+
   const t0 = performance.now();
-  const runs = scenario.seeds.map((seed) =>
-    simulate({ seed, ticks, commands: commands(seed), manifest: { ...scenario.manifest, time } }),
-  );
+  const rejected: string[] = [];
+  const runOnce = (seed: number) => {
+    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time } });
+    for (const c of commands(seed)) {
+      const res = sim.submit(c);
+      if (!res.ok) rejected.push(res.message);
+    }
+    // Muestras por checkpoint: tick → métrica → valor.
+    const samples = new Map<number, Map<string, CriterionValue | undefined>>();
+    for (const cp of checkpoints) {
+      sim.step(cp - sim.tick);
+      const row = new Map<string, CriterionValue | undefined>();
+      for (const a of metricAssertions) if ((a.at ? momentToTick(a.at, time) : ticks) === cp) row.set(a.metric, metric(sim, a.metric));
+      samples.set(cp, row);
+    }
+    sim.step(ticks - sim.tick);
+    return { hash: sim.hash(), samples };
+  };
+
+  const runs = scenario.seeds.map(runOnce);
   const results: AssertionResult[] = scenario.assertions.map((assertion) => {
     if (assertion.kind === 'deterministic') {
-      const seed = scenario.seeds[0]!;
-      const again = simulate({ seed, ticks, commands: commands(seed), manifest: { ...scenario.manifest, time } });
-      const passed = again.report.hash === runs[0]!.report.hash;
-      return { assertion, passed, detail: `hash ${runs[0]!.report.hash} vs ${again.report.hash}` };
+      const again = runOnce(scenario.seeds[0]!);
+      const passed = again.hash === runs[0]!.hash;
+      return { assertion, passed, detail: `determinista: hash ${runs[0]!.hash.toString(16)} vs ${again.hash.toString(16)}` };
     }
-    const values = runs.map(({ sim }) => metric(sim, assertion.metric));
+    const cp = assertion.at ? momentToTick(assertion.at, time) : ticks;
+    const values = runs.map((r) => r.samples.get(cp)!.get(assertion.metric));
+    const when = assertion.at ? ` @día ${assertion.at.day} ${assertion.at.hour}:${String(assertion.at.minute ?? 0).padStart(2, '0')}` : ' @final';
     if (values.some((v) => v === undefined)) {
       return { assertion, passed: false, detail: `métrica desconocida: ${assertion.metric}` };
     }
     const passes = values.filter((v) => compare(v!, assertion.op, assertion.value)).length;
-    const ratio = passes / values.length;
     const min = assertion.minPassRatio ?? 1;
     return {
       assertion,
-      passed: ratio >= min,
-      detail: `${assertion.metric} ${assertion.op} ${String(assertion.value)}: ${passes}/${values.length} seeds (mín. ${min}); valores ${values.join(', ')}`,
+      passed: passes / values.length >= min,
+      detail: `${assertion.metric} ${assertion.op} ${fmt(assertion.value)}${when}: ${passes}/${values.length} seeds (mín. ${min}); valores ${values.map((v) => fmt(v!)).join(', ')}`,
     };
   });
-  const rejected = runs.flatMap((r) => r.report.rejected);
   if (rejected.length > 0) {
-    results.push({ assertion: { kind: 'deterministic' }, passed: false, detail: `comandos rechazados: ${rejected.map((r) => r.message).join('; ')}` });
+    results.push({ assertion: { kind: 'deterministic' }, passed: false, detail: `comandos rechazados: ${rejected.join('; ')}` });
   }
 
   return {

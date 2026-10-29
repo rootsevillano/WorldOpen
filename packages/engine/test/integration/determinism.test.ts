@@ -3,10 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../src';
 import { manifest, setCriterion } from '../helpers';
 
-/** Mundo de prueba con agentes colocados por el PRNG para que el hash cubra el almacén de agentes. */
+/** Mundo de prueba con 50 habitantes: el hash cubre agentes que se mueven, deciden y duermen. */
 function run(seed: number, ticks: number, commands: CommandEnvelope[] = []): Simulation {
-  const sim = new Simulation(manifest(seed));
-  for (let i = 0; i < 50; i++) sim.world.agents.add(sim.world.rng.nextFloat() * 100, 0, sim.world.rng.nextFloat() * 100);
+  const sim = new Simulation(manifest(seed, { criteria: { 'society.initialPopulation': 50 } }));
   for (const c of commands) sim.submit(c);
   sim.step(ticks);
   return sim;

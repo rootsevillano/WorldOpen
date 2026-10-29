@@ -16,7 +16,14 @@ export interface RenderFrame {
   agentHeadings: Float32Array;
   /** Código de actividad por agente (ver `AgentActivity`). */
   agentActivities: Uint8Array;
+  /** Banderas por agente (ver `AgentFlag`). */
+  agentFlags: Uint8Array;
 }
+
+export const AgentFlag = {
+  /** Dentro de un edificio: el render no lo dibuja en la calle. */
+  Indoors: 1,
+} as const;
 
 export const AgentActivity = {
   Idle: 0,
@@ -36,5 +43,6 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.agentPositions.buffer,
     frame.agentHeadings.buffer,
     frame.agentActivities.buffer,
+    frame.agentFlags.buffer,
   ] as ArrayBuffer[];
 }

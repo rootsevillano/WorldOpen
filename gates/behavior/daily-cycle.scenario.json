@@ -1,0 +1,15 @@
+{
+  "name": "daily-cycle",
+  "description": "V4 (1): con clima suave, parte de la población sale de día a comercios y servicios y toda vuelve a casa de noche.",
+  "seeds": [1, 2, 3, 4, 5],
+  "days": 2,
+  "manifest": { "criteria": { "society.initialPopulation": 200 } },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "agents.awayFromHomeRatio", "op": ">=", "value": 0.1, "at": { "day": 0, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.atVenueRatio", "op": ">=", "value": 0.05, "at": { "day": 1, "hour": 11 } },
+    { "kind": "metric", "metric": "agents.awayFromHomeRatio", "op": "<=", "value": 0.5, "at": { "day": 0, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.atHomeRatio", "op": ">=", "value": 0.95, "at": { "day": 1, "hour": 0 } },
+    { "kind": "metric", "metric": "agents.sleepingRatio", "op": ">=", "value": 0.95, "at": { "day": 1, "hour": 4 } }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "survival-5",
+  "description": "Fase 2: 5 habitantes deciden moverse según sus necesidades; al anochecer buscan cobijo en casa. Dios añade 3 más.",
+  "seeds": [1, 2, 3, 4, 5],
+  "days": 2,
+  "manifest": { "criteria": { "society.initialPopulation": 5 } },
+  "commands": [
+    { "type": "agent.spawn", "version": 1, "atHour": 4, "payload": { "count": 3 } }
+  ],
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "agents.atHomeRatio", "op": ">=", "value": 0.8, "at": { "day": 0, "hour": 23 } },
+    { "kind": "metric", "metric": "agents.sleepingRatio", "op": ">=", "value": 0.8, "at": { "day": 1, "hour": 3 } },
+    { "kind": "metric", "metric": "agents.count", "op": "==", "value": 8 }
+  ]
+}

@@ -14,7 +14,7 @@ export function App() {
     <div className="app">
       <canvas ref={canvas} className="viewport" />
       <div className="overlay top-left">
-        <Hud manifest={engine.manifest} status={engine.status} />
+        <Hud manifest={engine.manifest} status={engine.status} population={engine.population} />
         {engine.client && engine.status && <TimeControls client={engine.client} status={engine.status} />}
       </div>
       <div className="overlay right">

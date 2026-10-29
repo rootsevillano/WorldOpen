@@ -4,14 +4,18 @@ import {
   type CommandEnvelope,
   type CommandRejectionReason,
   type LoggedCommand,
+  type MapLogic,
   type RenderFrame,
   type SimEvent,
   type Snapshot,
   type WorldManifest,
 } from '@worldopen/contracts';
+import { spawnAgent } from './agents/population';
 import { registerBuiltinCommands } from './commands/builtin';
 import { CommandRegistry } from './commands/registry';
 import { CriteriaRegistry } from './criteria/registry';
+import { NavMap } from './map/navigation';
+import { syntheticMap } from './map/synthetic';
 import { StateHasher } from './math/hash';
 import { Rng } from './math/rng';
 import { RULESETS } from './rulesets/contemporary';
@@ -24,6 +28,10 @@ export interface SimulationOptions {
   agentCapacity?: number;
   /** Ruleset explícito (tests); si falta, se toma de `manifest.ruleset`. */
   ruleset?: Ruleset;
+  /** Mapas lógicos ya cargados de map-packs, por id de región. Las regiones sin map-pack usan el sintético. */
+  maps?: Record<string, MapLogic>;
+  /** Uso interno de `restore`: no generar la población inicial. */
+  skipPopulation?: boolean;
 }
 
 export type SubmitResult =
@@ -34,6 +42,15 @@ interface QueuedCommand {
   seq: number;
   appliedAtTick: number;
   envelope: CommandEnvelope;
+}
+
+function loadMaps(manifest: WorldManifest, maps: Record<string, MapLogic> = {}): MapLogic[] {
+  return manifest.regions.map((region) => {
+    const loaded = maps[region.id];
+    if (loaded) return loaded;
+    if (region.mapPack === null) return syntheticMap(manifest.seed, region);
+    throw new Error(`Falta el map-pack ${region.mapPack.id}@${region.mapPack.version} de la región ${region.id}`);
+  });
 }
 
 /**
@@ -67,7 +84,14 @@ export class Simulation {
       criteria,
       criteria.resolve(manifest.criteria),
       options.agentCapacity ?? 10_000,
+      new NavMap(loadMaps(manifest, options.maps)),
     );
+
+    if (!options.skipPopulation) {
+      const initial = this.world.criteria['society.initialPopulation'];
+      const n = typeof initial === 'number' ? Math.min(initial, this.world.agents.capacity) : 0;
+      for (let k = 0; k < n; k++) spawnAgent(this.world);
+    }
   }
 
   /** Restaura un snapshot y, opcionalmente, reprograma los comandos del log posteriores a él. */
@@ -75,18 +99,12 @@ export class Simulation {
     if (snapshot.engineVersion !== ENGINE_VERSION) {
       throw new Error(`Snapshot de la versión ${snapshot.engineVersion}; motor ${ENGINE_VERSION}`);
     }
-    const sim = new Simulation(manifest, options);
+    const sim = new Simulation(manifest, { ...options, skipPopulation: true });
     const w = sim.world;
     w.tick = snapshot.tick;
     w.rng = new Rng(snapshot.rngState);
     w.criteria = { ...snapshot.criteria };
-    const a = snapshot.agents;
-    w.agents.count = a.ids.length;
-    w.agents.nextId = a.nextId;
-    w.agents.ids.set(a.ids);
-    w.agents.positions.set(a.positions);
-    w.agents.headings.set(a.headings);
-    w.agents.activities.set(a.activities);
+    w.agents.restore(snapshot.agents);
     for (const entry of snapshot.pendingCommands) sim.enqueueLogged(entry);
     if (sim.hash() !== snapshot.hash) throw new Error('El snapshot restaurado no coincide con su hash');
     // Los comandos del log ya pendientes en el snapshot no se duplican.
@@ -149,6 +167,10 @@ export class Simulation {
     };
   }
 
+  mapLogic(): MapLogic[] {
+    return this.world.map.logic;
+  }
+
   /** Frame para el render con buffers nuevos (transferibles). */
   frame(): RenderFrame {
     const a = this.world.agents;
@@ -161,6 +183,7 @@ export class Simulation {
       agentPositions: a.positions.slice(0, n * 3),
       agentHeadings: a.headings.slice(0, n),
       agentActivities: a.activities.slice(0, n),
+      agentFlags: a.flags.slice(0, n),
     };
   }
 
@@ -177,9 +200,18 @@ export class Simulation {
     }
     const a = w.agents;
     h.u32(a.count).u32(a.nextId);
+    for (const [name, col, stride] of a.eachColumn()) {
+      h.str(name);
+      for (let k = 0; k < a.count * stride; k++) h.f64(col[k]!);
+    }
     for (let i = 0; i < a.count; i++) {
-      h.u32(a.ids[i]!).f64(a.positions[i * 3]!).f64(a.positions[i * 3 + 1]!).f64(a.positions[i * 3 + 2]!);
-      h.f64(a.headings[i]!).u32(a.activities[i]!);
+      h.str(a.names[i]!);
+      const p = a.paths[i];
+      if (!p) h.u32(0xffffffff);
+      else {
+        h.u32(p.length);
+        for (let k = 0; k < p.length; k++) h.f64(p[k]!);
+      }
     }
     h.u32(this.queue.length);
     for (const q of this.queue) h.u32(q.appliedAtTick).str(q.envelope.id);
@@ -188,20 +220,12 @@ export class Simulation {
 
   snapshot(): Snapshot {
     const w = this.world;
-    const a = w.agents;
-    const n = a.count;
     return {
       engineVersion: ENGINE_VERSION,
       tick: w.tick,
       rngState: w.rng.state,
       criteria: { ...w.criteria },
-      agents: {
-        nextId: a.nextId,
-        ids: Array.from(a.ids.subarray(0, n)),
-        positions: Array.from(a.positions.subarray(0, n * 3)),
-        headings: Array.from(a.headings.subarray(0, n)),
-        activities: Array.from(a.activities.subarray(0, n)),
-      },
+      agents: w.agents.serialize(),
       pendingCommands: this.queue.map(({ appliedAtTick, envelope }) => ({ appliedAtTick, envelope })),
       hash: this.hash(),
     };

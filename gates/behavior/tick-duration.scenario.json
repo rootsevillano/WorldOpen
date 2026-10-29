@@ -10,6 +10,7 @@
   "assertions": [
     { "kind": "deterministic" },
     { "kind": "metric", "metric": "clock.elapsedDays", "op": "==", "value": 2 },
-    { "kind": "metric", "metric": "criteria.economy.foodAbundance", "op": "<", "value": 0.2 }
+    { "kind": "metric", "metric": "criteria.economy.foodAbundance", "op": "<", "value": 0.2 },
+    { "kind": "metric", "metric": "agents.atHomeRatio", "op": ">=", "value": 0.8, "at": { "day": 0, "hour": 23 } }
   ]
 }
