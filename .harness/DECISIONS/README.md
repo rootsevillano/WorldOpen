@@ -19,3 +19,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0012](0012-resource-economy.md) | Economía de recursos sin dinero | Aceptada |
 | [0013](0013-persistence-in-engine-host.md) | La persistencia vive en el host del motor | Aceptada |
 | [0014](0014-simulation-lod-deferred.md) | LOD de simulación aplazado | Aceptada |
+| [0015](0015-study-viewer.md) | Visor de estudio | Aceptada |

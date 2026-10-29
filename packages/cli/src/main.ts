@@ -2,9 +2,9 @@ import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runScenarioDir } from './behavior';
 import { FileWorldStore } from './fileStore';
-import { REPORT_METRICS, metric } from './metrics';
+import { REPORT_METRICS, metric } from '@worldopen/engine';
 import { createSimulation, simulate } from './simulate';
-import { DEFAULT_WORLDS_DIR, runAndSave, verifyWorld } from './worlds';
+import { DEFAULT_WORLDS_DIR, runAndSave, studyWorld, verifyWorld } from './worlds';
 
 const USAGE = `worldopen — motor de simulación WorldOpen (headless)
 
@@ -13,6 +13,8 @@ Uso:
                      [--save [--name <nombre>] [--end]] [--worlds <dir>]
   worldopen worlds [--worlds <dir>]                 Lista los mundos guardados
   worldopen verify <worldId> [--worlds <dir>]       Reproduce un mundo y comprueba sus snapshots
+  worldopen study <worldId> [--every <ticks>] [--metrics a,b] [--out <series.csv>] [--worlds <dir>]
+                                                    Series de métricas del mundo en CSV
   worldopen gate behavior <directorio de escenarios>
 `;
 
@@ -69,11 +71,16 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  if (cmd === 'worlds' || cmd === 'verify') {
+  if (cmd === 'worlds' || cmd === 'verify' || cmd === 'study') {
     const { values, positionals } = parseArgs({
       args: argv.slice(1),
       allowPositionals: true,
-      options: { worlds: { type: 'string', default: DEFAULT_WORLDS_DIR } },
+      options: {
+        worlds: { type: 'string', default: DEFAULT_WORLDS_DIR },
+        every: { type: 'string', default: '60' },
+        metrics: { type: 'string' },
+        out: { type: 'string' },
+      },
     });
     const store = new FileWorldStore(values.worlds);
     if (cmd === 'worlds') {
@@ -84,6 +91,14 @@ async function main(argv: string[]): Promise<number> {
     if (!id) {
       console.error(USAGE);
       return 2;
+    }
+    if (cmd === 'study') {
+      const study = await studyWorld(store, id, Number(values.every), values.metrics?.split(','));
+      if (values.out) writeFileSync(values.out, study.csv);
+      else process.stdout.write(study.csv);
+      const v = study.verification;
+      console.error(`${study.rows} muestras · replay verificado en ${v.checked}/${v.total} snapshots${v.failed.length ? ` · FALLOS en ${v.failed.join(', ')}` : ''}`);
+      return v.failed.length === 0 ? 0 : 1;
     }
     const result = await verifyWorld(store, id);
     for (const c of result.checked) console.log(`${c.ok ? '✓' : '✗'} tick ${c.tick}`);

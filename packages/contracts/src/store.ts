@@ -25,6 +25,8 @@ export interface WorldStore {
   appendCommands(worldId: string, commands: LoggedCommand[]): Promise<void>;
   readCommands(worldId: string, fromTick?: number): Promise<LoggedCommand[]>;
   putSnapshot(worldId: string, snapshot: Snapshot): Promise<void>;
+  /** Ticks y hashes de todos los snapshots, en orden (línea de tiempo y verificación del visor de estudio). */
+  listSnapshots(worldId: string): Promise<{ tick: number; hash: number }[]>;
   /** Snapshot más reciente con `tick <= atTick` (o el último si falta `atTick`). */
   getSnapshot(worldId: string, atTick?: number): Promise<Snapshot | null>;
 }

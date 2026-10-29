@@ -47,6 +47,9 @@ export function worldStoreConformance(name: string, make: () => Promise<WorldSto
       expect((await s.getSnapshot('w', 2000))!.tick).toBe(1440);
       expect((await s.getSnapshot('w', 0))!.tick).toBe(0);
       expect((await s.listWorlds())[0]!.lastTick).toBe(2880);
+      expect(await s.listSnapshots('w')).toEqual([{ tick: 0, hash: 0 }, { tick: 1440, hash: 1440 }, { tick: 2880, hash: 2880 }]);
+      await s.putSnapshot('w', snapshot(1440));
+      expect(await s.listSnapshots('w')).toHaveLength(3);
     });
 
     it('ciclo de vida: un mundo terminado es de solo lectura', async () => {

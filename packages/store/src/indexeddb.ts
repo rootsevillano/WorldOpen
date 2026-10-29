@@ -108,6 +108,14 @@ export class IndexedDbWorldStore implements WorldStore {
     await done(tx);
   }
 
+  async listSnapshots(worldId: string): Promise<{ tick: number; hash: number }[]> {
+    if (!(await this.row(worldId))) throw new Error(`No existe el mundo ${worldId}`);
+    const db = await this.open();
+    const range = IDBKeyRange.bound([worldId, 0], [worldId, Number.MAX_SAFE_INTEGER]);
+    const rows = (await promisify(db.transaction('snapshots').objectStore('snapshots').getAll(range))) as Snapshot[];
+    return rows.map((s) => ({ tick: s.tick, hash: s.hash }));
+  }
+
   async getSnapshot(worldId: string, atTick?: number): Promise<Snapshot | null> {
     if (!(await this.row(worldId))) throw new Error(`No existe el mundo ${worldId}`);
     const db = await this.open();

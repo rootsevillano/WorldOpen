@@ -51,6 +51,18 @@ export class EngineClient {
     this.send({ type: 'load', protocol: PROTOCOL_VERSION, worldId });
   }
 
+  replay(worldId: string): void {
+    this.send({ type: 'replay', protocol: PROTOCOL_VERSION, worldId });
+  }
+
+  seek(tick: number): void {
+    this.send({ type: 'seek', tick });
+  }
+
+  analyze(everyTicks: number, metrics: string[]): void {
+    this.send({ type: 'analyze', everyTicks, metrics });
+  }
+
   end(): void {
     this.send({ type: 'end' });
   }

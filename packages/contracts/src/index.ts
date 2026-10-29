@@ -11,3 +11,4 @@ export * from './protocol';
 export * from './store';
 export * from './mappack';
 export * from './inspect';
+export * from './study';

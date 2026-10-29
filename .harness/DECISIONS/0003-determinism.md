@@ -14,7 +14,8 @@ Reglas del motor (verificadas por `packages/engine/test/purity.test.ts`):
    trunc/abs/min/max/imul/fround`. Si hace falta trigonometría, se usan aproximaciones propias (`engine/src/math`).
 4. Iteración en orden fijo (índices de array, nunca orden de inserción de `Map`/`Set` con claves dependientes del host).
 5. Los comandos se aplican al **inicio** de un tick concreto, en orden de llegada aceptado, y quedan en el log con ese tick.
-6. `Simulation.hash()` resume el estado (FNV-1a de 32 bits) para comparar ejecuciones.
+6. `Simulation.hash()` resume el estado del mundo (FNV-1a de 32 bits) para comparar ejecuciones; no incluye la cola
+   de comandos pendientes (ver ADR-0015).
 
 ## Consecuencias
 - Replays, histórico de estudio y Behavior Gates reproducibles en CI.

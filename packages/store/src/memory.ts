@@ -55,6 +55,10 @@ export class MemoryWorldStore implements WorldStore {
     e.summary.lastTick = Math.max(e.summary.lastTick, snapshot.tick);
   }
 
+  async listSnapshots(worldId: string): Promise<{ tick: number; hash: number }[]> {
+    return this.get(worldId).snapshots.map((s) => ({ tick: s.tick, hash: s.hash }));
+  }
+
   async getSnapshot(worldId: string, atTick?: number): Promise<Snapshot | null> {
     const list = this.get(worldId).snapshots.filter((s) => atTick === undefined || s.tick <= atTick);
     const last = list[list.length - 1];

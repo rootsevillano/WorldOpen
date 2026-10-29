@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { CommandEnvelope, CriterionValue, TimeConfig, WorldManifest } from '@worldopen/contracts';
 import { DEFAULT_TIME, MINUTES_PER_DAY, ticksPerDay } from '@worldopen/engine';
-import { metric, resolvePayload } from './metrics';
+import { metric, resolvePayload } from '@worldopen/engine';
 import { createSimulation } from './simulate';
 
 /**

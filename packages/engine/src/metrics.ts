@@ -1,5 +1,8 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
-import { Action, nightFactor, temperature, ticksPerDay, type Simulation } from '@worldopen/engine';
+import { nightFactor, temperature } from './agents/environment';
+import type { Simulation } from './simulation';
+import { ticksPerDay } from './time/clock';
+import { Action } from './world/agents';
 
 /**
  * Referencia a un edificio en escenarios: `@<uso>[n]` = n-ésimo edificio de ese uso en el mapa

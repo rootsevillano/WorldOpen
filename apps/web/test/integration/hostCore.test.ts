@@ -1,5 +1,5 @@
 import { PROTOCOL_VERSION, type EngineToHost } from '@worldopen/contracts';
-import { createManifest } from '@worldopen/engine';
+import { Simulation, createManifest } from '@worldopen/engine';
 import { MemoryWorldStore } from '@worldopen/store';
 import { describe, expect, it } from 'vitest';
 import { EngineHostCore } from '../../src/engine-host/hostCore';
@@ -151,5 +151,148 @@ describe('Persistencia en el host (ADR-0004)', () => {
     await viewer.flush();
     const st = out2.filter((m) => m.type === 'status').at(-1);
     expect(st?.type === 'status' && st.status).toMatchObject({ readOnly: true, worldStatus: 'ended', tick: 30 });
+  });
+});
+
+describe('Visor de estudio (replay)', () => {
+  async function recordWorld() {
+    const store = new MemoryWorldStore();
+    let clock = 0;
+    const live = new EngineHostCore(() => {}, () => clock, store);
+    const m = createManifest({ worldId: 'w-study', createdAt: '2026-01-01T00:00:00Z', seed: 4, criteria: { 'society.initialPopulation': 30 } });
+    live.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: m });
+    const issuer = { userId: 'god', role: 'admin' as const };
+    live.handle({ type: 'command', envelope: { id: 'heat', type: 'criteria.set', version: 1, issuer, atTick: 300, payload: { key: 'climate.baseTemperatureC', value: 44 } } });
+    live.handle({ type: 'command', envelope: { id: 'spawn', type: 'agent.spawn', version: 1, issuer, atTick: 1800, payload: { count: 5 } } });
+    live.handle({ type: 'control', action: 'setSpeed', ticksPerSecond: 1000 });
+    live.handle({ type: 'control', action: 'play' });
+    for (let k = 0; k < 360; k++) {
+      clock += 10;
+      live.pump(clock); // ≈ 3600 ticks
+    }
+    live.handle({ type: 'end' });
+    await live.flush();
+    // Referencia independiente: replay directo del motor con lo guardado.
+    const first = (await store.getSnapshot('w-study', 0))!;
+    const log = await store.readCommands('w-study');
+    const hashAt = (t: number) => {
+      const ref = Simulation.restore(m, first, log);
+      ref.step(t);
+      return ref.hash();
+    };
+    return { store, hashAt, end: (await store.listWorlds())[0]!.lastTick };
+  }
+
+  function viewer(store: MemoryWorldStore) {
+    const out: EngineToHost[] = [];
+    let clock = 0;
+    const core = new EngineHostCore((m) => out.push(m), () => clock, store);
+    const last = <T extends EngineToHost['type']>(t: T) => out.filter((m): m is Extract<EngineToHost, { type: T }> => m.type === t).at(-1);
+    const snapHash = async () => {
+      core.handle({ type: 'query', requestId: String(out.length), query: { kind: 'snapshot' } });
+      await core.flush();
+      return (last('queryResult')!.result as { hash: number; tick: number });
+    };
+    return { core, out, last, snapHash, tickClock: (ms: number) => { clock += ms; core.pump(clock); } };
+  }
+
+  it('abre en el tick inicial, salta adelante y atrás reproduciendo exactamente el original', async () => {
+    const { store, hashAt, end } = await recordWorld();
+    const v = viewer(store);
+    v.core.handle({ type: 'replay', protocol: PROTOCOL_VERSION, worldId: 'w-study' });
+    await v.core.flush();
+    expect(v.last('ready')).toMatchObject({ tick: 0 });
+    expect(v.last('status')!.status).toMatchObject({ mode: 'replay', readOnly: true, endTick: end });
+
+    v.core.handle({ type: 'query', requestId: 'tl', query: { kind: 'timeline' } });
+    const tl = v.last('queryResult')!.result as { commands: unknown[]; endTick: number; snapshots: unknown[] };
+    expect(tl.commands).toHaveLength(2);
+    expect(tl.snapshots.length).toBeGreaterThanOrEqual(3);
+
+    for (const t of [2000, 500, 3100, 1441]) {
+      v.core.handle({ type: 'seek', tick: t });
+      await v.core.flush();
+      const s = await v.snapHash();
+      expect(s.tick).toBe(t);
+      expect(s.hash).toBe(hashAt(t));
+    }
+    v.core.handle({ type: 'seek', tick: 999999 });
+    await v.core.flush();
+    expect((await v.snapHash()).tick).toBe(end);
+  });
+
+  it('cambiar de mundo guarda antes el progreso del mundo vivo', async () => {
+    const store = new MemoryWorldStore();
+    const core = new EngineHostCore(() => {}, () => 0, store);
+    core.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: createManifest({ worldId: 'a', createdAt: '2026-01-01T00:00:00Z', seed: 1 }) });
+    core.handle({ type: 'step', ticks: 500 });
+    core.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: createManifest({ worldId: 'b', createdAt: '2026-01-02T00:00:00Z', seed: 2 }) });
+    await core.flush();
+    expect((await store.listWorlds()).find((w) => w.worldId === 'a')).toMatchObject({ lastTick: 500, status: 'paused' });
+  });
+
+  it('reproduce hasta el final de la grabación y se para; no admite comandos', async () => {
+    const { store, end } = await recordWorld();
+    const v = viewer(store);
+    v.core.handle({ type: 'replay', protocol: PROTOCOL_VERSION, worldId: 'w-study' });
+    await v.core.flush();
+    v.core.handle({ type: 'seek', tick: end - 50 });
+    await v.core.flush();
+    v.core.handle({ type: 'control', action: 'setSpeed', ticksPerSecond: 'max' });
+    v.core.handle({ type: 'control', action: 'play' });
+    for (let k = 0; k < 20; k++) v.tickClock(20);
+    expect(v.last('status')!.status).toMatchObject({ tick: end, running: false });
+    v.core.handle({ type: 'command', envelope: { id: 'x', type: 'agent.spawn', version: 1, issuer: { userId: 'god', role: 'admin' }, payload: { count: 1 } } });
+    expect(v.last('commandRejected')).toMatchObject({ reason: 'read_only' });
+  });
+
+  it('verifica también mundos con comandos enviados a mitad de partida', async () => {
+    const store = new MemoryWorldStore();
+    let clock = 0;
+    const live = new EngineHostCore(() => {}, () => clock, store);
+    live.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: createManifest({ worldId: 'w-mid', createdAt: '2026-01-01T00:00:00Z', seed: 2, criteria: { 'society.initialPopulation': 20 } }) });
+    live.handle({ type: 'control', action: 'setSpeed', ticksPerSecond: 1000 });
+    live.handle({ type: 'control', action: 'play' });
+    for (let k = 0; k < 300; k++) {
+      clock += 10;
+      live.pump(clock);
+      // Dios interviene ya avanzada la partida, después de varios guardados.
+      if (k === 250) live.handle({ type: 'command', envelope: { id: 'late', type: 'criteria.set', version: 1, issuer: { userId: 'god', role: 'admin' }, payload: { key: 'economy.foodAbundance', value: 0 } } });
+    }
+    live.handle({ type: 'end' });
+    await live.flush();
+    const v = viewer(store);
+    v.core.handle({ type: 'replay', protocol: PROTOCOL_VERSION, worldId: 'w-mid' });
+    await v.core.flush();
+    v.core.handle({ type: 'analyze', everyTicks: 240, metrics: ['agents.count'] });
+    await v.core.flush();
+    for (let k = 0; k < 2000 && !v.last('series')?.analysis.done; k++) v.tickClock(10);
+    const final = v.last('series')!;
+    expect(final.analysis.verification.checked).toBeGreaterThanOrEqual(2);
+    expect(final.analysis.verification.failed).toEqual([]);
+  });
+
+  it('el análisis recorre todo el mundo, muestrea por horas y verifica cada snapshot', async () => {
+    const { store, end } = await recordWorld();
+    const v = viewer(store);
+    v.core.handle({ type: 'replay', protocol: PROTOCOL_VERSION, worldId: 'w-study' });
+    await v.core.flush();
+    v.core.handle({ type: 'analyze', everyTicks: 60, metrics: ['agents.count', 'agents.leisureRatio', 'env.temperatureC'] });
+    await v.core.flush();
+    for (let k = 0; k < 2000 && !v.last('series')?.analysis.done; k++) v.tickClock(10);
+    const series = v.out.filter((m) => m.type === 'series');
+    const final = series.at(-1)!;
+    expect(final.type === 'series' && final.analysis).toMatchObject({ done: true, progress: 1, verification: { failed: [] } });
+    const ticks = series.flatMap((m) => (m.type === 'series' ? m.chunk.ticks : []));
+    expect(ticks[0]).toBe(0);
+    expect(ticks.at(-1)).toBe(end);
+    expect(new Set(ticks).size).toBe(ticks.length);
+    const counts = series.flatMap((m) => (m.type === 'series' ? m.chunk.values['agents.count']! : []));
+    expect(counts[0]).toBe(30);
+    expect(counts.at(-1)).toBe(35);
+    const temps = series.flatMap((m) => (m.type === 'series' ? m.chunk.values['env.temperatureC']! : []));
+    expect(Math.max(...temps)).toBeGreaterThan(44);
+    const checked = final.type === 'series' ? final.analysis.verification.checked : 0;
+    expect(checked).toBeGreaterThanOrEqual(2);
   });
 });

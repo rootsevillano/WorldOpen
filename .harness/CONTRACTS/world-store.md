@@ -14,4 +14,5 @@ Código: `packages/contracts/src/store.ts`, `manifest.ts`, `snapshot.ts`. Decisi
 - **Implementado (Fase 3):** `MemoryWorldStore` e `IndexedDbWorldStore` (`@worldopen/store`), `FileWorldStore` (CLI,
   `data/worlds/`). Todos superan `@worldopen/store/conformance`. El snapshot incluye `buildings.columns`
   (existencias, estado, residentes).
+- `listSnapshots(worldId)` devuelve ticks y hashes (línea de tiempo y verificación del visor).
 - `worldopen verify <worldId>` reproduce el mundo desde el snapshot del tick 0 y compara cada snapshot diario.

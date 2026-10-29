@@ -1,12 +1,13 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-29 (cierre de la Fase 3 sobre mapa sintético)_
+_Actualizado: 2026-10-29 (cierre de la Fase 4: visor de estudio)_
 
 ## Implementado
 
 | Pieza | Ruta | Estado |
 |---|---|---|
-| Contratos TS | `packages/contracts/src` | Protocolo **v3**, motor **0.3.0**: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
+| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.4.0** (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
 | Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep, **Provision**, **Work** |
@@ -18,13 +19,15 @@ _Actualizado: 2026-10-29 (cierre de la Fase 3 sobre mapa sintético)_
 | Host | `apps/web/src/engine-host/hostCore.ts` | Guarda cada día, al pausar y al terminar; `load`; solo lectura |
 | Render | `packages/render` | Selección por clic, anillo de selección, seguir agente, edificios en llamas/dañados, colores por actividad |
 | UI | `apps/web/src/ui` | HUD con economía, panel de Mundos (crear/abrir/ver/terminar), Inspector (seguir, incendiar), Modo Dios |
-| CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
+| CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
-- Typecheck ✅ · Unit + Integration ✅ 81 tests (incluye conformidad de 3 almacenes y persistencia del host)
+- Typecheck ✅ · Unit + Integration ✅ 86 tests (conformidad de 3 almacenes, persistencia y replay del host)
 - Behavior ✅ 8/8: `daily-cycle`, `heatwave-shelter`, `food-scarcity`, `water-cut`, `house-fire`, `survival-5`,
   `tick-duration`, `world-alive`
-- Perf ✅ 2 000 agentes × 10 000 ticks en 6.2 s (≈ 1 600 ticks/s; objetivo ≥ 20)
+- Perf ✅ 2 000 agentes × 10 000 ticks en 6.4 s (≈ 1 570 ticks/s; objetivo ≥ 20)
+- Visual (Fase 4) ✅ 1100×820 y 1500×900: visor con 4 intervenciones, «replay verificado 7/7», saltos por marcador
+  (incendio visible en T+1), cruz/tooltip, salir del estudio, aviso claro al abrir un mundo del motor 0.3.0.
 - Visual ✅ (1400×850): selección e inspector de tienda y vecina, incendio en rojo, seguir con cámara, histórico
   (pausa → recarga → mismo tick; terminar → solo lectura; crear nuevo), 2 000 habitantes a ≈ 560 ticks/s en el Worker.
   FPS no medidos (el panel del navegador estaba oculto).
@@ -38,5 +41,5 @@ _Actualizado: 2026-10-29 (cierre de la Fase 3 sobre mapa sintético)_
 - Incendio de una casa: evacuación inmediata, sus residentes duermen en un servicio público, la casa vuelve a usarse.
 
 ## No implementado
-- Map-pack real (`almensilla-3d`), visor de estudio (replay en la web), roles con login (servidor), ciclo de vida
+- Map-pack real (`almensilla-3d`), roles con login (servidor), comparación de mundos en el visor, ciclo de vida
   (nacimientos/muertes), vehículos/animales, logística con agentes, LOD de simulación (ADR-0014).

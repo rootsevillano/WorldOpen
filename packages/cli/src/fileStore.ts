@@ -97,6 +97,17 @@ export class FileWorldStore implements WorldStore {
     await writeFile(join(this.dir(worldId), 'summary.json'), JSON.stringify(s, null, 2) + '\n');
   }
 
+  async listSnapshots(worldId: string): Promise<{ tick: number; hash: number }[]> {
+    await this.summary(worldId);
+    const files = (await readdir(join(this.dir(worldId), 'snapshots'))).filter((f) => f.endsWith('.json')).sort();
+    const out: { tick: number; hash: number }[] = [];
+    for (const f of files) {
+      const s = await this.readJson<Snapshot>(join(this.dir(worldId), 'snapshots', f));
+      if (s) out.push({ tick: s.tick, hash: s.hash });
+    }
+    return out;
+  }
+
   async getSnapshot(worldId: string, atTick?: number): Promise<Snapshot | null> {
     await this.summary(worldId);
     const files = (await readdir(join(this.dir(worldId), 'snapshots'))).filter((f) => f.endsWith('.json')).sort();

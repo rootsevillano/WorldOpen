@@ -6,11 +6,13 @@ import {
   type EngineStatus,
   type EngineToHost,
   type HostToEngine,
+  type LoggedCommand,
   type QueryResultMap,
+  type Timeline,
   type WorldStatus,
   type WorldStore,
 } from '@worldopen/contracts';
-import { Simulation, tickToDate, ticksPerDay } from '@worldopen/engine';
+import { ReplayAnalysis, Simulation, tickToDate, ticksPerDay } from '@worldopen/engine';
 
 export type Post = (msg: EngineToHost, transfer?: ArrayBuffer[]) => void;
 
@@ -43,6 +45,13 @@ export class EngineHostCore {
   private savedLogCount = 0;
   private saving = false;
   private chain: Promise<void> = Promise.resolve();
+
+  // Visor de estudio (ADR-0015).
+  private mode: 'live' | 'replay' = 'live';
+  private timeline: Timeline | null = null;
+  private replayLog: LoggedCommand[] = [];
+  private analysis: ReplayAnalysis | null = null;
+  private seekSeq = 0;
 
   constructor(
     private readonly post: Post,
@@ -87,6 +96,7 @@ export class EngineHostCore {
         this.fail(err);
       }
     }
+    if (this.analysis && !this.analysis.done) this.analyzeSlice();
     this.lastPumpMs = nowMs;
     if (nowMs - this.tpsWindowStart >= 1000) {
       this.measuredTps = Math.round((this.tpsWindowTicks * 1000) / (nowMs - this.tpsWindowStart));
@@ -98,13 +108,26 @@ export class EngineHostCore {
     return this.running;
   }
 
+  /** En replay no se puede pasar del último tick grabado. */
+  private remaining(sim: Simulation): number {
+    if (this.mode !== 'replay' || !this.timeline) return Infinity;
+    return Math.max(0, this.timeline.endTick - sim.tick);
+  }
+
   private advance(sim: Simulation, nowMs: number): number {
+    if (this.remaining(sim) === 0) {
+      this.running = false;
+      this.publishStatus(nowMs);
+      return 0;
+    }
     if (this.ticksPerSecond === 'max') {
       let done = 0;
       const start = this.now();
       do {
-        sim.step(10);
-        done += 10;
+        const n = Math.min(10, this.remaining(sim));
+        if (n === 0) break;
+        sim.step(n);
+        done += n;
       } while (this.now() - start < MAX_SLICE_MS);
       this.flushEvents(sim);
       return done;
@@ -112,13 +135,61 @@ export class EngineHostCore {
     const dt = this.lastPumpMs === null ? 0 : Math.min(nowMs - this.lastPumpMs, 1000);
     // Deuda en "ms × ticks/s" para no acumular error de redondeo con pasos de tiempo enteros.
     this.tickDebt += dt * this.ticksPerSecond;
-    const n = Math.floor(this.tickDebt / 1000);
+    const n = Math.min(Math.floor(this.tickDebt / 1000), this.remaining(sim));
     if (n > 0) {
       this.tickDebt -= n * 1000;
       sim.step(n);
       this.flushEvents(sim);
     }
     return n;
+  }
+
+  /** Una porción del análisis en segundo plano (la mitad del presupuesto de CPU de una porción). */
+  private analyzeSlice(): void {
+    const a = this.analysis!;
+    const start = this.now();
+    try {
+      do a.advance(240);
+      while (!a.done && this.now() - start < MAX_SLICE_MS / 2);
+    } catch (err) {
+      this.analysis = null;
+      this.fail(err);
+      return;
+    }
+    this.post({
+      type: 'series',
+      chunk: a.takeChunk(),
+      analysis: { progress: a.progress, done: a.done, verification: { ...a.verification, failed: [...a.verification.failed] } },
+    });
+  }
+
+  /** Salta a `tick` en replay: avanza si está cerca; si no, restaura el snapshot anterior y avanza desde él. */
+  private seek(target: number): void {
+    const sim = this.sim!;
+    const tl = this.timeline!;
+    const t = Math.max(tl.startTick, Math.min(tl.endTick, Math.round(target)));
+    const seq = ++this.seekSeq;
+    const after = () => {
+      this.flushEvents(this.sim!);
+      this.publishFrame(this.now());
+      this.publishStatus(this.now());
+    };
+    if (t >= sim.tick && t - sim.tick <= ticksPerDay(sim.manifest.time)) {
+      sim.step(t - sim.tick);
+      after();
+      return;
+    }
+    const store = this.store!;
+    void this.enqueue(async () => {
+      const snap = await store.getSnapshot(tl.worldId, t);
+      // Un salto posterior deja obsoleto este.
+      if (!snap || seq !== this.seekSeq) return;
+      const restored = Simulation.restore(sim.manifest, snap, this.replayLog);
+      restored.step(t - snap.tick);
+      restored.drainEvents();
+      this.sim = restored;
+      after();
+    });
   }
 
   /** Guarda log nuevo + snapshot + estado. Una escritura a la vez. */
@@ -146,8 +217,14 @@ export class EngineHostCore {
     });
   }
 
-  private start(sim: Simulation, status: WorldStatus, readOnly: boolean, savedTick: number): void {
+  private start(sim: Simulation, status: WorldStatus, readOnly: boolean, savedTick: number, mode: 'live' | 'replay' = 'live'): void {
     this.sim = sim;
+    this.mode = mode;
+    this.analysis = null;
+    if (mode === 'live') {
+      this.timeline = null;
+      this.replayLog = [];
+    }
     this.running = false;
     this.worldStatus = status;
     this.readOnly = readOnly;
@@ -159,9 +236,14 @@ export class EngineHostCore {
   }
 
   private dispatch(msg: HostToEngine): void {
-    if (msg.type === 'init' || msg.type === 'load') {
+    if (msg.type === 'init' || msg.type === 'load' || msg.type === 'replay') {
       if (msg.protocol !== PROTOCOL_VERSION) {
         throw new Error(`Protocolo ${msg.protocol} incompatible (motor: ${PROTOCOL_VERSION})`);
+      }
+      // Antes de cambiar de mundo se guarda el progreso del mundo vivo (la carga va detrás en la misma cola).
+      if (this.sim && this.store && this.mode === 'live' && !this.readOnly && this.sim.tick !== this.savedTick) {
+        this.running = false;
+        void this.save('paused');
       }
     }
     if (msg.type === 'init') {
@@ -198,11 +280,49 @@ export class EngineHostCore {
       return;
     }
 
+    if (msg.type === 'replay') {
+      const store = this.store;
+      if (!store) throw new Error('Este host no tiene almacén de mundos');
+      void this.enqueue(async () => {
+        const manifest = await store.getManifest(msg.worldId);
+        if (!manifest) throw new Error(`No existe el mundo ${msg.worldId}`);
+        const snapshots = await store.listSnapshots(msg.worldId);
+        const first = snapshots.length > 0 ? await store.getSnapshot(msg.worldId, snapshots[0]!.tick) : null;
+        if (!first) throw new Error(`El mundo ${msg.worldId} no tiene snapshots`);
+        const log = await store.readCommands(msg.worldId);
+        const summary = (await store.listWorlds()).find((w) => w.worldId === msg.worldId);
+        const endTick = Math.max(summary?.lastTick ?? 0, snapshots.at(-1)!.tick);
+        this.replayLog = log;
+        this.timeline = {
+          worldId: manifest.worldId, name: manifest.name, time: manifest.time,
+          startTick: first.tick, endTick, snapshots, commands: log,
+        };
+        this.start(Simulation.restore(manifest, first, log), summary?.status ?? 'ended', true, snapshots.at(-1)!.tick, 'replay');
+      });
+      return;
+    }
+
     const sim = this.sim;
     if (!sim) throw new Error(`Mensaje "${msg.type}" antes de "init"`);
 
     switch (msg.type) {
+      case 'seek':
+        if (this.mode !== 'replay') throw new Error('seek solo está disponible en el visor de estudio');
+        this.seek(msg.tick);
+        return;
+      case 'analyze': {
+        const tl = this.timeline;
+        if (this.mode !== 'replay' || !tl) throw new Error('analyze solo está disponible en el visor de estudio');
+        const store = this.store!;
+        void this.enqueue(async () => {
+          const first = await store.getSnapshot(tl.worldId, tl.startTick);
+          if (!first) throw new Error('Falta el snapshot inicial');
+          this.analysis = new ReplayAnalysis(sim.manifest, first, this.replayLog, tl.snapshots, tl.endTick, msg.everyTicks, msg.metrics);
+        });
+        return;
+      }
       case 'end':
+        if (this.mode === 'replay') throw new Error('Un replay no se puede terminar');
         this.running = false;
         void this.save('ended').then(() => {
           this.readOnly = true;
@@ -211,7 +331,7 @@ export class EngineHostCore {
         return;
       case 'control':
         if (msg.action === 'play') {
-          if (this.readOnly) throw new Error('El mundo ha terminado: es de solo lectura');
+          if (this.readOnly && this.mode === 'live') throw new Error('El mundo ha terminado: es de solo lectura');
           this.running = true;
           this.lastPumpMs = null;
           this.tickDebt = 0;
@@ -225,8 +345,8 @@ export class EngineHostCore {
         this.publishStatus(this.now());
         return;
       case 'step':
-        if (this.readOnly) throw new Error('El mundo ha terminado: es de solo lectura');
-        sim.step(msg.ticks);
+        if (this.readOnly && this.mode === 'live') throw new Error('El mundo ha terminado: es de solo lectura');
+        sim.step(Math.min(msg.ticks, this.remaining(sim)));
         this.flushEvents(sim);
         this.publishFrame(this.now());
         this.publishStatus(this.now());
@@ -259,6 +379,7 @@ export class EngineHostCore {
       case 'agent': return sim.agent(q.agentId);
       case 'building': return sim.building(q.buildingId);
       case 'economy': return sim.economy();
+      case 'timeline': return this.timeline;
     }
   }
 
@@ -287,6 +408,8 @@ export class EngineHostCore {
       worldStatus: this.worldStatus,
       readOnly: this.readOnly,
       savedTick: this.savedTick,
+      mode: this.mode,
+      endTick: this.timeline?.endTick ?? null,
     };
     this.post({ type: 'status', status });
   }

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandEnvelope, CriterionValue, GameDate, WorldManifest } from '@worldopen/contracts';
 import { Simulation, createManifest, tickToDate } from '@worldopen/engine';
-import { REPORT_METRICS, metric } from './metrics';
+import { REPORT_METRICS, metric } from '@worldopen/engine';
 
 export interface SimulateOptions {
   seed: number;

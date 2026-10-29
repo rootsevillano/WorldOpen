@@ -4,6 +4,7 @@ import { GodPanel } from './GodPanel';
 import { Hud } from './Hud';
 import { Inspector } from './Inspector';
 import { TimeControls } from './TimeControls';
+import { StudyView } from './study/StudyView';
 import { useEngine } from './useEngine';
 import { WorldsPanel } from './WorldsPanel';
 
@@ -13,6 +14,7 @@ export function App() {
   const engine = useEngine(canvas);
   const isAdmin = engine.issuer.role === 'admin';
   const readOnly = engine.status?.readOnly ?? false;
+  const studying = engine.status?.mode === 'replay';
 
   return (
     <div className="app">
@@ -29,13 +31,17 @@ export function App() {
       />
       <div className="overlay top-left">
         <Hud manifest={engine.manifest} status={engine.status} population={engine.population} economy={engine.economy} />
-        {engine.client && engine.status && !readOnly && <TimeControls client={engine.client} status={engine.status} />}
+        {engine.error && (
+          <div className="panel error-banner" role="alert">⚠ {engine.error}</div>
+        )}
+        {engine.client && engine.status && !readOnly && !studying && <TimeControls client={engine.client} status={engine.status} />}
         <WorldsPanel
           worlds={engine.worlds}
           status={engine.status}
           isAdmin={isAdmin}
           onNew={engine.newWorld}
           onOpen={engine.openWorld}
+          onStudy={engine.studyWorld}
           onEnd={engine.endWorld}
         />
         {engine.client && engine.renderer && (
@@ -51,7 +57,11 @@ export function App() {
       </div>
       <div className="overlay right">
         {isAdmin && !readOnly && engine.client && engine.catalog && <GodPanel client={engine.client} catalog={engine.catalog} />}
-        <EventLog entries={engine.log} />
+        {studying && engine.client && engine.status ? (
+          <StudyView client={engine.client} status={engine.status} onExit={engine.exitStudy} />
+        ) : (
+          <EventLog entries={engine.log} />
+        )}
       </div>
     </div>
   );

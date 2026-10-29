@@ -64,12 +64,16 @@ export interface EngineState {
   economy: EconomySummary | null;
   log: LogEntry[];
   population: PopulationSummary | null;
+  /** Último error visible (se borra solo a los pocos segundos). */
+  error: string | null;
   worlds: WorldSummary[];
   selection: Pick;
   issuer: Issuer;
   select(p: Pick): void;
   newWorld(o: NewWorldOptions): void;
   openWorld(worldId: string): void;
+  studyWorld(worldId: string): void;
+  exitStudy(): void;
   endWorld(): void;
   refreshWorlds(): void;
 }
@@ -86,6 +90,7 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
   const [population, setPopulation] = useState<PopulationSummary | null>(null);
   const [worlds, setWorlds] = useState<WorldSummary[]>([]);
   const [selection, setSelection] = useState<Pick>(null);
+  const [error, setError] = useState<string | null>(null);
   const logKey = useRef(0);
   const lastFrame = useRef<RenderFrame | null>(null);
   const store = useRef<IndexedDbWorldStore | null>(null);
@@ -102,12 +107,21 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
     const push = (entries: Omit<LogEntry, 'key'>[]) =>
       setLog((prev) => [...entries.map((e) => ({ ...e, key: logKey.current++ })).reverse(), ...prev].slice(0, MAX_LOG));
     let lastEconomy = 0;
+    let errorTimer: ReturnType<typeof setTimeout> | null = null;
+    const showError = (text: string) => {
+      setError(text);
+      if (errorTimer) clearTimeout(errorTimer);
+      errorTimer = setTimeout(() => setError(null), 8000);
+    };
+    // Si el mundo que se reabre al arrancar no se puede cargar (p. ej. de otra versión del motor), se crea uno nuevo.
+    let resuming = false;
     let lastSaved = -2;
     let lastWorldStatus = '';
 
     const off = engine.on((msg) => {
       switch (msg.type) {
         case 'ready':
+          resuming = false;
           setManifest(msg.manifest);
           setSelection(null);
           r.select(null);
@@ -142,9 +156,16 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
           break;
         case 'commandRejected':
           push([{ tick: -1, kind: 'error', text: `Comando rechazado: ${msg.message}` }]);
+          showError(`Comando rechazado: ${msg.message}`);
           break;
         case 'error':
           push([{ tick: -1, kind: 'error', text: `Error del motor: ${msg.message}` }]);
+          showError(msg.message);
+          if (resuming) {
+            resuming = false;
+            push([{ tick: -1, kind: 'error', text: 'No se pudo reabrir el último mundo; se crea uno nuevo.' }]);
+            engine.init(newManifest({ name: 'Nuevo mundo', seed: 1, population: 50 }));
+          }
           break;
       }
     });
@@ -156,7 +177,10 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
       .then((list) => {
         setWorlds(list);
         const resume = list.find((w) => w.status !== 'ended');
-        if (resume) engine.load(resume.worldId);
+        if (resume) {
+          resuming = true;
+          engine.load(resume.worldId);
+        }
         else engine.init(newManifest({ name: 'Valdeolivo · primer mundo', seed: 1, population: 50 }));
       });
 
@@ -188,12 +212,24 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
     economy,
     log,
     population,
+    error,
     worlds,
     selection,
     issuer: LOCAL_ADMIN,
     select,
     newWorld: (o) => client?.init(newManifest(o)),
-    openWorld: (id) => client?.load(id),
+    openWorld: (id) => {
+      const w = worlds.find((x) => x.worldId === id);
+      // Un mundo terminado solo se puede estudiar.
+      if (w?.status === 'ended') client?.replay(id);
+      else client?.load(id);
+    },
+    studyWorld: (id) => client?.replay(id),
+    exitStudy: () => {
+      const live = worlds.find((w) => w.status !== 'ended');
+      if (live) client?.load(live.worldId);
+      else client?.init(newManifest({ name: 'Nuevo mundo', seed: 1, population: 50 }));
+    },
     endWorld: () => client?.end(),
     refreshWorlds,
   };

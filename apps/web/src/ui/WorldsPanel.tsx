@@ -11,6 +11,7 @@ export function WorldsPanel(props: {
   isAdmin: boolean;
   onNew: (o: NewWorldOptions) => void;
   onOpen: (worldId: string) => void;
+  onStudy: (worldId: string) => void;
   onEnd: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -54,13 +55,18 @@ export function WorldsPanel(props: {
               <li key={w.worldId} className={w.worldId === current ? 'current' : ''}>
                 <span title={w.worldId}>{w.name}</span>
                 <span className="muted small">{STATUS_ES[w.status]} · tick {w.lastTick}</span>
-                {w.worldId !== current && (
-                  <button type="button" onClick={() => props.onOpen(w.worldId)}>{w.status === 'ended' ? 'Ver' : 'Abrir'}</button>
-                )}
+                <span className="world-actions">
+                  {w.worldId !== current && w.status !== 'ended' && (
+                    <button type="button" onClick={() => props.onOpen(w.worldId)}>Abrir</button>
+                  )}
+                  {(w.worldId !== current || props.status?.mode !== 'replay') && (
+                    <button type="button" title="Visor de estudio: reproducir lo grabado" onClick={() => props.onStudy(w.worldId)}>Estudiar</button>
+                  )}
+                </span>
               </li>
             ))}
           </ol>
-          {props.isAdmin && props.status && !props.status.readOnly && (
+          {props.isAdmin && props.status && !props.status.readOnly && props.status.mode === 'live' && (
             <button
               type="button"
               className="danger"

@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import type { WorldStore } from '@worldopen/contracts';
-import { Simulation, ticksPerDay } from '@worldopen/engine';
+import { STUDY_METRICS } from '@worldopen/contracts';
+import { ReplayAnalysis, Simulation, tickToDate, ticksPerDay } from '@worldopen/engine';
 
 /** Carpeta por defecto del histórico de mundos del CLI (ignorada por Git). */
 export const DEFAULT_WORLDS_DIR = fileURLToPath(new URL('../../../data/worlds', import.meta.url));
@@ -51,4 +52,30 @@ export async function verifyWorld(store: WorldStore, worldId: string): Promise<V
     if (target === last.tick) break;
   }
   return { worldId, checked, ok: checked.length > 0 && checked.every((c) => c.ok) };
+}
+
+export interface StudyResult {
+  csv: string;
+  rows: number;
+  verification: { checked: number; failed: number[]; total: number };
+}
+
+/** Exporta las series de métricas de un mundo guardado (una fila por muestra) en CSV: el visor de estudio sin UI. */
+export async function studyWorld(store: WorldStore, worldId: string, everyTicks: number, metrics: string[] = [...STUDY_METRICS]): Promise<StudyResult> {
+  const manifest = await store.getManifest(worldId);
+  if (!manifest) throw new Error(`No existe el mundo ${worldId}`);
+  const snapshots = await store.listSnapshots(worldId);
+  const first = snapshots[0] ? await store.getSnapshot(worldId, snapshots[0].tick) : null;
+  if (!first) throw new Error(`El mundo ${worldId} no tiene snapshots`);
+  const end = snapshots.at(-1)!.tick;
+  const analysis = new ReplayAnalysis(manifest, first, await store.readCommands(worldId), snapshots, end, everyTicks, metrics);
+  while (!analysis.done) analysis.advance(10_000);
+  const chunk = analysis.takeChunk();
+  const lines = [['tick', 'day', 'time', ...metrics].join(',')];
+  chunk.ticks.forEach((t, k) => {
+    const d = tickToDate(t, manifest.time);
+    const time = `${String(d.hour).padStart(2, '0')}:${String(d.minute).padStart(2, '0')}`;
+    lines.push([t, d.elapsedDays, time, ...metrics.map((m) => Number(chunk.values[m]![k]!.toFixed(4)))].join(','));
+  });
+  return { csv: lines.join('\n') + '\n', rows: chunk.ticks.length, verification: analysis.verification };
 }

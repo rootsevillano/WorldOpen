@@ -80,3 +80,9 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   que los datos sostienen; dos hipótesis iniciales eran demasiado fuertes (corte de agua "sin daño", escasez "nadie
   trabaja") y se reformularon. Las existencias iniciales deben escalar con la población, no con el número de tiendas.
 - (2026-10-29) Persistencia: con escrituras encadenadas, calcular el tramo del log al ejecutar cada escritura.
+- (2026-10-29) Fase 4: el visor detectó que el hash incluía la cola de comandos pendientes (en replay contiene comandos
+  futuros aún no enviados en el original) → falsos fallos de verificación. Lección: un hash de verificación debe cubrir
+  solo el estado observable del mundo. Los tests de replay deben enviar comandos *a mitad de partida*, no al inicio.
+- (2026-10-29) Un comando aplicado en el tick T solo se ve en T+1: saltar a un marcador lleva a T+1.
+- (2026-10-29) Al cambiar de mundo con `init`/`load`/`replay`, el host guarda antes el mundo vivo (si no, se perdía
+  el progreso desde el último guardado diario).

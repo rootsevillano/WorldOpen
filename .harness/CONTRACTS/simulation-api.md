@@ -29,6 +29,10 @@ UI                                   Engine host (Worker)
 - Protocolo v2 (Fase 2): `RenderFrame.agentFlags` y `query {map}`.
 - Protocolo v3 (Fase 3): `load {worldId}`, `end`, `RenderFrame.buildingStates`, `query {agent | building | economy}`
   (inspector, solo lectura) y `EngineStatus.{worldId, worldStatus, readOnly, savedTick}`. `ready` incluye el manifiesto.
+- Protocolo v4 (Fase 4): `replay {worldId}`, `seek {tick}`, `analyze {everyTicks, metrics}` → mensajes `series`
+  (`SeriesChunk` + `AnalysisProgress` con verificación), `query {timeline}`, `EngineStatus.{mode, endTick}`. En replay
+  `play`/`step` no pasan de `endTick` y los comandos se rechazan (`read_only`). Antes de `init`/`load`/`replay` el host
+  guarda el progreso del mundo vivo. Ver ADR-0015.
 - Con `WorldStore`, el host guarda cada día de juego, al pausar y al terminar (ADR-0013). Tras `init`, `savedTick` vale −1
   hasta que el mundo queda registrado.
 - Errores dentro del motor ⇒ `error` y el host se pausa (el mundo no avanza en estado inconsistente).

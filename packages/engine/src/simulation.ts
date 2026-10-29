@@ -103,7 +103,7 @@ export class Simulation {
   /** Restaura un snapshot y, opcionalmente, reprograma los comandos del log posteriores a él. */
   static restore(manifest: WorldManifest, snapshot: Snapshot, log: LoggedCommand[] = [], options: SimulationOptions = {}): Simulation {
     if (snapshot.engineVersion !== ENGINE_VERSION) {
-      throw new Error(`Snapshot de la versión ${snapshot.engineVersion}; motor ${ENGINE_VERSION}`);
+      throw new Error(`Este mundo se grabó con el motor ${snapshot.engineVersion} y no se puede reproducir con el ${ENGINE_VERSION}`);
     }
     const sim = new Simulation(manifest, { ...options, skipPopulation: true });
     const w = sim.world;
@@ -207,7 +207,10 @@ export class Simulation {
     };
   }
 
-  /** Hash del estado completo (ADR-0003). */
+  /**
+   * Hash del estado del mundo (ADR-0003). No incluye la cola de comandos pendientes: en un replay esa cola ya contiene
+   * comandos futuros que en la ejecución original aún no se habían enviado, y el mundo es idéntico igualmente.
+   */
   hash(): number {
     const w = this.world;
     const h = new StateHasher().u32(w.tick);
@@ -238,8 +241,6 @@ export class Simulation {
         for (let k = 0; k < p.length; k++) h.f64(p[k]!);
       }
     }
-    h.u32(this.queue.length);
-    for (const q of this.queue) h.u32(q.appliedAtTick).str(q.envelope.id);
     return h.digest();
   }
 

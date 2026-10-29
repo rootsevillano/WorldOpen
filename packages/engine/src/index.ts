@@ -15,3 +15,5 @@ export { inShift, dayOfWeek, minuteOfDay } from './agents/environment';
 export type { Ruleset } from './rulesets/ruleset';
 export { RULESETS } from './rulesets/contemporary';
 export { World } from './world/world';
+export { metric, resolveBuilding, resolvePayload, REPORT_METRICS } from './metrics';
+export { ReplayAnalysis } from './study';
