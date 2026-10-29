@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { CommandEnvelope, CriterionValue, TimeConfig, WorldManifest } from '@worldopen/contracts';
 import { DEFAULT_TIME, MINUTES_PER_DAY, ticksPerDay } from '@worldopen/engine';
-import { metric } from './metrics';
+import { metric, resolvePayload } from './metrics';
 import { createSimulation } from './simulate';
 
 /**
@@ -90,15 +90,26 @@ export function runScenario(file: string, scenario: Scenario): ScenarioResult {
   const runOnce = (seed: number) => {
     const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time } });
     for (const c of commands(seed)) {
-      const res = sim.submit(c);
+      const res = sim.submit({ ...c, payload: resolvePayload(sim, c.payload) });
       if (!res.ok) rejected.push(res.message);
     }
+    // Recuento acumulado de eventos por tipo: métricas `events.<tipo>`.
+    const events = new Map<string, number>();
+    const drain = () => {
+      for (const e of sim.drainEvents()) events.set(e.type, (events.get(e.type) ?? 0) + 1);
+    };
     // Muestras por checkpoint: tick → métrica → valor.
     const samples = new Map<number, Map<string, CriterionValue | undefined>>();
     for (const cp of checkpoints) {
-      sim.step(cp - sim.tick);
+      while (sim.tick < cp) {
+        sim.step(Math.min(1440, cp - sim.tick));
+        drain();
+      }
       const row = new Map<string, CriterionValue | undefined>();
-      for (const a of metricAssertions) if ((a.at ? momentToTick(a.at, time) : ticks) === cp) row.set(a.metric, metric(sim, a.metric));
+      for (const a of metricAssertions) {
+        if ((a.at ? momentToTick(a.at, time) : ticks) !== cp) continue;
+        row.set(a.metric, a.metric.startsWith('events.') ? (events.get(a.metric.slice(7)) ?? 0) : metric(sim, a.metric));
+      }
       samples.set(cp, row);
     }
     sim.step(ticks - sim.tick);

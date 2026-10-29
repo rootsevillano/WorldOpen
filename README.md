@@ -3,8 +3,9 @@
 Motor de simulación de mundos autónomos: una población ficticia vive, decide y reacciona en un pueblo ficticio
 construido sobre un mapeado real. El administrador ("Dios") fija y cambia los criterios del mundo; los demás observan.
 
-> Estado: **Fase 2 — MVP de supervivencia** completada sobre un mapa sintético: habitantes ficticios con necesidades
-> (cobijo, energía, social) que deciden moverse por el pueblo, vuelven a casa de noche y se refugian en una ola de calor.
+> Estado: **Fase 3 — MVP** completada sobre un mapa sintético: habitantes ficticios con necesidades, trabajo,
+> economía de recursos (comida, agua, leña), memoria y amistades; Modo Dios con criterios, incendios, inspector y
+> seguimiento; histórico de mundos guardado y reproducible.
 > Visión, decisiones y estado: [`.harness/`](.harness/).
 
 ## Requisitos
@@ -19,14 +20,20 @@ npm install
 ```bash
 npm run dev
 ```
-Abre http://localhost:5180. HUD con fecha y hora de juego, control del tiempo (pausa, 1×–60×, máximo) y panel
-**Modo Dios** para cambiar criterios.
+Abre http://localhost:5180. HUD con fecha, población y economía; control del tiempo; panel **Mundos** (crear, abrir,
+terminar; se guardan solos en el navegador); **Modo Dios** para cambiar criterios y crear habitantes. Clic en un
+habitante o edificio para inspeccionarlo, seguirlo con la cámara o provocar un incendio.
 
 ```bash
 npm run simulate -- --ticks 10000 --seed 7 --agents 200
 ```
 Simulación headless (sin gráficos) con informe de métricas. Opciones: `--minutes-per-tick <n>`, `--out <informe.json>`,
-`--max-ms <n>`.
+`--max-ms <n>`, `--save [--end] [--name <n>]` (guarda en `data/worlds/`).
+
+```bash
+npm --workspace @worldopen/cli run worldopen -- worlds
+```
+Lista los mundos guardados por el CLI; `verify <worldId>` los reproduce y comprueba cada snapshot.
 
 ## Quality Gates
 
@@ -44,7 +51,8 @@ en GitHub Actions. El Visual Gate se hace en el navegador.
 | `packages/contracts` | Contratos compartidos (protocolo, frames, comandos, manifiesto, map-pack) |
 | `packages/engine` | Motor puro y determinista (sin DOM, sin Three.js) |
 | `packages/render` | Render Three.js que solo consume `RenderFrame` |
-| `packages/cli` | `worldopen` headless: `simulate`, `gate behavior` |
+| `packages/store` | Histórico de mundos: almacenes en memoria e IndexedDB, batería de conformidad |
+| `packages/cli` | `worldopen` headless: `simulate`, `worlds`, `verify`, `gate behavior` |
 | `apps/web` | Vite + React; el motor corre en un Web Worker |
 
 ## Licencia y datos

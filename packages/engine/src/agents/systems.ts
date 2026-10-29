@@ -99,7 +99,7 @@ export function needsSystem(world: World): void {
 }
 
 /** Puntuación de abastecerse de cada recurso para el hogar del agente (0 si no procede). */
-function provisionScore(world: World, i: number, r: number, night: number, busyHouseholds: Uint8Array): number {
+function provisionScore(world: World, i: number, r: number, night: number, outdoorAppeal: number, busyHouseholds: Uint8Array): number {
   const a = world.agents;
   const home = a.home[i]!;
   const residents = Math.max(1, world.buildings.residents[home]!);
@@ -109,7 +109,8 @@ function provisionScore(world: World, i: number, r: number, night: number, busyH
   if (r === Resource.Food) urgency = pantry < 1 ? (1 - a.hunger[i]!) * 1.2 : 0;
   else if (r === Resource.Water) urgency = pantry < 1 ? (1 - a.thirst[i]!) * 1.4 : 0;
   else urgency = homeWarm(world, home) ? 0 : 0.6;
-  let s = shortage * (r === Resource.Wood ? 0.35 : 0.55) + urgency - night * 0.5;
+  // Reponer sin urgencia se aplaza si fuera hace un tiempo hostil; la urgencia no.
+  let s = shortage * (r === Resource.Wood ? 0.35 : 0.55) * outdoorAppeal + urgency - night * 0.5;
   // Si otro miembro del hogar ya va a por ello, casi nadie más va.
   if (busyHouseholds[home]! & (1 << r)) s *= 0.15;
   return s;
@@ -191,7 +192,7 @@ export function decisionSystem(world: World): void {
       let bestP = -Infinity;
       for (const r of [Resource.Food, Resource.Water, Resource.Wood]) {
         if (!sourceOpen(world, r)) continue;
-        const p = provisionScore(world, i, r, night, busyHouseholds);
+        const p = provisionScore(world, i, r, night, outdoorAppeal, busyHouseholds);
         if (p > bestP) {
           bestP = p;
           bestR = r;

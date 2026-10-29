@@ -17,8 +17,10 @@ Reglas de ciclo de vida en ADR-0005; roles en ADR-0006; criterios en ADR-0010.
 | `criteria.set` | 1 | active | admin | `{ key, value }` | Cambia un criterio con `mutableBy` admin/both; emite `criteria.changed` | Fase 1 |
 | `agent.spawn` | 1 | active | admin | `{ count?: 1–500, homeBuildingId? }` | Crea habitantes ficticios en una vivienda (o al azar ponderado por viviendas); emite `agent.spawned` | Fase 2 |
 | `agent.remove` | 1 | active | admin | `{ agentId }` | Elimina un habitante; emite `agent.removed` | Fase 2 |
+| `disaster.fire` | 1 | active | admin | `{ buildingId }` | Incendio 3 h (ocupantes huyen, existencias a 0, testigos lo recuerdan) → dañado 2 días → en uso; emite `fire.started`, `fire.ended`, `building.repaired` | Fase 3 |
 
-Previstos para el MVP: `disaster.fire`. La ola de calor ya se expresa como `criteria.set climate.baseTemperatureC`.
+La ola de calor y el corte de agua se expresan como `criteria.set` (`climate.baseTemperatureC`, `economy.waterSupply`).
+En un mundo terminado (`ended`) el host rechaza cualquier comando con `read_only`.
 Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mundo): son queries y controles del host.
 
 ## Criterios del ruleset `contemporary`
@@ -27,6 +29,7 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 |---|---|---|---|---|
 | `climate.baseTemperatureC` | number | −10 … 50 | 18 | both |
 | `economy.foodAbundance` | number | 0 … 1 | 0.7 | admin |
+| `economy.waterSupply` | number | 0 … 1 | 1 | admin |
 | `society.sociability` | number | 0 … 1 | 0.5 | admin |
 | `society.initialPopulation` | number | 0 … 10000 | 5 | system (solo en el manifiesto) |
 | `world.era` | enum | contemporary, historical | contemporary | admin |

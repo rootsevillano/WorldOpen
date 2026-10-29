@@ -72,3 +72,11 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   con capturas (fuerzan el pintado), no con contadores actualizados en el bucle de render.
 - (2026-10-29) El registro de consola del navegador integrado no se limpia al recargar: para el Visual Gate, contar
   errores nuevos con un listener `error` instalado tras la recarga.
+- (2026-10-29) Tras añadir un paquete del workspace con `npm run dev` en marcha, el Worker de Vite puede servir módulos
+  obsoletos (errores imposibles como `buildings` undefined): reiniciar el servidor de desarrollo.
+- (2026-10-29) Eventos `PointerEvent` sintéticos sobre el canvas provocan un error de `setPointerCapture` en
+  OrbitControls: es un artefacto de la prueba, no de la app.
+- (2026-10-29) Fase 3: los Behavior Gates se calibran midiendo primero (sondas por hora) y redactando la afirmación
+  que los datos sostienen; dos hipótesis iniciales eran demasiado fuertes (corte de agua "sin daño", escasez "nadie
+  trabaja") y se reformularon. Las existencias iniciales deben escalar con la población, no con el número de tiendas.
+- (2026-10-29) Persistencia: con escrituras encadenadas, calcular el tramo del log al ejecutar cada escritura.

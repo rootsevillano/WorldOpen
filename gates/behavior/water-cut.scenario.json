@@ -1,0 +1,17 @@
+{
+  "name": "water-cut",
+  "description": "Corte del agua corriente a las 07:00: las despensas de agua bajan, la población recurre a las fuentes públicas y aguanta con un daño limitado en la salud (quien vive lejos de una fuente lo pasa peor).",
+  "seeds": [1, 2, 3],
+  "days": 3,
+  "manifest": { "criteria": { "society.initialPopulation": 200 } },
+  "commands": [
+    { "type": "criteria.set", "version": 1, "atHour": 1, "payload": { "key": "economy.waterSupply", "value": 0 } }
+  ],
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "economy.pantryWater", "op": "<", "value": 1100, "at": { "day": 0, "hour": 14 } },
+    { "kind": "metric", "metric": "economy.fountainWater", "op": "<", "value": 2100, "at": { "day": 0, "hour": 16 } },
+    { "kind": "metric", "metric": "agents.avgThirst", "op": ">=", "value": 0.4, "at": { "day": 2, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.avgHealth", "op": ">=", "value": 0.75 }
+  ]
+}

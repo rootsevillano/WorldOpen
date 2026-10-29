@@ -13,5 +13,8 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
 - Los buffers se **transfieren** (no se copian): el motor crea arrays nuevos por frame y deja de usarlos al enviarlos.
 - El render interpola entre los dos últimos frames emparejando por `agentId` (los índices pueden cambiar al borrar agentes).
 - La iluminación usa `frame.date.minuteOfDay` y la estación (sol de la latitud real del mapa).
-- Edificios (G3): el estado lógico por edificio (incendio, destruido…) llegará como campo nuevo indexado por el id opaco
-  del map-pack; el render resaltará/sustituirá la malla correspondiente. No existe aún.
+- Edificios (G3): `buildingStates` (u8, `BuildingState`: en uso, ardiendo, dañado) indexado como `MapLogic.buildings`
+  concatenado por región. El render recolorea la instancia (rojo = ardiendo, gris oscuro = dañado). Con geometría
+  dinámica (fase posterior) se sustituirá la malla del mismo índice.
+- Selección: `WorldRenderer.pick(x, y)` devuelve el agente (en la calle) o el edificio bajo el puntero; `follow(id)`
+  mueve el foco de la cámara con el agente interpolado.

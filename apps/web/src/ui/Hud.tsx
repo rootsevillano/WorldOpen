@@ -1,15 +1,16 @@
-import type { EngineStatus, Season, WorldManifest } from '@worldopen/contracts';
+import type { EconomySummary, EngineStatus, Season, WorldManifest } from '@worldopen/contracts';
 import type { PopulationSummary } from './useEngine';
 
 const SEASONS: Record<Season, string> = { winter: 'Invierno', spring: 'Primavera', summer: 'Verano', autumn: 'Otoño' };
 const pad = (n: number) => String(n).padStart(2, '0');
 
-export function Hud({ manifest, status, population }: { manifest: WorldManifest | null; status: EngineStatus | null; population: PopulationSummary | null }) {
+export function Hud({ manifest, status, population, economy }: { manifest: WorldManifest | null; status: EngineStatus | null; population: PopulationSummary | null; economy: EconomySummary | null }) {
   const region = manifest?.regions[0]?.displayName ?? '…';
   const d = status?.date;
   return (
     <section className="panel hud" aria-label="Estado del mundo">
       <h1>{region}</h1>
+      {manifest && <div className="muted small">{manifest.name}</div>}
       {d ? (
         <>
           <div className="clock" data-testid="clock">
@@ -20,7 +21,15 @@ export function Hud({ manifest, status, population }: { manifest: WorldManifest 
           </div>
           {population && (
             <div className="small" data-testid="population">
-              {population.total} habitantes · {population.indoors} bajo techo · {population.walking} en la calle · {population.sleeping} durmiendo
+              {population.total} habitantes · {population.walking} en la calle · {population.working} trabajando · {population.sleeping} durmiendo
+              {population.queueing > 0 && ` · ${population.queueing} en cola`}
+            </div>
+          )}
+          {economy && (
+            <div className="small muted" data-testid="economy">
+              Tiendas {economy.shopFood.toFixed(0)} comida · Fuentes {economy.fountainWater.toFixed(0)} agua · Aserradero {economy.sawmillWood.toFixed(0)} leña
+              <br />
+              Despensas: {economy.pantryFood.toFixed(0)} comida · {economy.pantryWater.toFixed(0)} agua · {economy.pantryWood.toFixed(0)} leña
             </div>
           )}
           <div className="muted small">

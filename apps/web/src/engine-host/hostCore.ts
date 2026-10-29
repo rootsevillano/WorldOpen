@@ -168,13 +168,16 @@ export class EngineHostCore {
       const sim = msg.snapshot
         ? Simulation.restore(msg.manifest, msg.snapshot, msg.log ?? [])
         : new Simulation(msg.manifest);
-      this.start(sim, 'created', false, this.store ? sim.tick : -1);
+      // Hasta que el mundo quede registrado en el almacén, no hay nada guardado (savedTick = −1).
+      this.start(sim, 'created', false, -1);
       if (this.store) {
         const store = this.store;
         const snapshot = sim.snapshot();
         void this.enqueue(async () => {
           await store.createWorld(msg.manifest);
           await store.putSnapshot(msg.manifest.worldId, snapshot);
+          this.savedTick = snapshot.tick;
+          this.publishStatus(this.now());
         });
       }
       return;

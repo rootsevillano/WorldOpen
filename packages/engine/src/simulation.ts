@@ -93,10 +93,10 @@ export class Simulation {
     );
 
     if (!options.skipPopulation) {
-      seedStocks(this.world);
       const initial = this.world.criteria['society.initialPopulation'];
       const n = typeof initial === 'number' ? Math.min(initial, this.world.agents.capacity) : 0;
       for (let k = 0; k < n; k++) spawnAgent(this.world);
+      seedStocks(this.world);
     }
   }
 

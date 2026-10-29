@@ -11,4 +11,7 @@ Código: `packages/contracts/src/store.ts`, `manifest.ts`, `snapshot.ts`. Decisi
 - Estados: `created → running ⇄ paused → ended`. Un mundo `ended` no acepta comandos ni snapshots nuevos.
 - Adaptadores previstos: `IndexedDbWorldStore` (web, MVP), `FileWorldStore` (CLI, MVP: carpeta por `worldId` con
   `manifest.json`, `commands.jsonl`, `snapshots/<tick>.json`), `ServerWorldStore` (fase servidor).
-- **Pendiente** (implementación en el MVP, no en Fase 1): los adaptadores. El formato definitivo se cerrará junto al visor de estudio.
+- **Implementado (Fase 3):** `MemoryWorldStore` e `IndexedDbWorldStore` (`@worldopen/store`), `FileWorldStore` (CLI,
+  `data/worlds/`). Todos superan `@worldopen/store/conformance`. El snapshot incluye `buildings.columns`
+  (existencias, estado, residentes).
+- `worldopen verify <worldId>` reproduce el mundo desde el snapshot del tick 0 y compara cada snapshot diario.

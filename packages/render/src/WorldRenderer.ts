@@ -1,4 +1,4 @@
-import { AgentActivity, AgentFlag, type BuildingUse, type MapLogic, type RenderFrame } from '@worldopen/contracts';
+import { AgentActivity, AgentFlag, BuildingState, type BuildingUse, type MapLogic, type RenderFrame } from '@worldopen/contracts';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -24,7 +24,15 @@ const ACTIVITY_COLORS: Record<number, THREE.Color> = {
   [AgentActivity.Sleeping]: new THREE.Color(0x6b5bd6),
   [AgentActivity.Socializing]: new THREE.Color(0x2fb37a),
   [AgentActivity.Fleeing]: new THREE.Color(0xe53935),
+  [AgentActivity.Working]: new THREE.Color(0x8d6e63),
+  [AgentActivity.Eating]: new THREE.Color(0xfdd835),
+  [AgentActivity.Queueing]: new THREE.Color(0xff4fa3),
 };
+
+const BURNING = new THREE.Color(0xff5a1f);
+const DAMAGED = new THREE.Color(0x3b3b3b);
+
+export type Pick = { kind: 'agent'; id: number } | { kind: 'building'; id: string } | null;
 
 /**
  * Render 3D (Render API). Solo consume `RenderFrame` y el mapa lógico; no conoce el motor.
@@ -39,6 +47,16 @@ export class WorldRenderer {
   private readonly hemi = new THREE.HemisphereLight(0xbcd6ec, 0x5b5a3c, 1.0);
   private readonly agents: THREE.InstancedMesh;
   private readonly mapGroup = new THREE.Group();
+  private buildingMesh: THREE.InstancedMesh | null = null;
+  private buildingIds: string[] = [];
+  private buildingBase: THREE.Color[] = [];
+  private buildingStates: Uint8Array = new Uint8Array(0);
+  /** Id de agente de cada instancia dibujada (para la selección). */
+  private agentAtInstance: number[] = [];
+  private following: number | null = null;
+  private selected: Pick = null;
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly marker: THREE.Mesh;
   private readonly skyDay = new THREE.Color(0xbcd6ec);
   private readonly skyNight = new THREE.Color(0x0b1424);
   private readonly tmp = new THREE.Object3D();
@@ -85,9 +103,50 @@ export class WorldRenderer {
     this.agents.name = 'AGENTS';
     this.scene.add(this.agents);
 
+    this.marker = new THREE.Mesh(
+      new THREE.RingGeometry(1.2, 1.6, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xffeb3b, side: THREE.DoubleSide, depthTest: false }),
+    );
+    this.marker.renderOrder = 10;
+    this.marker.visible = false;
+    this.scene.add(this.marker);
+
     window.addEventListener('resize', this.onResize);
     this.resize();
     this.loop();
+  }
+
+  /** Qué hay bajo el puntero (coordenadas de cliente). Agentes antes que edificios. */
+  pick(clientX: number, clientY: number): Pick {
+    const rect = this.canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    // Los agentes se mueven: la esfera envolvente de las instancias se recalcula en cada selección.
+    this.agents.computeBoundingSphere();
+    const agentHit = this.raycaster.intersectObject(this.agents, false)[0];
+    if (agentHit?.instanceId !== undefined) {
+      const id = this.agentAtInstance[agentHit.instanceId];
+      if (id !== undefined) return { kind: 'agent', id };
+    }
+    if (this.buildingMesh) {
+      const hit = this.raycaster.intersectObject(this.buildingMesh, false)[0];
+      if (hit?.instanceId !== undefined) return { kind: 'building', id: this.buildingIds[hit.instanceId]! };
+    }
+    return null;
+  }
+
+  select(p: Pick): void {
+    this.selected = p;
+    if (!p || p.kind !== 'agent') this.following = null;
+  }
+
+  /** La cámara sigue a un agente (G1) o deja de seguir (`null`). */
+  follow(agentId: number | null): void {
+    this.following = agentId;
+  }
+
+  get followingId(): number | null {
+    return this.following;
   }
 
   /** Dibuja el mapa lógico: edificios como volúmenes por uso y calles como franjas. */
@@ -97,6 +156,10 @@ export class WorldRenderer {
     const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
     const mesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ roughness: 0.9 }), buildings.length);
     mesh.name = 'BUILDINGS';
+    this.buildingMesh = mesh;
+    this.buildingIds = buildings.map((b) => b.id);
+    this.buildingBase = buildings.map((b) => new THREE.Color(USE_COLORS[b.use]));
+    this.buildingStates = new Uint8Array(buildings.length);
     const color = new THREE.Color();
     buildings.forEach((b, i) => {
       const side = Math.sqrt(b.footprintAreaM2);
@@ -153,6 +216,21 @@ export class WorldRenderer {
     }
     this.frame = frame;
     this.updateSun(frame);
+    this.updateBuildingStates(frame.buildingStates);
+  }
+
+  private updateBuildingStates(states: Uint8Array): void {
+    const mesh = this.buildingMesh;
+    if (!mesh || states.length !== this.buildingStates.length) return;
+    let changed = false;
+    for (let b = 0; b < states.length; b++) {
+      if (states[b] === this.buildingStates[b]) continue;
+      const s = states[b]!;
+      mesh.setColorAt(b, s === BuildingState.Burning ? BURNING : s === BuildingState.Damaged ? DAMAGED : this.buildingBase[b]!);
+      this.buildingStates[b] = s;
+      changed = true;
+    }
+    if (changed && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 
   private interpolated(frame: RenderFrame, i: number, now: number): [number, number, number] {
@@ -171,8 +249,21 @@ export class WorldRenderer {
     // Los monigotes crecen con la distancia para que se vean desde la vista aérea.
     const scale = Math.max(1, this.camera.position.distanceTo(this.controls.target) / 70);
     let n = 0;
+    this.marker.visible = false;
     for (let i = 0; i < f.agentCount && n < MAX_AGENTS; i++) {
-      if (f.agentFlags[i]! & AgentFlag.Indoors) continue;
+      const id = f.agentIds[i]!;
+      const indoors = (f.agentFlags[i]! & AgentFlag.Indoors) !== 0;
+      if (id === this.following || (this.selected?.kind === 'agent' && this.selected.id === id)) {
+        const [px, , pz] = this.interpolated(f, i, now);
+        if (id === this.following) this.moveTarget(px, pz);
+        if (this.selected?.kind === 'agent' && this.selected.id === id) {
+          this.marker.position.set(px, 0.2, pz);
+          this.marker.scale.setScalar(scale);
+          this.marker.visible = true;
+        }
+      }
+      if (indoors) continue;
+      this.agentAtInstance[n] = id;
       const [x, y, z] = this.interpolated(f, i, now);
       this.tmp.position.set(x, y, z);
       this.tmp.rotation.set(0, f.agentHeadings[i]!, 0);
@@ -185,6 +276,17 @@ export class WorldRenderer {
     this.agents.count = n;
     this.agents.instanceMatrix.needsUpdate = true;
     if (this.agents.instanceColor) this.agents.instanceColor.needsUpdate = true;
+  }
+
+  /** Desplaza el foco de la cámara (y la cámara con él) hacia (x, z) con suavizado. */
+  private moveTarget(x: number, z: number): void {
+    const t = this.controls.target;
+    const dx = (x - t.x) * 0.15;
+    const dz = (z - t.z) * 0.15;
+    t.x += dx;
+    t.z += dz;
+    this.camera.position.x += dx;
+    this.camera.position.z += dz;
   }
 
   /** Sol aproximado por hora del día y estación (solo visual; la lógica del motor no lo usa). */

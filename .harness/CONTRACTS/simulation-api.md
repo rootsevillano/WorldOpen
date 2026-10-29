@@ -27,4 +27,8 @@ UI                                   Engine host (Worker)
 - `query {snapshot}` devuelve el estado completo; `query {log}` el log de comandos aceptados; `query {map}` los mapas
   lógicos de las regiones (estáticos: el render los pide una vez).
 - Protocolo v2 (Fase 2): `RenderFrame.agentFlags` y `query {map}`.
+- Protocolo v3 (Fase 3): `load {worldId}`, `end`, `RenderFrame.buildingStates`, `query {agent | building | economy}`
+  (inspector, solo lectura) y `EngineStatus.{worldId, worldStatus, readOnly, savedTick}`. `ready` incluye el manifiesto.
+- Con `WorldStore`, el host guarda cada día de juego, al pausar y al terminar (ADR-0013). Tras `init`, `savedTick` vale −1
+  hasta que el mundo queda registrado.
 - Errores dentro del motor ⇒ `error` y el host se pausa (el mundo no avanza en estado inconsistente).

@@ -233,10 +233,13 @@ export function employed(world: World, i: number): boolean {
   return occ !== Occupation.Unemployed && occ !== Occupation.Retired && a.workplace[i]! >= 0 && usable(world, a.workplace[i]!);
 }
 
-/** Existencias iniciales de los puntos de suministro al crear el mundo. */
+/** Existencias iniciales de los puntos de suministro al crear el mundo (tras crear la población). */
 export function seedStocks(world: World): void {
   const bs = world.buildings;
-  for (const p of world.map.byUse.publicServices) bs.water[p] = FOUNTAIN_CAP;
-  for (const s of world.map.byUse.industrial) bs.wood[s] = 60;
-  for (const s of world.map.byUse.retail) bs.food[s] = 150;
+  const u = world.map.byUse;
+  for (const p of u.publicServices) bs.water[p] = FOUNTAIN_CAP;
+  for (const s of u.industrial) bs.wood[s] = 60;
+  // Unos tres días de comida por habitante, repartidos entre las tiendas: no depende de cuántas haya.
+  const food = 3 * world.agents.count;
+  for (const s of u.retail) bs.food[s] = food / u.retail.length;
 }

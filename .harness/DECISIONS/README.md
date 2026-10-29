@@ -16,3 +16,6 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0009](0009-time-model.md) | Modelo de tiempo parametrizable | Aceptada |
 | [0010](0010-criteria-rulesets.md) | Criterios del mundo y rulesets | Aceptada |
 | [0011](0011-quality-gates.md) | Quality Gates y CI | Aceptada |
+| [0012](0012-resource-economy.md) | Economía de recursos sin dinero | Aceptada |
+| [0013](0013-persistence-in-engine-host.md) | La persistencia vive en el host del motor | Aceptada |
+| [0014](0014-simulation-lod-deferred.md) | LOD de simulación aplazado | Aceptada |
