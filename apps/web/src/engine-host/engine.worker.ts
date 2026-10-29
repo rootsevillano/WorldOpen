@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import type { HostToEngine } from '@worldopen/contracts';
 import { IndexedDbWorldStore } from '@worldopen/store';
-import { EngineHostCore } from './hostCore';
+import { EngineHostCore } from '@worldopen/host';
 
 /** Host Web Worker: el motor corre aquí, fuera del hilo de render (master prompt §2). */
 const scope = self as unknown as DedicatedWorkerGlobalScope;

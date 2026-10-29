@@ -15,8 +15,11 @@ import { WorldRenderer, type Pick } from '@worldopen/render';
 import { IndexedDbWorldStore } from '@worldopen/store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EngineClient } from '../engine-host/EngineClient';
+import { SocketTransport, WorkerTransport } from '../engine-host/transport';
 
-/** MVP local: el host local actúa como administrador (ADR-0006). */
+/** Modo local (motor en un Worker, el usuario es Dios) o servidor (sesión con rol, ADR-0016). */
+export type AppSession = { mode: 'local' } | { mode: 'server'; name: string; role: 'admin' | 'observer' };
+
 const LOCAL_ADMIN: Issuer = { userId: 'local', role: 'admin' };
 const MAX_LOG = 200;
 
@@ -69,6 +72,7 @@ export interface EngineState {
   worlds: WorldSummary[];
   selection: Pick;
   issuer: Issuer;
+  session: AppSession;
   select(p: Pick): void;
   newWorld(o: NewWorldOptions): void;
   openWorld(worldId: string): void;
@@ -76,10 +80,15 @@ export interface EngineState {
   exitStudy(): void;
   endWorld(): void;
   refreshWorlds(): void;
+  logout(): void;
 }
 
-/** Conecta Worker, render, histórico de mundos y UI. Los frames van directos al render, sin pasar por React. */
-export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): EngineState {
+/**
+ * Conecta motor (Worker o servidor), render, histórico de mundos y UI. Los frames van directos al render.
+ * En modo servidor, el visor de estudio abre su propia conexión privada y el mundo compartido no cambia.
+ */
+export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, session: AppSession): EngineState {
+  const issuer: Issuer = session.mode === 'server' ? { userId: session.name, role: session.role } : LOCAL_ADMIN;
   const [client, setClient] = useState<EngineClient | null>(null);
   const [renderer, setRenderer] = useState<WorldRenderer | null>(null);
   const [manifest, setManifest] = useState<WorldManifest | null>(null);
@@ -94,105 +103,130 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
   const logKey = useRef(0);
   const lastFrame = useRef<RenderFrame | null>(null);
   const store = useRef<IndexedDbWorldStore | null>(null);
+  /** Conecta un cliente como activo (escuchas incluidas) y desconecta el anterior. */
+  const activate = useRef<(c: EngineClient) => void>(() => {});
+  const active = useRef<EngineClient | null>(null);
+  const resuming = useRef(false);
 
   const refreshWorlds = useCallback(() => {
-    void store.current?.listWorlds().then(setWorlds).catch(() => setWorlds([]));
-  }, []);
+    if (session.mode === 'server') {
+      void fetch('/api/worlds').then((r) => (r.ok ? r.json() : [])).then(setWorlds).catch(() => setWorlds([]));
+    } else {
+      void store.current?.listWorlds().then(setWorlds).catch(() => setWorlds([]));
+    }
+  }, [session.mode]);
 
   useEffect(() => {
     if (!canvas.current) return;
     const r = new WorldRenderer(canvas.current);
-    const engine = new EngineClient(LOCAL_ADMIN);
-    store.current = new IndexedDbWorldStore();
+    store.current = session.mode === 'local' ? new IndexedDbWorldStore() : null;
     const push = (entries: Omit<LogEntry, 'key'>[]) =>
       setLog((prev) => [...entries.map((e) => ({ ...e, key: logKey.current++ })).reverse(), ...prev].slice(0, MAX_LOG));
-    let lastEconomy = 0;
     let errorTimer: ReturnType<typeof setTimeout> | null = null;
     const showError = (text: string) => {
       setError(text);
       if (errorTimer) clearTimeout(errorTimer);
       errorTimer = setTimeout(() => setError(null), 8000);
     };
-    // Si el mundo que se reabre al arrancar no se puede cargar (p. ej. de otra versión del motor), se crea uno nuevo.
-    let resuming = false;
+
+    let off: (() => void) | null = null;
+    let lastEconomy = 0;
     let lastSaved = -2;
     let lastWorldStatus = '';
-
-    const off = engine.on((msg) => {
-      switch (msg.type) {
-        case 'ready':
-          resuming = false;
-          setManifest(msg.manifest);
-          setSelection(null);
-          r.select(null);
-          void engine.query('catalog').then(setCatalog);
-          void engine.query('map').then((maps) => r.setMap(maps));
-          push([{ tick: msg.tick, kind: 'ok', text: `Mundo «${msg.manifest.name}» listo (motor ${msg.engineVersion})` }]);
-          refreshWorlds();
-          break;
-        case 'frame':
-          r.applyFrame(msg.frame);
-          lastFrame.current = msg.frame;
-          break;
-        case 'status': {
-          setStatus(msg.status);
-          // Cada guardado (o cambio de estado del mundo) puede cambiar la lista del histórico.
-          if (msg.status.savedTick !== lastSaved || msg.status.worldStatus !== lastWorldStatus) {
-            lastSaved = msg.status.savedTick;
-            lastWorldStatus = msg.status.worldStatus;
+    activate.current = (engine: EngineClient) => {
+      off?.();
+      lastSaved = -2;
+      off = engine.on((msg) => {
+        switch (msg.type) {
+          case 'ready':
+            resuming.current = false;
+            setManifest(msg.manifest);
+            setSelection(null);
+            r.select(null);
+            void engine.query('catalog').then(setCatalog);
+            void engine.query('map').then((maps) => r.setMap(maps));
+            push([{ tick: msg.tick, kind: 'ok', text: `Mundo «${msg.manifest.name}» listo (motor ${msg.engineVersion})` }]);
             refreshWorlds();
+            break;
+          case 'frame':
+            r.applyFrame(msg.frame);
+            lastFrame.current = msg.frame;
+            break;
+          case 'status': {
+            setStatus(msg.status);
+            if (lastFrame.current) setPopulation(summarize(lastFrame.current));
+            // Cada guardado (o cambio de estado del mundo) puede cambiar la lista del histórico.
+            if (msg.status.savedTick !== lastSaved || msg.status.worldStatus !== lastWorldStatus) {
+              lastSaved = msg.status.savedTick;
+              lastWorldStatus = msg.status.worldStatus;
+              refreshWorlds();
+            }
+            const now = performance.now();
+            if (now - lastEconomy > 1000) {
+              lastEconomy = now;
+              void engine.query('economy').then(setEconomy);
+            }
+            break;
           }
-          if (lastFrame.current) setPopulation(summarize(lastFrame.current));
-          const now = performance.now();
-          if (now - lastEconomy > 1000) {
-            lastEconomy = now;
-            void engine.query('economy').then(setEconomy);
-          }
-          break;
+          case 'events':
+            push(msg.events.filter((e) => e.type !== 'agent.spawned' || msg.events.length < 20).map((e) => ({ tick: e.tick, kind: 'event', text: describeEvent(e) })));
+            if (msg.events.some((e) => e.type === 'criteria.changed')) void engine.query('catalog').then(setCatalog);
+            break;
+          case 'commandRejected':
+            push([{ tick: -1, kind: 'error', text: `Comando rechazado: ${msg.message}` }]);
+            showError(`Comando rechazado: ${msg.message}`);
+            break;
+          case 'error':
+            push([{ tick: -1, kind: 'error', text: `Error del motor: ${msg.message}` }]);
+            showError(msg.message);
+            if (resuming.current) {
+              resuming.current = false;
+              push([{ tick: -1, kind: 'error', text: 'No se pudo reabrir el último mundo; se crea uno nuevo.' }]);
+              engine.init(newManifest({ name: 'Nuevo mundo', seed: 1, population: 50 }));
+            }
+            break;
         }
-        case 'events':
-          push(msg.events.filter((e) => e.type !== 'agent.spawned' || msg.events.length < 20).map((e) => ({ tick: e.tick, kind: 'event', text: describeEvent(e) })));
-          if (msg.events.some((e) => e.type === 'criteria.changed')) void engine.query('catalog').then(setCatalog);
-          break;
-        case 'commandRejected':
-          push([{ tick: -1, kind: 'error', text: `Comando rechazado: ${msg.message}` }]);
-          showError(`Comando rechazado: ${msg.message}`);
-          break;
-        case 'error':
-          push([{ tick: -1, kind: 'error', text: `Error del motor: ${msg.message}` }]);
-          showError(msg.message);
-          if (resuming) {
-            resuming = false;
-            push([{ tick: -1, kind: 'error', text: 'No se pudo reabrir el último mundo; se crea uno nuevo.' }]);
-            engine.init(newManifest({ name: 'Nuevo mundo', seed: 1, population: 50 }));
-          }
-          break;
-      }
-    });
-
-    // Al arrancar se reabre el último mundo sin terminar; si no hay, se crea uno nuevo.
-    void store.current
-      .listWorlds()
-      .catch(() => [])
-      .then((list) => {
-        setWorlds(list);
-        const resume = list.find((w) => w.status !== 'ended');
-        if (resume) {
-          resuming = true;
-          engine.load(resume.worldId);
-        }
-        else engine.init(newManifest({ name: 'Valdeolivo · primer mundo', seed: 1, population: 50 }));
       });
+      active.current = engine;
+      setClient(engine);
+    };
 
-    setClient(engine);
+    const engine =
+      session.mode === 'server'
+        ? new EngineClient(issuer, new SocketTransport('/ws/live', true))
+        : new EngineClient(LOCAL_ADMIN, new WorkerTransport());
+    activate.current(engine);
+
+    if (session.mode === 'local') {
+      // Al arrancar se reabre el último mundo sin terminar; si no hay, se crea uno nuevo.
+      void store.current!
+        .listWorlds()
+        .catch(() => [])
+        .then((list) => {
+          setWorlds(list);
+          const resume = list.find((w) => w.status !== 'ended');
+          if (resume) {
+            resuming.current = true;
+            engine.load(resume.worldId);
+          } else engine.init(newManifest({ name: 'Valdeolivo · primer mundo', seed: 1, population: 50 }));
+        });
+    }
+
     setRenderer(r);
-    (window as unknown as { __worldopen: unknown }).__worldopen = { engine, renderer: r };
+    (window as unknown as { __worldopen: unknown }).__worldopen = {
+      get engine() {
+        return active.current;
+      },
+      renderer: r,
+    };
 
     return () => {
-      off();
-      engine.dispose();
+      off?.();
+      active.current?.dispose();
       r.dispose();
     };
+    // La sesión no cambia sin recargar la página.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvas, refreshWorlds]);
 
   const select = useCallback(
@@ -202,6 +236,19 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
     },
     [renderer],
   );
+
+  /** Servidor: el visor de estudio va por una conexión privada que sustituye a la del mundo vivo mientras dura. */
+  const openStudySocket = (worldId: string) => {
+    active.current?.dispose();
+    const study = new EngineClient(issuer, new SocketTransport('/ws/study', false));
+    activate.current(study);
+    study.replay(worldId);
+  };
+
+  const backToLive = () => {
+    active.current?.dispose();
+    activate.current(new EngineClient(issuer, new SocketTransport('/ws/live', true)));
+  };
 
   return {
     client,
@@ -215,23 +262,33 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>): En
     error,
     worlds,
     selection,
-    issuer: LOCAL_ADMIN,
+    issuer,
+    session,
     select,
     newWorld: (o) => client?.init(newManifest(o)),
     openWorld: (id) => {
       const w = worlds.find((x) => x.worldId === id);
       // Un mundo terminado solo se puede estudiar.
-      if (w?.status === 'ended') client?.replay(id);
-      else client?.load(id);
+      if (w?.status === 'ended') {
+        if (session.mode === 'server') openStudySocket(id);
+        else client?.replay(id);
+      } else client?.load(id);
     },
-    studyWorld: (id) => client?.replay(id),
+    studyWorld: (id) => (session.mode === 'server' ? openStudySocket(id) : client?.replay(id)),
     exitStudy: () => {
-      const live = worlds.find((w) => w.status !== 'ended');
-      if (live) client?.load(live.worldId);
+      if (session.mode === 'server') {
+        backToLive();
+        return;
+      }
+      const w = worlds.find((x) => x.status !== 'ended');
+      if (w) client?.load(w.worldId);
       else client?.init(newManifest({ name: 'Nuevo mundo', seed: 1, population: 50 }));
     },
     endWorld: () => client?.end(),
     refreshWorlds,
+    logout: () => {
+      void fetch('/api/logout', { method: 'POST' }).finally(() => location.reload());
+    },
   };
 }
 

@@ -9,6 +9,8 @@ export function WorldsPanel(props: {
   worlds: WorldSummary[];
   status: EngineStatus | null;
   isAdmin: boolean;
+  /** Mundo compartido en un servidor: crear/abrir/terminar afecta a todos. */
+  shared: boolean;
   onNew: (o: NewWorldOptions) => void;
   onOpen: (worldId: string) => void;
   onStudy: (worldId: string) => void;
@@ -56,7 +58,7 @@ export function WorldsPanel(props: {
                 <span title={w.worldId}>{w.name}</span>
                 <span className="muted small">{STATUS_ES[w.status]} · tick {w.lastTick}</span>
                 <span className="world-actions">
-                  {w.worldId !== current && w.status !== 'ended' && (
+                  {props.isAdmin && w.worldId !== current && w.status !== 'ended' && (
                     <button type="button" onClick={() => props.onOpen(w.worldId)}>Abrir</button>
                   )}
                   {(w.worldId !== current || props.status?.mode !== 'replay') && (
@@ -71,7 +73,8 @@ export function WorldsPanel(props: {
               type="button"
               className="danger"
               onClick={() => {
-                if (confirm('¿Terminar este mundo? Quedará guardado en solo lectura.')) props.onEnd();
+                const who = props.shared ? ' para todos los conectados' : '';
+                if (confirm(`¿Terminar este mundo${who}? Quedará guardado en solo lectura.`)) props.onEnd();
               }}
             >
               Terminar este mundo

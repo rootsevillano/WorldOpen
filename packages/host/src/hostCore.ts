@@ -16,6 +16,13 @@ import { ReplayAnalysis, Simulation, tickToDate, ticksPerDay } from '@worldopen/
 
 export type Post = (msg: EngineToHost, transfer?: ArrayBuffer[]) => void;
 
+export interface HostOptions {
+  /** Intervalo mínimo entre frames publicados. Por defecto 30 por segundo (Worker); el servidor envía menos. */
+  frameIntervalMs?: number;
+  /** Además del snapshot por día de juego, uno cada este tiempo real (servidor: acota lo que se pierde si se cae). */
+  saveIntervalMs?: number;
+}
+
 const FRAME_INTERVAL_MS = 1000 / 30;
 const STATUS_INTERVAL_MS = 250;
 /** Presupuesto de CPU por porción en modo 'max', para seguir atendiendo mensajes. */
@@ -44,6 +51,9 @@ export class EngineHostCore {
   private savedTick = -1;
   private savedLogCount = 0;
   private saving = false;
+  private lastSaveMs = 0;
+  /** Hay una escritura del log en cola (no bloquea los snapshots: la cola de escrituras es serie). */
+  private logPending = false;
   private chain: Promise<void> = Promise.resolve();
 
   // Visor de estudio (ADR-0015).
@@ -57,7 +67,13 @@ export class EngineHostCore {
     private readonly post: Post,
     private readonly now: () => number,
     private readonly store: WorldStore | null = null,
+    private readonly options: HostOptions = {},
   ) {}
+
+  /** Mundo cargado (para el servidor: saber qué mundo vive y en qué tick). */
+  get current(): { worldId: string; tick: number; running: boolean; mode: 'live' | 'replay' } | null {
+    return this.sim ? { worldId: this.sim.manifest.worldId, tick: this.sim.tick, running: this.running, mode: this.mode } : null;
+  }
 
   handle(msg: HostToEngine): void {
     try {
@@ -65,6 +81,12 @@ export class EngineHostCore {
     } catch (err) {
       this.fail(err);
     }
+  }
+
+  /** Guarda ya el mundo vivo (sin pausarlo). El servidor lo usa antes de abrirlo en un visor de estudio. */
+  saveNow(): Promise<void> {
+    if (this.mode !== 'live' || !this.sim || this.sim.tick === this.savedTick) return this.chain;
+    return this.save();
   }
 
   /** Espera a que terminen las escrituras pendientes en el `WorldStore` (tests y cierre). */
@@ -91,7 +113,14 @@ export class EngineHostCore {
       try {
         const done = this.advance(sim, nowMs);
         this.tpsWindowTicks += done;
-        if (this.store && !this.saving && sim.tick - this.savedTick >= ticksPerDay(sim.manifest.time)) this.save();
+        if (this.store && !this.saving) {
+          const interval = this.options.saveIntervalMs;
+          if (sim.tick - this.savedTick >= ticksPerDay(sim.manifest.time) || (interval && nowMs - this.lastSaveMs >= interval && sim.tick !== this.savedTick)) {
+            this.lastSaveMs = nowMs;
+            void this.save();
+          }
+        }
+        if (this.store && !this.logPending && sim.commandLog().length > this.savedLogCount) this.persistLog();
       } catch (err) {
         this.fail(err);
       }
@@ -103,7 +132,7 @@ export class EngineHostCore {
       this.tpsWindowStart = nowMs;
       this.tpsWindowTicks = 0;
     }
-    if (nowMs - this.lastFrameMs >= FRAME_INTERVAL_MS) this.publishFrame(nowMs);
+    if (nowMs - this.lastFrameMs >= (this.options.frameIntervalMs ?? FRAME_INTERVAL_MS)) this.publishFrame(nowMs);
     if (nowMs - this.lastStatusMs >= STATUS_INTERVAL_MS) this.publishStatus(nowMs);
     return this.running;
   }
@@ -189,6 +218,29 @@ export class EngineHostCore {
       restored.drainEvents();
       this.sim = restored;
       after();
+    });
+  }
+
+  /**
+   * Escribe ya en el log los comandos aplicados desde el último guardado: un comando de Dios nunca se pierde aunque el
+   * host se caiga antes del siguiente snapshot (al recargar se reproduce en su tick).
+   */
+  private persistLog(): void {
+    const sim = this.sim;
+    const store = this.store;
+    if (!sim || !store || this.readOnly || this.mode !== 'live') return;
+    const log = sim.commandLog();
+    const worldId = sim.manifest.worldId;
+    this.logPending = true;
+    void this.enqueue(async () => {
+      try {
+        // El tramo se calcula al ejecutar: si un snapshot ya lo guardó, no se repite.
+        const fresh = log.slice(this.savedLogCount);
+        if (fresh.length > 0) await store.appendCommands(worldId, fresh);
+        this.savedLogCount = Math.max(this.savedLogCount, log.length);
+      } finally {
+        this.logPending = false;
+      }
     });
   }
 
@@ -348,6 +400,7 @@ export class EngineHostCore {
         if (this.readOnly && this.mode === 'live') throw new Error('El mundo ha terminado: es de solo lectura');
         sim.step(Math.min(msg.ticks, this.remaining(sim)));
         this.flushEvents(sim);
+        if (this.store && !this.logPending && sim.commandLog().length > this.savedLogCount) this.persistLog();
         this.publishFrame(this.now());
         this.publishStatus(this.now());
         return;

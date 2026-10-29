@@ -9,29 +9,27 @@ import {
   type QueryResultMap,
   type WorldManifest,
 } from '@worldopen/contracts';
+import type { Transport } from './transport';
 
 type Listener = (msg: EngineToHost) => void;
 
 /** Lado UI del Simulation Protocol. El render y la UI solo hablan con el motor a través de esta clase. */
 export class EngineClient {
-  private readonly worker: Worker;
   private readonly listeners = new Set<Listener>();
   private readonly pending = new Map<string, (result: unknown) => void>();
   private seq = 0;
 
-  constructor(private readonly issuer: Issuer) {
-    this.worker = new Worker(new URL('./engine.worker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = (e: MessageEvent<EngineToHost>) => {
-      const msg = e.data;
+  constructor(
+    private readonly issuer: Issuer,
+    private readonly transport: Transport,
+  ) {
+    transport.onMessage((msg) => {
       if (msg.type === 'queryResult') {
         this.pending.get(msg.requestId)?.(msg.result);
         this.pending.delete(msg.requestId);
       }
       for (const l of this.listeners) l(msg);
-    };
-    this.worker.onerror = (e) => {
-      for (const l of this.listeners) l({ type: 'error', message: e.message });
-    };
+    });
   }
 
   on(listener: Listener): () => void {
@@ -40,7 +38,7 @@ export class EngineClient {
   }
 
   private send(msg: HostToEngine): void {
-    this.worker.postMessage(msg);
+    this.transport.send(msg);
   }
 
   init(manifest: WorldManifest): void {
@@ -111,7 +109,7 @@ export class EngineClient {
   }
 
   dispose(): void {
-    this.worker.terminate();
+    this.transport.close();
     this.listeners.clear();
   }
 }

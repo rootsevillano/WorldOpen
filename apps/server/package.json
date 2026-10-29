@@ -1,0 +1,19 @@
+{
+  "name": "@worldopen/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "server": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@worldopen/cli": "0.1.0",
+    "@worldopen/contracts": "0.1.0",
+    "@worldopen/engine": "0.1.0",
+    "@worldopen/host": "0.1.0",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
+  }
+}

@@ -1,6 +1,10 @@
 # Simulation API (UI host ⇄ Engine host)
 
-Código: `packages/contracts/src/protocol.ts`. Implementación de referencia: `apps/web/src/engine-host/hostCore.ts`.
+Código: `packages/contracts/src/protocol.ts`. Implementación de referencia: `packages/host/src/hostCore.ts` (Worker y servidor).
+
+**Transportes:** Worker (`postMessage`, structured clone) o WebSocket (`/ws/live`, `/ws/study`) con el códec de
+`packages/host/src/codec.ts` (JSON; arrays tipados en base64). En el servidor solo el `admin` envía mensajes que
+mutan o controlan el mundo compartido; el emisor de los comandos lo fija el servidor (ADR-0016).
 
 ## Secuencia
 

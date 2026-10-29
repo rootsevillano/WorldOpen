@@ -2,7 +2,7 @@ import { PROTOCOL_VERSION, type EngineToHost } from '@worldopen/contracts';
 import { Simulation, createManifest } from '@worldopen/engine';
 import { MemoryWorldStore } from '@worldopen/store';
 import { describe, expect, it } from 'vitest';
-import { EngineHostCore } from '../../src/engine-host/hostCore';
+import { EngineHostCore } from '../../src/hostCore';
 
 const manifest = createManifest({ worldId: 'w-test', createdAt: '2026-01-01T00:00:00Z', seed: 1 });
 
@@ -151,6 +151,45 @@ describe('Persistencia en el host (ADR-0004)', () => {
     await viewer.flush();
     const st = out2.filter((m) => m.type === 'status').at(-1);
     expect(st?.type === 'status' && st.status).toMatchObject({ readOnly: true, worldStatus: 'ended', tick: 30 });
+  });
+});
+
+describe('Durabilidad ante caídas del host', () => {
+  it('un comando aplicado se escribe en el log al momento y sobrevive a una caída', async () => {
+    const store = new MemoryWorldStore();
+    let clock = 0;
+    const core = new EngineHostCore(() => {}, () => clock, store);
+    const m = createManifest({ worldId: 'w-crash', createdAt: '2026-01-01T00:00:00Z', seed: 5 });
+    core.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: m });
+    core.handle({ type: 'control', action: 'setSpeed', ticksPerSecond: 100 });
+    core.handle({ type: 'control', action: 'play' });
+    for (let k = 0; k < 30; k++) { clock += 10; core.pump(clock); }
+    core.handle({ type: 'command', envelope: { id: 'god', type: 'criteria.set', version: 1, issuer: { userId: 'god', role: 'admin' }, payload: { key: 'economy.foodAbundance', value: 0.1 } } });
+    for (let k = 0; k < 30; k++) { clock += 10; core.pump(clock); }
+    await core.flush();
+    // "Caída": no hay pausa ni cierre ordenado; solo queda lo escrito.
+    expect(await store.readCommands('w-crash')).toHaveLength(1);
+    const out: EngineToHost[] = [];
+    const again = new EngineHostCore((x) => out.push(x), () => 0, store);
+    again.handle({ type: 'load', protocol: PROTOCOL_VERSION, worldId: 'w-crash' });
+    await again.flush();
+    again.handle({ type: 'step', ticks: 60 });
+    again.handle({ type: 'query', requestId: 'c', query: { kind: 'catalog' } });
+    const cat = out.filter((x) => x.type === 'queryResult').at(-1)!;
+    expect(cat.type === 'queryResult' && (cat.result as { values: Record<string, unknown> }).values['economy.foodAbundance']).toBe(0.1);
+  });
+
+  it('con saveIntervalMs guarda snapshots por tiempo real', async () => {
+    const store = new MemoryWorldStore();
+    let clock = 0;
+    const core = new EngineHostCore(() => {}, () => clock, store, { saveIntervalMs: 1000 });
+    core.handle({ type: 'init', protocol: PROTOCOL_VERSION, manifest: createManifest({ worldId: 'w-int', createdAt: '2026-01-01T00:00:00Z', seed: 1 }) });
+    core.handle({ type: 'control', action: 'setSpeed', ticksPerSecond: 10 });
+    core.handle({ type: 'control', action: 'play' });
+    for (let k = 0; k < 350; k++) { clock += 10; core.pump(clock); await Promise.resolve(); }
+    await core.flush();
+    // 3.5 s a 10 ticks/s: ninguno cruza un día, pero hay snapshots cada segundo.
+    expect((await store.listSnapshots('w-int')).length).toBeGreaterThanOrEqual(3);
   });
 });
 

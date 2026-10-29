@@ -86,3 +86,9 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-29) Un comando aplicado en el tick T solo se ve en T+1: saltar a un marcador lleva a T+1.
 - (2026-10-29) Al cambiar de mundo con `init`/`load`/`replay`, el host guarda antes el mundo vivo (si no, se perdía
   el progreso desde el último guardado diario).
+- (2026-10-29) Fase 5: parar el servidor desde el panel del navegador (Windows) no envía señal de apagado: la prueba
+  real perdió un comando de Dios. Desde entonces los comandos se escriben al aplicarse y el servidor guarda cada 30 s.
+  Lección: probar la durabilidad con paradas bruscas, no solo con `close()`.
+- (2026-10-29) Banderas de persistencia: no reutilizar `saving` para escrituras del log; en los tests síncronos (sin
+  ceder a las microtareas) una bandera compartida bloqueaba los snapshots.
+- (2026-10-29) Usuarios de prueba del navegador: credenciales generadas en el scratchpad de la sesión, nunca en el repo.

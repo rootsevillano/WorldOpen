@@ -1,0 +1,16 @@
+{
+  "name": "@worldopen/host",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@worldopen/contracts": "0.1.0",
+    "@worldopen/engine": "0.1.0"
+  },
+  "devDependencies": {
+    "@worldopen/store": "0.1.0"
+  }
+}

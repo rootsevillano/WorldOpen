@@ -135,3 +135,15 @@ ul.plain { list-style: none; margin: 4px 0; padding: 0 0 0 4px; }
 .world-list li { grid-template-columns: 1fr auto auto; }
 
 .error-banner { border: 1px solid #8a3a32; color: #ffb4a8; }
+
+/* — Acceso y modo servidor — */
+.center { display: grid; place-items: center; height: 100%; color: var(--panel-fg); }
+.login { width: min(360px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 20px; }
+.login h1 { font-size: 20px; margin: 0; }
+.login label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.login input {
+  background: #121a24; color: var(--panel-fg); border: 1px solid #3c4c5e; border-radius: 5px; padding: 7px 9px; font: inherit; font-size: 14px;
+}
+.login button[type='submit'] { padding: 8px; font-size: 14px; }
+.error-text { color: var(--error); font-size: 13px; }
+.user-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

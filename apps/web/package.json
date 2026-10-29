@@ -14,7 +14,8 @@
     "@worldopen/render": "0.1.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "@worldopen/store": "0.1.0"
+    "@worldopen/store": "0.1.0",
+    "@worldopen/host": "0.1.0"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

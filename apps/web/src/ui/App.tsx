@@ -5,13 +5,13 @@ import { Hud } from './Hud';
 import { Inspector } from './Inspector';
 import { TimeControls } from './TimeControls';
 import { StudyView } from './study/StudyView';
-import { useEngine } from './useEngine';
+import { useEngine, type AppSession } from './useEngine';
 import { WorldsPanel } from './WorldsPanel';
 
-export function App() {
+export function App({ session }: { session: AppSession }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const down = useRef<{ x: number; y: number } | null>(null);
-  const engine = useEngine(canvas);
+  const engine = useEngine(canvas, session);
   const isAdmin = engine.issuer.role === 'admin';
   const readOnly = engine.status?.readOnly ?? false;
   const studying = engine.status?.mode === 'replay';
@@ -34,11 +34,20 @@ export function App() {
         {engine.error && (
           <div className="panel error-banner" role="alert">⚠ {engine.error}</div>
         )}
-        {engine.client && engine.status && !readOnly && !studying && <TimeControls client={engine.client} status={engine.status} />}
+        {session.mode === 'server' && (
+          <div className="panel user-bar small">
+            <span>
+              {session.name} · {session.role === 'admin' ? 'Dios (administrador)' : 'observador'} · mundo compartido
+            </span>
+            <button type="button" className="link" onClick={engine.logout}>Salir</button>
+          </div>
+        )}
+        {isAdmin && engine.client && engine.status && !readOnly && !studying && <TimeControls client={engine.client} status={engine.status} />}
         <WorldsPanel
           worlds={engine.worlds}
           status={engine.status}
           isAdmin={isAdmin}
+          shared={session.mode === 'server'}
           onNew={engine.newWorld}
           onOpen={engine.openWorld}
           onStudy={engine.studyWorld}
