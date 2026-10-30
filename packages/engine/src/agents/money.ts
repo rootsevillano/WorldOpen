@@ -53,8 +53,58 @@ function weeklyWage(world: World, b: number): number {
 /** Edad mínima para tener dinero propio y hacer compras (recados, ADR-0018). */
 export const MONEY_AGE = 14;
 
+/** Precio base de referencia (× `economy.priceLevel`), sin el ajuste de cada negocio. */
 export function priceOf(world: World, r: number): number {
   return RETAIL_PRICE[r]! * world.num('economy.priceLevel');
+}
+
+/** Precio en un punto de venta concreto: el base × su multiplicador (ADR-0023). */
+export function priceAt(world: World, b: number, r: number): number {
+  return priceOf(world, r) * world.buildings.price[b]!;
+}
+
+function sellers(world: World, r: number): number[] {
+  return r === Resource.Food ? world.map.byUse.retail : world.map.byUse.industrial;
+}
+
+/** Precio medio de mercado de `r` entre los puntos de venta en uso (o el base si no hay ninguno). */
+export function marketPrice(world: World, r: number): number {
+  const bs = world.buildings;
+  let n = 0;
+  let total = 0;
+  for (const b of sellers(world, r)) {
+    if (bs.state[b] !== 0) continue;
+    n++;
+    total += bs.price[b]!;
+  }
+  return priceOf(world, r) * (n === 0 ? 1 : total / n);
+}
+
+/** Precio más barato de `r` (quien va a comprar no sabe aún dónde, pero sí si le llega para la más barata). */
+function cheapestPrice(world: World, r: number): number {
+  const bs = world.buildings;
+  let min = Infinity;
+  for (const b of sellers(world, r)) if (bs.state[b] === 0 && bs.price[b]! < min) min = bs.price[b]!;
+  return priceOf(world, r) * (min === Infinity ? 1 : min);
+}
+
+/** Ajuste diario del precio por existencias (ADR-0023). */
+const PRICE_SENSITIVITY = 0.8;
+const PRICE_INERTIA = 0.25;
+const PRICE_RANGE: [number, number] = [0.7, 2.5];
+
+/**
+ * 06:00: cada tienda compara sus existencias con su demanda (≈ 3 días de su zona) y cada aserradero las suyas con el
+ * nivel al que exporta; si escasean, sube el precio; si sobran, lo baja. Con inercia: un 25 % del camino al día.
+ */
+export function updatePrices(world: World, cap: (b: number) => number): void {
+  const bs = world.buildings;
+  const adjust = (b: number, ratio: number) => {
+    const target = Math.min(PRICE_RANGE[1], Math.max(PRICE_RANGE[0], 1 + PRICE_SENSITIVITY * (1 - ratio)));
+    bs.price[b]! += PRICE_INERTIA * (target - bs.price[b]!);
+  };
+  for (const s of world.map.byUse.retail) if (bs.demand[s]! > 0) adjust(s, bs.food[s]! / bs.demand[s]!);
+  for (const s of world.map.byUse.industrial) adjust(s, bs.wood[s]! / (EXPORT_ABOVE * cap(s)));
 }
 
 /** ¿Es un negocio privado (tiene caja, contrata y despide)? */
@@ -69,7 +119,7 @@ export function positionsOf(world: World, b: number): number {
 
 /** Compra de `amount` unidades de `r` por el agente `i` en `b`: devuelve cuántas puede pagar y las cobra. */
 export function buy(world: World, i: number, b: number, r: number, amount: number): number {
-  const price = priceOf(world, r);
+  const price = priceAt(world, b, r);
   if (price === 0) return amount;
   const a = world.agents;
   const affordable = Math.min(amount, Math.floor(a.money[i]! / price));
@@ -79,9 +129,9 @@ export function buy(world: World, i: number, b: number, r: number, amount: numbe
   return affordable;
 }
 
-/** ¿Puede pagar al menos una unidad? (si no, ni lo intenta: ADR-0022). */
+/** ¿Puede pagar al menos una unidad donde esté más barato? (si no, ni lo intenta: ADR-0022). */
 export function canAfford(world: World, i: number, r: number): boolean {
-  return world.agents.money[i]! >= priceOf(world, r);
+  return world.agents.money[i]! >= cheapestPrice(world, r);
 }
 
 /** Recuerda que no pudo pagar (la tienda no estaba vacía). */
@@ -184,7 +234,7 @@ export function dailyMoney(world: World): void {
     pool.set(hh, p);
   }
   // Ayuda de emergencia (servicios sociales): completa un día de comida del hogar.
-  const day = FOOD_PER_DAY * priceOf(world, Resource.Food);
+  const day = FOOD_PER_DAY * marketPrice(world, Resource.Food);
   const size = new Map<number, number>();
   for (let i = 0; i < a.count; i++) size.set(a.household[i]!, (size.get(a.household[i]!) ?? 0) + 1);
   for (const [hh, p] of pool) {

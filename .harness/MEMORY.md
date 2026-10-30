@@ -114,3 +114,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-30) Dinero: las cuentas por agente deben cerrar en la semana (se cobra 5 días, se gasta 7) y con la asistencia
   real (250–360 min/jornada), no la nominal. Un agente que "decide pero nunca llega" se detecta trazando acción y
   ubicación tick a tick: la causa fue que se contaba a sí mismo en la penalización de recados del hogar.
+- (2026-10-30) Precios: si la decisión ("¿me lo puedo permitir?") y la ejecución ("¿dónde compro?") usan precios
+  distintos, aparecen intentos fallidos masivos. Contar eventos de fallo en las sondas largas los delata.

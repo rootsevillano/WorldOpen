@@ -49,7 +49,7 @@ export interface BuildingDetail {
   /** Agentes esperando a ser atendidos (cola). */
   queue: number;
   /** Negocios (ADR-0022): caja, plantilla y puestos; `null` en viviendas y servicios públicos. */
-  business: { cash: number; staff: number; positions: number } | null;
+  business: { cash: number; staff: number; positions: number; /** Precio de venta por unidad (tiendas y aserraderos; ADR-0023). */ price: number | null } | null;
 }
 
 /** Resumen económico global para el HUD y las métricas. */
@@ -65,4 +65,7 @@ export interface EconomySummary {
   householdMoney: number;
   businessCash: number;
   unemploymentRate: number;
+  /** Precio medio de mercado por unidad (ADR-0023). */
+  foodPrice: number;
+  woodPrice: number;
 }

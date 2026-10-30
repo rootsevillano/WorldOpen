@@ -1,6 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
-import { MONEY_AGE, isBusiness, priceOf } from './agents/money';
+import { MONEY_AGE, isBusiness, marketPrice, priceOf } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
@@ -164,12 +164,15 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     }
     // Quien compra (14+) y no puede pagar ni una ración.
     case 'economy.brokeRatio': {
-      const price = priceOf(sim.world, Resource.Food);
+      const price = marketPrice(sim.world, Resource.Food);
       let n = 0;
       let broke = 0;
       for (let i = 0; i < a.count; i++) if (a.age[i]! >= MONEY_AGE) { n++; if (a.money[i]! < price) broke++; }
       return n === 0 ? 0 : broke / n;
     }
+    // Precio medio de la comida y de la leña relativo al base (1 = normal; ADR-0023).
+    case 'economy.foodPriceIndex': return marketPrice(sim.world, Resource.Food) / priceOf(sim.world, Resource.Food);
+    case 'economy.woodPriceIndex': return marketPrice(sim.world, Resource.Wood) / priceOf(sim.world, Resource.Wood);
     case 'economy.businessCash': {
       let total = 0;
       for (let b = 0; b < uses.length; b++) if (isBusiness(sim.world, b)) total += bs.cash[b]!;

@@ -145,6 +145,7 @@ export function Inspector(props: {
           {building.business && (
             <div className="small muted">
               Caja {building.business.cash.toFixed(0)} · plantilla {building.business.staff}/{building.business.positions} puestos
+              {building.business.price !== null && ` · vende a ${building.business.price.toFixed(2)}`}
             </div>
           )}
           {props.isAdmin && !props.readOnly && building.state === BuildingState.Normal && (

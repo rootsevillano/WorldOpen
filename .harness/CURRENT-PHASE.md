@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Dinero y empleo (E1-C) · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Precios dinámicos (E1-D) · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
 
-## Dinero y empleo — entregado (ADR-0022)
+## Precios dinámicos — entregado (ADR-0023)
+- Cada tienda y aserradero ajusta su precio a diario según sus existencias frente a su demanda; los agentes eligen
+  por precio y distancia y no van donde no pueden pagar. Precios en el HUD y el inspector. Motor 0.11.0.
+- Behavior 14/14 en ambos mapas; 132 tests.
+
+## Dinero y empleo (anterior) — completado
+
+### ADR-0022
 - Monederos y cajas, precios fijos, jornal diario, pensiones y prestaciones, contratación y despido, exportaciones;
   criterios de precios, salarios y bienestar en el Modo Dios; paro, ahorros y cajas en el HUD. Motor 0.10.0.
 - Behavior 14/14 en ambos mapas (nuevo `money-crisis`); 130 tests.
@@ -46,7 +53,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: precios dinámicos y alquileres (E1-D), vehículos; LOD si se pasa de 6 000.
+- Siguiente modelo: salarios por mercado laboral y alquileres, vehículos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

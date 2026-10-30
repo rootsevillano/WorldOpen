@@ -1,6 +1,6 @@
 {
   "name": "food-scarcity",
-  "description": "V4 (3): sin cosechas ni importaciones las tiendas se vacían; la gente va de tienda en tienda (desplazamientos), hace cola, trabaja mucho menos que con la economía normal (0,50–0,59 a mediodía con la economía normal; < 0,40 con escasez) por buscar comida —hasta que, sabiendo vacías todas las tiendas, algunos desisten— y su salud cae.",
+  "description": "V4 (3): sin cosechas ni importaciones las tiendas se vacían; la gente va de tienda en tienda (desplazamientos), hace cola, trabaja mucho menos que con la economía normal (0,50–0,59 a mediodía con la economía normal; < 0,40 con escasez) por buscar comida —hasta que, sabiendo vacías todas las tiendas, algunos desisten— y su salud cae. Los precios de la comida suben (ADR-0023).",
   "seeds": [
     1,
     2,
@@ -65,6 +65,16 @@
       "value": 0.5,
       "at": {
         "day": 3,
+        "hour": 12
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.foodPriceIndex",
+      "op": ">=",
+      "value": 1.3,
+      "at": {
+        "day": 2,
         "hour": 12
       }
     }

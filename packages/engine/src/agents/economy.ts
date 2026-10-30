@@ -3,7 +3,7 @@ import { ticksPerDay } from '../time/clock';
 import { Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import { harvestFactor, minuteOfDay, shopsOpen, temperature } from './environment';
-import { WHOLESALE_PRICE, buy, cannotPay, clockWork, exportSurplus } from './money';
+import { WHOLESALE_PRICE, buy, cannotPay, clockWork, exportSurplus, priceAt, updatePrices } from './money';
 import { recalls, remember } from './social';
 
 /**
@@ -108,9 +108,12 @@ export function chooseSource(world: World, i: number, r: number): number {
   let fallback = -1;
   let fallbackD = Infinity;
   for (const b of sourcesOf(world, r)) {
-    if (!usable(world, b)) continue;
+    // Ni se plantea ir donde no le llega para una unidad (ADR-0023).
+    if (!usable(world, b) || a.money[i]! < priceAt(world, b, r)) continue;
     const c = world.map.buildings[b]!.centroid;
-    const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
+    // Un sitio el doble de caro "está" el doble de lejos (ADR-0023); el agua de las fuentes es gratis.
+    const markup = r === Resource.Water ? 1 : world.buildings.price[b]!;
+    const d = ((c.x - x) * (c.x - x) + (c.z - z) * (c.z - z)) * markup * markup;
     // Si las recuerda todas vacías, vuelve a probar en la más cercana (pudieron reponerla) en vez de rendirse.
     if (d < fallbackD && !recalls(world, i, Memory.Fire, b, avoid)) {
       fallbackD = d;
@@ -185,7 +188,10 @@ export function economySystem(world: World): void {
     }
   }
 
-  if (m <= 360 && 360 < m + dt) exportSurplus(world, (b) => storageCap(world, b));
+  if (m <= 360 && 360 < m + dt) {
+    exportSurplus(world, (b) => storageCap(world, b));
+    updatePrices(world, (b) => storageCap(world, b));
+  }
 
   // Calefacción: con frío, cada hogar ocupado quema leña.
   if (temperature(world) < 14) {

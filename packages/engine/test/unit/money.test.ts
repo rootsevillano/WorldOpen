@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Occupation, Simulation } from '../../src';
-import { storageCap } from '../../src/agents/economy';
+import { chooseSource, storageCap } from '../../src/agents/economy';
 import { lifecycleSystem } from '../../src/agents/lifecycle';
-import { buy, canAfford, dailyMoney, exportSurplus, positionsOf, priceOf, weeklyJobs } from '../../src/agents/money';
+import { buy, canAfford, dailyMoney, exportSurplus, positionsOf, priceAt, priceOf, updatePrices, weeklyJobs } from '../../src/agents/money';
 import { Resource } from '../../src/world/agents';
 import { manifest } from '../helpers';
 
@@ -124,5 +124,52 @@ describe('Dinero y empleo (ADR-0022)', () => {
     const resumed = Simulation.restore(m, JSON.parse(JSON.stringify(half.snapshot())), half.commandLog());
     resumed.step(48 * 5 - 20);
     expect(resumed.hash()).toBe(full.hash());
+  });
+});
+
+describe('Precios dinámicos (ADR-0023)', () => {
+  it('una tienda sin existencias sube el precio y una con exceso lo baja, con inercia y dentro de 0.7×–2.5×', () => {
+    const sim = new Simulation(manifest(2, { criteria: { 'society.initialPopulation': 200 } }));
+    const bs = sim.world.buildings;
+    const [empty, full] = sim.world.map.byUse.retail;
+    bs.demand[empty!] = 1000;
+    bs.demand[full!] = 1000;
+    bs.food[empty!] = 0;
+    bs.food[full!] = 3000;
+    const cap = (b: number) => storageCap(sim.world, b);
+    updatePrices(sim.world, cap);
+    // Objetivo 1.8 (vacía) y 0.7 (el triple de su demanda): un 25 % del camino al día.
+    expect(bs.price[empty!]).toBeCloseTo(1.2, 5);
+    expect(bs.price[full!]).toBeCloseTo(0.925, 5);
+    for (let d = 0; d < 60; d++) updatePrices(sim.world, cap);
+    expect(bs.price[empty!]).toBeCloseTo(1.8, 3);
+    expect(bs.price[full!]).toBeCloseTo(0.7, 3);
+    expect(priceAt(sim.world, empty!, Resource.Food)).toBeCloseTo(1.8 * priceOf(sim.world, Resource.Food), 3);
+  });
+
+  it('se compra al precio de la tienda y se prefiere la barata; donde no llega el dinero, ni se va', () => {
+    const sim = new Simulation(manifest(2, { criteria: { 'society.initialPopulation': 50 } }));
+    const a = sim.world.agents;
+    const bs = sim.world.buildings;
+    const shops = sim.world.map.byUse.retail;
+    const i = indices(sim).find((k) => a.age[k]! >= 18)!;
+    // Entre las tiendas 0 y 1, más cerca de la 0.
+    const p0 = sim.world.map.buildings[shops[0]!]!.centroid;
+    const p1 = sim.world.map.buildings[shops[1]!]!.centroid;
+    a.positions[i * 3] = p0.x + 0.4 * (p1.x - p0.x);
+    a.positions[i * 3 + 2] = p0.z + 0.4 * (p1.z - p0.z);
+    a.money[i] = 1000;
+    expect(chooseSource(sim.world, i, Resource.Food)).toBe(shops[0]);
+    // La 0 está más cerca, pero 2.5 veces más cara: "está" más lejos que la 1.
+    bs.price[shops[0]!] = 2.5;
+    expect(chooseSource(sim.world, i, Resource.Food)).not.toBe(shops[0]);
+    const cash = bs.cash[shops[0]!]!;
+    expect(buy(sim.world, i, shops[0]!, Resource.Food, 2)).toBe(2);
+    expect(bs.cash[shops[0]!]).toBeCloseTo(cash + 2 * 2.5 * priceOf(sim.world, Resource.Food), 5);
+    // Con dinero solo para la más barata, la cara queda descartada aunque fuera la única cercana.
+    for (const s of shops) bs.price[s] = 2.5;
+    bs.price[shops[shops.length - 1]!] = 1;
+    a.money[i] = priceOf(sim.world, Resource.Food) * 1.5;
+    expect(chooseSource(sim.world, i, Resource.Food)).toBe(shops[shops.length - 1]);
   });
 });

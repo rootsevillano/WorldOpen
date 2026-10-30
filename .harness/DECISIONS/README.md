@@ -27,3 +27,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0020](0020-households-migration.md) | Hogares, parejas y migración | Aceptada |
 | [0021](0021-storage-spoilage.md) | Capacidad de almacén y caducidad de la comida | Aceptada |
 | [0022](0022-money-employment.md) | Dinero, empleo y precios (E1-C) | Aceptada |
+| [0023](0023-dynamic-prices.md) | Precios dinámicos por existencias (E1-D) | Aceptada |

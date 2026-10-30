@@ -10,8 +10,9 @@ import {
   RESOURCE_NAMES,
   Occupation,
   RelationKind,
+  Resource,
 } from './world/agents';
-import { isBusiness, positionsOf } from './agents/money';
+import { isBusiness, marketPrice, positionsOf, priceAt } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -99,7 +100,14 @@ export function buildingDetail(world: World, id: string): BuildingDetail | null 
     residents: bs.residents[index]!,
     workers,
     queue,
-    business: isBusiness(world, index) ? { cash: round(bs.cash[index]!), staff, positions: positionsOf(world, index) } : null,
+    business: isBusiness(world, index)
+      ? {
+          cash: round(bs.cash[index]!),
+          staff,
+          positions: positionsOf(world, index),
+          price: rec.use === 'retail' ? round(priceAt(world, index, Resource.Food)) : rec.use === 'industrial' ? round(priceAt(world, index, Resource.Wood)) : null,
+        }
+      : null,
   };
 }
 
@@ -133,5 +141,7 @@ export function economySummary(world: World): EconomySummary {
     householdMoney: round(money),
     businessCash: round(cash),
     unemploymentRate: active === 0 ? 0 : round(jobless / active),
+    foodPrice: round(marketPrice(world, Resource.Food)),
+    woodPrice: round(marketPrice(world, Resource.Wood)),
   };
 }
