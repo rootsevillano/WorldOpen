@@ -62,6 +62,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'economy.rentLevel',
+      type: 'number', min: 0, max: 4, default: 1,
+      description: 'Nivel de los alquileres (1 ≈ 300 al mes con el 90 % de viviendas ocupadas; 0 = sin alquileres).',
+      mutableBy: 'admin',
+    },
+    {
       key: 'economy.wageLevel',
       type: 'number', min: 0.25, max: 4, default: 1,
       description: 'Nivel de salarios (1 = 9 por hora trabajada).',

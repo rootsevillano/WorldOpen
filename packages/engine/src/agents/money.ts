@@ -46,9 +46,59 @@ const POSITION_M2 = 40;
 const HIRE_WEEKS = 4;
 const FIRE_WEEKS = 0.5;
 const DIVIDEND_WEEKS = 8;
+/** Jornal que paga el negocio `b` (base de su sector × nivel × su ajuste de mercado, ADR-0024). */
+export function dailyWageAt(world: World, b: number): number {
+  return DAILY_WAGE[occupationFor(world, b)]! * world.num('economy.wageLevel') * world.buildings.wage[b]!;
+}
+
 /** Nómina semanal de referencia de un trabajador del negocio `b` (5 jornadas). */
 function weeklyWage(world: World, b: number): number {
-  return 5 * DAILY_WAGE[occupationFor(world, b)]! * world.num('economy.wageLevel');
+  return 5 * dailyWageAt(world, b);
+}
+
+/** Alquiler diario base de una vivienda (≈ 300 al mes) y días de impago hasta el desahucio (ADR-0024). */
+const RENT_PER_DAY = 10;
+export const EVICTION_DAYS = 30;
+/** Mercado laboral: subida si no encuentra a quien contratar; bajada si despide con paro alto. */
+const WAGE_RAISE = 1.02;
+const WAGE_CUT = 0.95;
+const WAGE_RANGE: [number, number] = [0.7, 1.5];
+/** Solo sube salarios quien tiene caja para 6 semanas de nóminas; con menos de 2, los baja (ADR-0024). */
+const RAISE_WEEKS = 6;
+const CUT_WEEKS = 2;
+const SLACK_UNEMPLOYMENT = 0.1;
+/** Solo se cambia de trabajo por un 10 % más. */
+const SWITCH_PREMIUM = 1.1;
+
+/**
+ * Índice de alquiler por la ocupación de las viviendas del pueblo (hogares / viviendas): 1 al 90 %, más caro si hay
+ * pocas libres, más barato si sobran (0,6×–2,5×). Se calcula del estado: no necesita guardarse.
+ */
+export function rentIndex(world: World): number {
+  const a = world.agents;
+  let dwellings = 0;
+  for (const h of world.map.homes) dwellings += Math.max(1, world.map.buildings[h]!.dwellings);
+  const households = new Set(a.household.subarray(0, a.count)).size;
+  return Math.min(2.5, Math.max(0.6, 1 + 2 * (households / dwellings - 0.9)));
+}
+
+/** Salario medio de los negocios relativo al jornal base, ponderado por su plantilla (1 si no hay nadie). */
+export function wageIndex(world: World): number {
+  const a = world.agents;
+  let n = 0;
+  let total = 0;
+  for (let i = 0; i < a.count; i++) {
+    const w = a.workplace[i]!;
+    if (w < 0 || !isBusiness(world, w) || a.occupation[i] === Occupation.Student) continue;
+    n++;
+    total += world.buildings.wage[w]!;
+  }
+  return n === 0 ? 1 : total / n;
+}
+
+/** Alquiler diario de un hogar ahora (× `economy.priceLevel` × `economy.rentLevel`). */
+export function rentNow(world: World, index = rentIndex(world)): number {
+  return RENT_PER_DAY * world.num('economy.priceLevel') * world.num('economy.rentLevel') * index;
 }
 /** Edad mínima para tener dinero propio y hacer compras (recados, ADR-0018). */
 export const MONEY_AGE = 14;
@@ -183,6 +233,7 @@ function payWages(world: World): void {
     if (worked === 0 || w < 0 || wage === undefined) continue;
     let paid = wage * level * Math.min(1, worked / FULL_DAY_MINUTES);
     if (a.occupation[i] !== Occupation.CivilServant) {
+      paid *= bs.wage[w]!;
       paid = Math.min(bs.cash[w]!, paid);
       bs.cash[w]! -= paid;
     }
@@ -233,6 +284,20 @@ export function dailyMoney(world: World): void {
     if (age >= MONEY_AGE) p[1]++;
     pool.set(hh, p);
   }
+  // Alquiler (ADR-0024): quien no llega paga lo que tiene y acumula un día de impago.
+  const rent = rentNow(world);
+  const renting = new Set<number>();
+  for (let i = 0; i < a.count; i++) if (a.renting[i]) renting.add(a.household[i]!);
+  const unpaid = new Set<number>();
+  for (const hh of renting) {
+    const p = pool.get(hh)!;
+    if (p[0] < rent) unpaid.add(hh);
+    p[0] -= Math.min(Math.max(0, p[0]), rent);
+  }
+  for (let i = 0; i < a.count; i++) {
+    if (!a.renting[i]) continue;
+    a.arrears[i] = unpaid.has(a.household[i]!) ? Math.min(65535, a.arrears[i]! + 1) : 0;
+  }
   // Ayuda de emergencia (servicios sociales): completa un día de comida del hogar.
   const day = FOOD_PER_DAY * marketPrice(world, Resource.Food);
   const size = new Map<number, number>();
@@ -269,6 +334,7 @@ export function weeklyJobs(world: World): void {
   const map = world.map;
   const employees = new Map<number, number[]>();
   const jobless: number[] = [];
+  let active = 0;
   for (let i = 0; i < a.count; i++) {
     const w = a.workplace[i]!;
     const occ = a.occupation[i]!;
@@ -276,15 +342,22 @@ export function weeklyJobs(world: World): void {
       const list = employees.get(w) ?? [];
       list.push(i);
       employees.set(w, list);
-    } else if (occ === Occupation.Unemployed && a.age[i]! >= 18 && a.age[i]! < 67) jobless.push(i);
+      active++;
+    } else if (occ === Occupation.Unemployed && a.age[i]! >= 18 && a.age[i]! < 67) {
+      jobless.push(i);
+      active++;
+    } else if (occ === Occupation.CivilServant) active++;
   }
+  const slack = active > 0 && jobless.length / active > SLACK_UNEMPLOYMENT;
   const businesses = [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial].sort((x, y) => x - y);
   for (const b of businesses) {
     const staff = employees.get(b) ?? [];
     const wage = weeklyWage(world, b);
     const payroll = Math.max(1, staff.length) * wage;
     if (staff.length > 0 && bs.cash[b]! < FIRE_WEEKS * payroll) {
-      const i = staff[world.rng.int(0, staff.length - 1)]!;
+      // Con paro alto, quien despide también baja el salario (ADR-0024).
+      if (slack) bs.wage[b] = Math.max(WAGE_RANGE[0], bs.wage[b]! * WAGE_CUT);
+      const i = staff.splice(world.rng.int(0, staff.length - 1), 1)[0]!;
       a.occupation[i] = Occupation.Unemployed;
       a.workplace[i] = -1;
       if (a.action[i] === Action.Work) a.action[i] = Action.Stay;
@@ -292,21 +365,51 @@ export function weeklyJobs(world: World): void {
       continue;
     }
     if (bs.cash[b]! > DIVIDEND_WEEKS * payroll) bs.cash[b] = DIVIDEND_WEEKS * payroll;
-    if (bs.cash[b]! < HIRE_WEEKS * (staff.length + 1) * wage || staff.length >= positionsOf(world, b) || jobless.length === 0) continue;
+    if (staff.length > 0 && bs.cash[b]! < CUT_WEEKS * payroll) bs.wage[b] = Math.max(WAGE_RANGE[0], bs.wage[b]! * WAGE_CUT);
+    // Un negocio sin nadie no produce ni ingresa: nunca reuniría caja para contratar. Con gente en paro, un inversor
+    // de fuera lo reabre con capital para un mes (ADR-0024).
+    if (staff.length === 0 && jobless.length > 0 && bs.cash[b]! < HIRE_WEEKS * wage) {
+      bs.cash[b] = HIRE_WEEKS * wage;
+      world.emit('business.reopened', { building: map.buildings[b]!.id });
+    }
+    if (bs.cash[b]! < HIRE_WEEKS * (staff.length + 1) * wage || staff.length >= positionsOf(world, b)) continue;
     const c = map.buildings[b]!.centroid;
-    let best = -1;
-    let bestD = Infinity;
-    jobless.forEach((i, k) => {
-      const h = map.buildings[a.home[i]!]!.centroid;
-      const d = (h.x - c.x) * (h.x - c.x) + (h.z - c.z) * (h.z - c.z);
-      if (d < bestD) {
-        bestD = d;
-        best = k;
+    const nearest = (pool: number[]) => {
+      let best = -1;
+      let bestD = Infinity;
+      pool.forEach((i, k) => {
+        const h = map.buildings[a.home[i]!]!.centroid;
+        const d = (h.x - c.x) * (h.x - c.x) + (h.z - c.z) * (h.z - c.z);
+        if (d < bestD) {
+          bestD = d;
+          best = k;
+        }
+      });
+      return best;
+    };
+    let i: number;
+    if (jobless.length > 0) {
+      i = jobless.splice(nearest(jobless), 1)[0]!;
+    } else {
+      // Sin nadie en paro, sube su salario (si puede permitírselo) y ficha a quien gane al menos un 10 % menos en
+      // otro negocio. Subir un 5 % semanal desataba guerras salariales que en invierno acababan en despidos masivos.
+      if (bs.cash[b]! >= RAISE_WEEKS * payroll) bs.wage[b] = Math.min(WAGE_RANGE[1], bs.wage[b]! * WAGE_RAISE);
+      const offer = dailyWageAt(world, b);
+      const candidates: number[] = [];
+      for (const [other, list] of employees) {
+        if (other !== b && dailyWageAt(world, other) * SWITCH_PREMIUM <= offer) candidates.push(...list);
       }
-    });
-    const i = jobless.splice(best, 1)[0]!;
+      if (candidates.length === 0) continue;
+      i = candidates[nearest(candidates)]!;
+      const from = a.workplace[i]!;
+      const list = employees.get(from)!;
+      list.splice(list.indexOf(i), 1);
+      world.emit('job.changed', { agentId: a.ids[i], name: a.names[i], from: map.buildings[from]!.id, building: map.buildings[b]!.id });
+    }
     a.occupation[i] = occupationFor(world, b);
     a.workplace[i] = b;
+    staff.push(i);
+    employees.set(b, staff);
     world.emit('job.hired', { agentId: a.ids[i], name: a.names[i], building: map.buildings[b]!.id });
   }
 }

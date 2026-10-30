@@ -1,6 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
-import { MONEY_AGE, isBusiness, marketPrice, priceOf } from './agents/money';
+import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
@@ -173,6 +173,10 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     // Precio medio de la comida y de la leña relativo al base (1 = normal; ADR-0023).
     case 'economy.foodPriceIndex': return marketPrice(sim.world, Resource.Food) / priceOf(sim.world, Resource.Food);
     case 'economy.woodPriceIndex': return marketPrice(sim.world, Resource.Wood) / priceOf(sim.world, Resource.Wood);
+    // Alquiler y salarios relativos al base (ADR-0024); salarios ponderados por plantilla.
+    case 'economy.rentIndex': return rentIndex(sim.world);
+    case 'economy.wageIndex': return wageIndex(sim.world);
+    case 'households.renterRatio': return ratio((i) => a.renting[i] === 1);
     case 'economy.businessCash': {
       let total = 0;
       for (let b = 0; b < uses.length; b++) if (isBusiness(sim.world, b)) total += bs.cash[b]!;

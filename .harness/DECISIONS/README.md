@@ -28,3 +28,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0021](0021-storage-spoilage.md) | Capacidad de almacén y caducidad de la comida | Aceptada |
 | [0022](0022-money-employment.md) | Dinero, empleo y precios (E1-C) | Aceptada |
 | [0023](0023-dynamic-prices.md) | Precios dinámicos por existencias (E1-D) | Aceptada |
+| [0024](0024-wages-rents.md) | Salarios de mercado y alquileres | Aceptada |

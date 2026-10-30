@@ -19,6 +19,8 @@ export class BuildingStore {
   readonly demand: Float32Array;
   /** Multiplicador del precio de venta de tiendas y aserraderos (1 = precio base; ADR-0023). */
   readonly price: Float32Array;
+  /** Multiplicador del salario que paga cada negocio (1 = jornal base; ADR-0024). */
+  readonly wage: Float32Array;
 
   // Transitorias.
   readonly occupants: Uint16Array;
@@ -39,13 +41,14 @@ export class BuildingStore {
     this.cash = new Float64Array(count);
     this.demand = new Float32Array(count);
     this.price = new Float32Array(count).fill(1);
+    this.wage = new Float32Array(count).fill(1);
     this.occupants = new Uint16Array(count);
     this.workers = new Uint16Array(count);
     this.queue = new Uint16Array(count);
     this.served = new Uint16Array(count);
     this.persisted = [
       ['food', this.food], ['water', this.water], ['wood', this.wood],
-      ['state', this.state], ['stateUntil', this.stateUntil], ['residents', this.residents], ['cash', this.cash], ['demand', this.demand], ['price', this.price],
+      ['state', this.state], ['stateUntil', this.stateUntil], ['residents', this.residents], ['cash', this.cash], ['demand', this.demand], ['price', this.price], ['wage', this.wage],
     ];
   }
 

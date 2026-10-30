@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Precios dinámicos (E1-D) · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Salarios y alquileres · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
 
-## Precios dinámicos — entregado (ADR-0023)
+## Salarios y alquileres — entregado (ADR-0024)
+- Cada negocio fija su salario según el mercado laboral (fichajes, subidas, bajadas); negocios vacíos reabren con
+  capital de fuera. Hogares de alquiler con precio por ocupación, impagos y desahucios. Motor 0.12.0.
+- Behavior 15/15 en ambos mapas (nuevo `housing-crisis`); 135 tests.
+
+## Precios dinámicos (anterior) — completado
+
+### ADR-0023
 - Cada tienda y aserradero ajusta su precio a diario según sus existencias frente a su demanda; los agentes eligen
   por precio y distancia y no van donde no pueden pagar. Precios en el HUD y el inspector. Motor 0.11.0.
 - Behavior 14/14 en ambos mapas; 132 tests.
@@ -53,7 +60,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: salarios por mercado laboral y alquileres, vehículos; LOD si se pasa de 6 000.
+- Siguiente modelo: vehículos, propietarios locales y compra de vivienda; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

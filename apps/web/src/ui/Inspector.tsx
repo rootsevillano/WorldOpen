@@ -81,7 +81,10 @@ export function Inspector(props: {
             Ahora: <strong>{ACTIONS_ES[agent.action]}</strong> {agent.location ? `en ${agent.location}` : 'por la calle'}
             {agent.carrying && ` · lleva ${agent.carrying.amount.toFixed(0)} de ${agent.carrying.resource}`}
           </div>
-          <div className="small muted">Dinero: {agent.money.toFixed(2)}</div>
+          <div className="small muted">
+            Dinero: {agent.money.toFixed(2)} · {agent.housing.tenure === 'renter' ? 'de alquiler' : 'vivienda propia'}
+            {agent.housing.arrears > 0 && ` · ${agent.housing.arrears} días sin pagar el alquiler`}
+          </div>
           <div className="bars">
             {Object.entries(agent.needs).map(([k, v]) => (
               <Bar key={k} label={NEEDS_ES[k] ?? k} value={v} />
@@ -145,7 +148,7 @@ export function Inspector(props: {
           {building.business && (
             <div className="small muted">
               Caja {building.business.cash.toFixed(0)} · plantilla {building.business.staff}/{building.business.positions} puestos
-              {building.business.price !== null && ` · vende a ${building.business.price.toFixed(2)}`}
+              {building.business.price !== null && ` · vende a ${building.business.price.toFixed(2)}`} · jornal {building.business.wage.toFixed(0)}
             </div>
           )}
           {props.isAdmin && !props.readOnly && building.state === BuildingState.Normal && (

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Occupation, Simulation } from '../../src';
 import { chooseSource, storageCap } from '../../src/agents/economy';
 import { lifecycleSystem } from '../../src/agents/lifecycle';
-import { buy, canAfford, dailyMoney, exportSurplus, positionsOf, priceAt, priceOf, updatePrices, weeklyJobs } from '../../src/agents/money';
+import { householdsSystem } from '../../src/agents/households';
+import { buy, canAfford, dailyMoney, dailyWageAt, exportSurplus, positionsOf, priceAt, priceOf, rentIndex, rentNow, updatePrices, weeklyJobs } from '../../src/agents/money';
 import { Resource } from '../../src/world/agents';
 import { manifest } from '../helpers';
 
@@ -171,5 +172,84 @@ describe('Precios dinámicos (ADR-0023)', () => {
     bs.price[shops[shops.length - 1]!] = 1;
     a.money[i] = priceOf(sim.world, Resource.Food) * 1.5;
     expect(chooseSource(sim.world, i, Resource.Food)).toBe(shops[shops.length - 1]);
+  });
+});
+
+describe('Salarios de mercado y alquileres (ADR-0024)', () => {
+  it('el alquiler depende de la ocupación; quien no paga acumula impagos y al mes lo desahucian', () => {
+    const sim = new Simulation(manifest(7, { criteria: { 'society.initialPopulation': 300, 'society.emigration': 0, 'society.immigration': 0, 'economy.welfare': 0 } }));
+    const a = sim.world.agents;
+    const index = rentIndex(sim.world);
+    expect(index).toBeGreaterThanOrEqual(0.6);
+    expect(index).toBeLessThanOrEqual(2.5);
+    expect(rentNow(sim.world)).toBeCloseTo(10 * index, 6);
+    const renters = indices(sim).filter((i) => a.renting[i] === 1);
+    expect(renters.length / a.count).toBeGreaterThan(0.1);
+    expect(renters.length / a.count).toBeLessThan(0.4);
+    // Un hogar de alquiler sin dinero ni ingresos: impagos día a día.
+    const i = renters.find((k) => a.age[k]! >= 18)!;
+    const hh = a.household[i]!;
+    const members = indices(sim).filter((k) => a.household[k] === hh);
+    const ids = members.map((k) => a.ids[k]!);
+    for (const k of members) {
+      a.money[k] = 0;
+      a.occupation[k] = Occupation.Child;
+      a.workplace[k] = -1;
+    }
+    for (let d = 1; d <= 3; d++) {
+      for (const k of members) a.money[k] = 0;
+      dailyMoney(sim.world);
+    }
+    expect(a.arrears[a.indexOf(ids[0]!)]).toBe(3);
+    // El sistema de hogares actúa a medianoche.
+    while (sim.frame().date.minuteOfDay !== 0) sim.step();
+    for (const id of ids) a.arrears[a.indexOf(id)] = 30;
+    sim.drainEvents();
+    householdsSystem(sim.world);
+    const events = sim.drainEvents();
+    expect(events.some((e) => e.type === 'household.evicted')).toBe(true);
+    expect(events.filter((e) => e.type === 'agent.emigrated' && e.data.reason === 'eviction').length).toBe(ids.length);
+    for (const id of ids) expect(a.indexOf(id)).toBe(-1);
+  });
+
+  it('sin nadie en paro, un negocio con caja sube el salario y ficha a quien gana menos; con poca caja, lo baja', () => {
+    const sim = new Simulation(manifest(6, { criteria: { 'society.initialPopulation': 300 } }));
+    const a = sim.world.agents;
+    const bs = sim.world.buildings;
+    const staffOf = (b: number) => indices(sim).filter((i) => a.workplace[i] === b).length;
+    for (const i of indices(sim)) if (a.occupation[i] === Occupation.Unemployed) a.occupation[i] = Occupation.Retired;
+    const businesses = [...sim.world.map.byUse.retail, ...sim.world.map.byUse.agriculture, ...sim.world.map.byUse.industrial];
+    for (const b of businesses) bs.cash[b] = 2000;
+    const rich = sim.world.map.byUse.retail.find((b) => staffOf(b) < positionsOf(sim.world, b))!;
+    bs.cash[rich] = 1e6;
+    bs.wage[rich] = 1.3;
+    sim.drainEvents();
+    weeklyJobs(sim.world);
+    expect(bs.wage[rich]).toBeCloseTo(1.326, 5);
+    const events = sim.drainEvents();
+    const changed = events.find((e) => e.type === 'job.changed')!;
+    expect(changed).toBeDefined();
+    expect(a.workplace[a.indexOf(changed.data.agentId as number)]).toBe(rich);
+    // Los negocios con caja para menos de 2 semanas de nóminas bajan el salario un 5 %.
+    const poor = businesses.find((b) => b !== rich && staffOf(b) > 0 && bs.cash[b]! >= 0.5 * 5 * dailyWageAt(sim.world, b) * staffOf(b))!;
+    expect(bs.wage[poor]).toBeLessThan(1);
+  });
+
+  it('un negocio sin plantilla y con gente en paro reabre con capital de fuera', () => {
+    const sim = new Simulation(manifest(6, { criteria: { 'society.initialPopulation': 300 } }));
+    const a = sim.world.agents;
+    const bs = sim.world.buildings;
+    const farm = sim.world.map.byUse.agriculture[0]!;
+    for (const i of indices(sim)) {
+      if (a.workplace[i] !== farm) continue;
+      a.occupation[i] = Occupation.Unemployed;
+      a.workplace[i] = -1;
+    }
+    bs.cash[farm] = 0;
+    sim.drainEvents();
+    weeklyJobs(sim.world);
+    const events = sim.drainEvents();
+    expect(events.some((e) => e.type === 'business.reopened')).toBe(true);
+    expect(indices(sim).some((i) => a.workplace[i] === farm)).toBe(true);
   });
 });

@@ -115,10 +115,13 @@ export function spawnAgent(world: World, home = -1, age?: number, household = 0,
   bs.water[h]! += PANTRY_PER_RESIDENT.water;
   bs.wood[h]! += PANTRY_PER_RESIDENT.wood;
 
-  // Quien comparte hogar es familia (S7, ADR-0020; en un bloque de pisos, solo su vivienda).
+  // Quien comparte hogar es familia (S7, ADR-0020; en un bloque de pisos, solo su vivienda). Comparte su vivienda
+  // en propiedad o de alquiler (ADR-0024).
   const id = a.ids[i]!;
   for (let j = 0; j < a.count; j++) {
     if (j !== i && a.household[j] === a.household[i]) {
+      a.renting[i] = a.renting[j]!;
+      a.arrears[i] = a.arrears[j]!;
       bond(world, i, a.ids[j]!, 0.6, RelationKind.Family);
       bond(world, j, id, 0.6, RelationKind.Family);
     }
@@ -140,6 +143,9 @@ export function householdSize(world: World): number {
   return size;
 }
 
+/** Hogares de alquiler en la población inicial (≈ España, ADR-0024). */
+const RENTER_SHARE = 0.25;
+
 /** Proporción de parejas del mismo sexo. */
 const SAME_SEX_COUPLES = 0.05;
 
@@ -147,9 +153,11 @@ const SAME_SEX_COUPLES = 0.05;
  * Crea un hogar de hasta `size` miembros en `home`: con 2+, los dos primeros suelen ser pareja (ADR-0020). Devuelve el
  * número de habitantes creados (se detiene si el almacén está lleno).
  */
-export function spawnHousehold(world: World, home: number, size: number): number {
+export function spawnHousehold(world: World, home: number, size: number, renterShare = RENTER_SHARE): number {
   const a = world.agents;
   const household = a.nextHousehold++;
+  // Del id del hogar (hash entero), sin consumir el PRNG: añadir la tenencia no cambia la población generada.
+  const renting = (Math.imul(household, 0x9e3779b1) >>> 0) / 0x100000000 < renterShare ? 1 : 0;
   let first = -1;
   let created = 0;
   const [ages, couple] = householdAges(world, size);
@@ -158,6 +166,7 @@ export function spawnHousehold(world: World, home: number, size: number): number
     const partner = couple && created === 1;
     const sex = partner ? (world.rng.nextFloat() < SAME_SEX_COUPLES ? a.sex[first]! : 1 - a.sex[first]!) : undefined;
     spawnAgent(world, home, age, household, sex);
+    a.renting[a.count - 1] = renting;
     if (created === 0) first = a.count - 1;
     else if (partner) pair(world, first, a.count - 1);
     created++;

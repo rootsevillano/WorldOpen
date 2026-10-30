@@ -12,7 +12,7 @@ import {
   RelationKind,
   Resource,
 } from './world/agents';
-import { isBusiness, marketPrice, positionsOf, priceAt } from './agents/money';
+import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -64,6 +64,7 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
     },
     health: round(a.health[i]!),
     money: round(a.money[i]!),
+    housing: { tenure: a.renting[i] ? 'renter' : 'owner', arrears: a.arrears[i]! },
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,
     lastScores: scores,
     memory,
@@ -105,6 +106,7 @@ export function buildingDetail(world: World, id: string): BuildingDetail | null 
           cash: round(bs.cash[index]!),
           staff,
           positions: positionsOf(world, index),
+          wage: round(dailyWageAt(world, index)),
           price: rec.use === 'retail' ? round(priceAt(world, index, Resource.Food)) : rec.use === 'industrial' ? round(priceAt(world, index, Resource.Wood)) : null,
         }
       : null,
@@ -143,5 +145,7 @@ export function economySummary(world: World): EconomySummary {
     unemploymentRate: active === 0 ? 0 : round(jobless / active),
     foodPrice: round(marketPrice(world, Resource.Food)),
     woodPrice: round(marketPrice(world, Resource.Wood)),
+    rent: round(rentNow(world)),
+    wageIndex: round(wageIndex(world)),
   };
 }

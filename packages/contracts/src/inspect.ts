@@ -27,6 +27,8 @@ export interface AgentDetail {
   health: number;
   /** Dinero propio (ADR-0022). */
   money: number;
+  /** Vivienda en propiedad o de alquiler y días de alquiler impagado (ADR-0024). */
+  housing: { tenure: 'owner' | 'renter'; arrears: number };
   carrying: { resource: ResourceKind; amount: number } | null;
   /** Puntuaciones de la última decisión (Utility AI explicable, ADR-0008). */
   lastScores: Record<string, number>;
@@ -49,7 +51,7 @@ export interface BuildingDetail {
   /** Agentes esperando a ser atendidos (cola). */
   queue: number;
   /** Negocios (ADR-0022): caja, plantilla y puestos; `null` en viviendas y servicios públicos. */
-  business: { cash: number; staff: number; positions: number; /** Precio de venta por unidad (tiendas y aserraderos; ADR-0023). */ price: number | null } | null;
+  business: { cash: number; staff: number; positions: number; /** Precio de venta por unidad (tiendas y aserraderos; ADR-0023). */ price: number | null; /** Jornal que paga (ADR-0024). */ wage: number } | null;
 }
 
 /** Resumen económico global para el HUD y las métricas. */
@@ -68,4 +70,7 @@ export interface EconomySummary {
   /** Precio medio de mercado por unidad (ADR-0023). */
   foodPrice: number;
   woodPrice: number;
+  /** Alquiler diario actual e índice medio de salarios (ADR-0024). */
+  rent: number;
+  wageIndex: number;
 }

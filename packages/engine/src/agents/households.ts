@@ -3,6 +3,7 @@ import { Action, Memory, Occupation, RELATION_SLOTS, RelationKind } from '../wor
 import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
 import { forgetAgent } from './lifecycle';
+import { EVICTION_DAYS, rentIndex, rentNow } from './money';
 import { pickNearby } from './nearby';
 import { householdSize, removeAgent, spawnHousehold } from './population';
 import { bond, pair, partnerId, remember } from './social';
@@ -30,6 +31,9 @@ const HOUSING_PRESSURE = 3;
 /** Llegadas: hogares por año = población × tasa / tamaño medio del hogar (× `society.immigration`). */
 const IMMIGRATION_YEARLY = 0.02;
 const MEAN_HOUSEHOLD = 2.4;
+/** Los hogares que llegan suelen alquilar; para independizarse hacen falta ahorros para 3 meses de alquiler. */
+const IMMIGRANT_RENTERS = 0.6;
+const EMANCIPATION_RENT_DAYS = 90;
 /** Escala de distancia al buscar vivienda (m): se prefiere cerca de la casa actual. */
 const MOVE_SCALE_M = 800;
 
@@ -129,6 +133,16 @@ class Census {
     bs.residents[home]!++;
     a.home[i] = home;
     a.household[i] = household;
+    // Entra en la vivienda de su nuevo hogar (propiedad o alquiler) o alquila una nueva (ADR-0024).
+    a.renting[i] = 1;
+    a.arrears[i] = 0;
+    for (let j = 0; j < a.count; j++) {
+      if (j !== i && a.household[j] === household) {
+        a.renting[i] = a.renting[j]!;
+        a.arrears[i] = a.arrears[j]!;
+        break;
+      }
+    }
     // A medianoche casi todos están en casa: se trasladan ya; quien está fuera irá a la nueva al volver.
     if (a.location[i] === from) {
       const c = world.map.buildings[home]!.centroid;
@@ -206,17 +220,19 @@ function cohabit(world: World, census: Census): void {
 }
 
 /** Adultos solteros que viven con sus padres: se independizan (si hay casa) o, a veces, se van del pueblo. */
-function leaveHome(world: World, census: Census, emigrants: number[]): void {
+function leaveHome(world: World, census: Census, emigrants: number[], evictions: number[]): void {
   const a = world.agents;
   const rng = world.rng;
   const emigration = world.num('society.emigration');
   const housing = census.anyVacancy();
+  const rent = rentNow(world);
   for (let i = 0; i < a.count; i++) {
     const age = a.age[i]!;
     if (age < EMIGRATION_AGE[0] || !single(world, i)) continue;
     const s = census.households.get(a.household[i]!)!;
     const withParents = s.oldest >= age + 16;
-    if (withParents && age >= EMANCIPATION_AGE && rng.nextFloat() < EMANCIPATION_YEARLY / DAYS_PER_YEAR) {
+    // Solo se independiza quien tiene ahorros para unos meses de alquiler (ADR-0024).
+    if (withParents && age >= EMANCIPATION_AGE && rng.nextFloat() < EMANCIPATION_YEARLY / DAYS_PER_YEAR && a.money[i]! >= EMANCIPATION_RENT_DAYS * rent) {
       const home = census.findHome(a.home[i]!);
       if (home >= 0) {
         census.move(i, home, a.nextHousehold++);
@@ -227,10 +243,19 @@ function leaveHome(world: World, census: Census, emigrants: number[]): void {
     const pressure = (withParents && !housing ? HOUSING_PRESSURE : 1) * (a.occupation[i] === Occupation.Unemployed ? 2 : 1);
     if (rng.nextFloat() < (EMIGRATION_YEARLY / DAYS_PER_YEAR) * emigration * pressure) emigrants.push(a.ids[i]!);
   }
+  // Desahucio: el hogar con un mes de alquiler impagado se va del pueblo (ADR-0024).
+  const evicted = new Set<number>();
+  for (let i = 0; i < a.count; i++) {
+    if (a.renting[i] && a.arrears[i]! >= EVICTION_DAYS && !evicted.has(a.household[i]!)) {
+      evicted.add(a.household[i]!);
+      world.emit('household.evicted', { home: world.map.buildings[a.home[i]!]!.id, size: census.households.get(a.household[i]!)!.adults + census.households.get(a.household[i]!)!.minors });
+    }
+  }
+  for (let i = 0; i < a.count; i++) if (evicted.has(a.household[i]!) && !emigrants.includes(a.ids[i]!)) evictions.push(a.ids[i]!);
   // Menores sin ningún adulto en su hogar: los acoge familia de fuera.
   for (let i = 0; i < a.count; i++) {
     const s = census.households.get(a.household[i]!)!;
-    if (s.adults === 0) emigrants.push(a.ids[i]!);
+    if (s.adults === 0 && !evictions.includes(a.ids[i]!)) emigrants.push(a.ids[i]!);
   }
 }
 
@@ -238,14 +263,16 @@ function leaveHome(world: World, census: Census, emigrants: number[]): void {
 function immigrate(world: World, census: Census): void {
   const a = world.agents;
   const rng = world.rng;
-  let expected = (a.count * IMMIGRATION_YEARLY * world.num('society.immigration')) / (DAYS_PER_YEAR * MEAN_HOUSEHOLD);
+  // Un alquiler caro disuade de venir (y uno barato atrae, hasta ×1.5) (ADR-0024).
+  const appeal = Math.min(1.5, 1 / rentIndex(world));
+  let expected = (a.count * IMMIGRATION_YEARLY * world.num('society.immigration') * appeal) / (DAYS_PER_YEAR * MEAN_HOUSEHOLD);
   const free: number[] = [];
   for (const h of world.map.homes) if (census.vacant(h)) free.push(h);
   for (; expected > 0 && free.length > 0; expected--) {
     if (rng.nextFloat() >= Math.min(1, expected) || a.count >= a.capacity) continue;
     const k = rng.int(0, free.length - 1);
     const home = free[k]!;
-    const size = spawnHousehold(world, home, householdSize(world));
+    const size = spawnHousehold(world, home, householdSize(world), IMMIGRANT_RENTERS);
     if (size === 0) return;
     census.used[home]!++;
     if (!census.vacant(home)) free.splice(k, 1);
@@ -259,11 +286,13 @@ export function householdsSystem(world: World): void {
   formCouples(world, census);
   cohabit(world, census);
   const emigrants: number[] = [];
-  leaveHome(world, census, emigrants);
-  for (const id of emigrants) {
+  const evictions: number[] = [];
+  leaveHome(world, census, emigrants, evictions);
+  const evicted = new Set(evictions);
+  for (const id of [...emigrants, ...evictions]) {
     const i = world.agents.indexOf(id);
     if (i < 0) continue;
-    const reason = world.agents.age[i]! < 18 ? 'orphan' : 'emigration';
+    const reason = evicted.has(id) ? 'eviction' : world.agents.age[i]! < 18 ? 'orphan' : 'emigration';
     forgetAgent(world, id, false);
     removeAgent(world, id, 'agent.emigrated', { age: world.agents.age[i], reason });
   }

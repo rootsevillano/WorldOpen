@@ -340,12 +340,15 @@ function describeEvent(e: SimEvent): string {
     case 'agent.died': return `✝ Muere ${String(d.name)} a los ${String(d.age)} años${d.cause === 'starvation' ? ' (por hambre)' : ''}`;
     case 'birth.skipped': return 'Un nacimiento no cabe: se alcanzó la capacidad del mundo';
     case 'job.hired': return `💼 ${String(d.name)} empieza a trabajar en ${String(d.building)}`;
+    case 'job.changed': return `${String(d.name)} deja ${String(d.from)} por un trabajo mejor pagado en ${String(d.building)}`;
+    case 'household.evicted': return `🏚 Desahucian a un hogar de ${String(d.size)} en ${String(d.home)}: se va del pueblo`;
+    case 'business.reopened': return `🔑 Reabre ${String(d.building)} con capital de fuera`;
     case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;
     case 'household.moved': return `${String(d.name)} se muda a ${String(d.home)}`;
     case 'household.arrived': return `🧳 Llega al pueblo un hogar de ${String(d.size)} ${d.size === 1 ? 'persona' : 'personas'} (${String(d.home)})`;
-    case 'agent.emigrated': return d.reason === 'orphan' ? `${String(d.name)} se va a vivir con familia de fuera` : `${String(d.name)} se va del pueblo a los ${String(d.age)} años`;
+    case 'agent.emigrated': return d.reason === 'eviction' ? `${String(d.name)} se va del pueblo tras el desahucio` : d.reason === 'orphan' ? `${String(d.name)} se va a vivir con familia de fuera` : `${String(d.name)} se va del pueblo a los ${String(d.age)} años`;
     case 'harvest.delivered': return `${String(d.name)} lleva ${String(d.amount)} de cosecha a ${String(d.building)}`;
     case 'fire.started': return `🔥 Arde ${String(d.building)} (${String(d.use)}); lo ven ${String(d.witnesses)} vecinos`;
     case 'fire.ended': return `El fuego de ${String(d.building)} se ha apagado; queda dañado`;

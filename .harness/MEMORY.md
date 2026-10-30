@@ -116,3 +116,8 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   ubicación tick a tick: la causa fue que se contaba a sí mismo en la penalización de recados del hogar.
 - (2026-10-30) Precios: si la decisión ("¿me lo puedo permitir?") y la ejecución ("¿dónde compro?") usan precios
   distintos, aparecen intentos fallidos masivos. Contar eventos de fallo en las sondas largas los delata.
+- (2026-10-30) Determinismo y gates: una condición nueva antes de `rng.nextFloat()` (cortocircuito) o un sorteo nuevo
+  al crear la población desplaza todo el flujo del PRNG y mueve los valores de los escenarios (water-cut 0,32 → 0,29).
+  Sortear después de las condiciones nuevas, o derivar del hash del id, mantiene los mundos comparables.
+- (2026-10-30) Mercado laboral: subidas salariales sin freno + puestos holgados = guerra salarial y despidos masivos en
+  invierno. Un negocio sin plantilla nunca vuelve a contratar sin capital externo.

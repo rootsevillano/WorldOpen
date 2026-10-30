@@ -1,0 +1,50 @@
+{
+  "name": "housing-crisis",
+  "description": "ADR-0024: con alquileres ×4, salarios al 40 % y sin estado del bienestar, nadie llega a fin de mes: los hogares de alquiler acumulan impagos hasta agotar sus ahorros y, tras un mes de impagos, los desahucian y se van del pueblo; además mucha gente pasa hambre y la población cae a la mitad. Ticks de 10 min.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 90,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": {
+        "year": 1,
+        "month": 3,
+        "day": 21,
+        "hour": 6,
+        "minute": 0
+      }
+    },
+    "criteria": {
+      "society.initialPopulation": 200,
+      "economy.rentLevel": 4,
+      "economy.wageLevel": 0.4,
+      "economy.welfare": 0
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "events.household.evicted",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "events.agent.emigrated:reason=eviction",
+      "op": ">=",
+      "value": 2
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.count",
+      "op": "<",
+      "value": 200
+    }
+  ]
+}
