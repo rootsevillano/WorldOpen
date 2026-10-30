@@ -109,3 +109,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-30) Hogares: "mismo edificio" no es "mismo hogar" (bloques de pisos). Al subir ENGINE_VERSION antes de
   registrar criterios nuevos, la recarga en caliente del dev server guardó un mundo sin ellos ("criterio no numérico"):
   registrar criterios y versión en el mismo cambio, o crear un mundo nuevo al verificar.
+- (2026-10-30) Un excedente sin límite oculta déficits estacionales: al acotar existencias apareció hambre invernal en el
+  mapa real. Al tocar la economía, sondear un año completo (incluido el invierno) en ambos mapas y varias semillas.

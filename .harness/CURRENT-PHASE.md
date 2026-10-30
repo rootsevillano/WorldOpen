@@ -1,8 +1,14 @@
 # CURRENT PHASE
 
-**Fase actual:** Hogares, parejas y migración · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Almacenes y caducidad · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
 
-## Hogares — entregado (ADR-0020)
+## Almacenes y caducidad — entregado (ADR-0021)
+- Capacidad de almacén por superficie, reparto de cosecha solo a tiendas con hueco, caducidad diaria de la comida e
+  importaciones ajustadas (7/persona/día). Existencias acotadas; sin hambre en 14 meses en el mapa real. Motor 0.9.0.
+
+## Hogares (anterior) — completado
+
+### ADR-0020
 - Hogar explícito, parejas que se forman entre amigos y se van a vivir juntas, emancipación, emigración de jóvenes
   solteros e inmigración a viviendas libres; criterios `society.immigration` y `society.emigration`.
 - Behavior 13/13 en ambos mapas (nuevo `households-year`); 120 tests. Motor 0.8.0.
@@ -33,7 +39,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: caducidad de alimentos y tope de producción, dinero y empleo (E1-C), vehículos; LOD si se pasa de 6 000.
+- Siguiente modelo: dinero y empleo (E1-C), vehículos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

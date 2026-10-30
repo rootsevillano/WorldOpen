@@ -26,7 +26,8 @@ const SAWMILL_WOOD = 0.1;
  * se alimenta de sus huertas. Antes eran 12 por tienda y, sin el traslado mágico de cosechas, el fin de semana vaciaba
  * las tiendas y desataba una espiral de hambre.
  */
-const IMPORT_PER_PERSON = 6;
+const IMPORT_PER_PERSON = 7;
+// ADR-0021: de 6 a 7; sin el excedente acumulado sin límite, el invierno vaciaba las tiendas del mapa real.
 /** Consumo medio medido (≈ 4.3 raciones por persona y día): con `foodAbundance` 0.7 las importaciones cubren casi todo; la cosecha local completa. */
 /** Manantial de cada fuente pública y su capacidad. */
 const FOUNTAIN_REFILL = 0.5;
@@ -34,6 +35,21 @@ const FOUNTAIN_CAP = 300;
 /** Agua corriente por hogar, × `economy.waterSupply`. */
 /** Agua corriente por residente y minuto (un edificio de pisos recibe más que una casa). */
 const TAP_WATER = 0.02;
+/**
+ * Capacidad de almacén por superficie construida, con un mínimo (ADR-0021): una huerta llena deja de producir, un
+ * aserradero lleno también, y una tienda llena no acepta más cosecha (las importaciones ya se limitan a 3 días).
+ */
+const STORAGE: Record<string, [perM2: number, min: number]> = { retail: [4, 400], agriculture: [4, 200], industrial: [5, 300] };
+/** Caducidad diaria de la comida: tiendas, huertas (producto fresco) y despensas (ADR-0021). */
+const SPOILAGE: Record<string, number> = { retail: 0.02, agriculture: 0.05, residential: 0.01 };
+
+/** Capacidad de almacén de un edificio productivo o comercial (Infinity en los demás). */
+export function storageCap(world: World, b: number): number {
+  const building = world.map.buildings[b]!;
+  const s = STORAGE[building.use];
+  return s ? Math.max(s[1], building.grossFloorAreaM2 * s[0]) : Infinity;
+}
+
 /** Leña que gasta un hogar ocupado por debajo de 14 °C. */
 const HEATING_WOOD = 0.004;
 
@@ -131,16 +147,25 @@ export function economySystem(world: World): void {
   const waterSupply = world.num('economy.waterSupply');
   const harvest = harvestFactor(world);
 
-  for (const f of map.byUse.agriculture) if (usable(world, f)) bs.food[f]! += dt * FARM_FOOD * bs.workers[f]! * foodAbundance * harvest;
-  for (const s of map.byUse.industrial) if (usable(world, s)) bs.wood[s]! += dt * SAWMILL_WOOD * bs.workers[s]!;
+  for (const f of map.byUse.agriculture) {
+    if (usable(world, f)) bs.food[f] = Math.min(storageCap(world, f), bs.food[f]! + dt * FARM_FOOD * bs.workers[f]! * foodAbundance * harvest);
+  }
+  for (const s of map.byUse.industrial) if (usable(world, s)) bs.wood[s] = Math.min(storageCap(world, s), bs.wood[s]! + dt * SAWMILL_WOOD * bs.workers[s]!);
   for (const p of map.byUse.publicServices) if (usable(world, p)) bs.water[p] = Math.min(FOUNTAIN_CAP, bs.water[p]! + dt * FOUNTAIN_REFILL);
   for (const h of map.homes) {
     const cap = bs.residents[h]! * PANTRY_TARGET[Resource.Water]!;
     if (bs.water[h]! < cap && usable(world, h)) bs.water[h] = Math.min(cap, bs.water[h]! + dt * TAP_WATER * Math.max(1, bs.residents[h]!) * waterSupply);
   }
 
-  // 06:00: importaciones del Exterior (E5). Las cosechas ya no se teletransportan: las llevan los agricultores.
+  // Medianoche: la comida caduca (ADR-0021). Las existencias dejan de crecer sin límite en mundos largos.
   const m = minuteOfDay(world);
+  if (m < dt) {
+    for (const s of map.byUse.retail) bs.food[s]! *= 1 - SPOILAGE.retail!;
+    for (const f of map.byUse.agriculture) bs.food[f]! *= 1 - SPOILAGE.agriculture!;
+    for (const h of map.homes) bs.food[h]! *= 1 - SPOILAGE.residential!;
+  }
+
+  // 06:00: importaciones del Exterior (E5). Las cosechas ya no se teletransportan: las llevan los agricultores.
   if (m <= 360 && 360 < m + dt) {
     const shops = map.byUse.retail.filter((s) => usable(world, s));
     // Reparto según el área de influencia de cada tienda (residentes cuya tienda más cercana es esa) y tope de unos
@@ -290,12 +315,12 @@ export function employed(world: World, i: number): boolean {
 export const DELIVERY_MIN = 20;
 export const DELIVERY_MAX = 40;
 
-/** Tienda en uso más cercana a (x, z), o −1. */
+/** Tienda en uso más cercana a (x, z) con hueco para un reparto (ADR-0021), o −1. */
 export function nearestShop(world: World, x: number, z: number): number {
   let best = -1;
   let bestD = Infinity;
   for (const s of world.map.byUse.retail) {
-    if (!usable(world, s)) continue;
+    if (!usable(world, s) || storageCap(world, s) - world.buildings.food[s]! < DELIVERY_MIN) continue;
     const c = world.map.buildings[s]!.centroid;
     const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
     if (d < bestD) {

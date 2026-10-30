@@ -25,3 +25,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0018](0018-model-calibration.md) | Calibración del modelo a escala real | Aceptada |
 | [0019](0019-life-cycle.md) | Ciclo de vida y economía sostenible a largo plazo | Aceptada |
 | [0020](0020-households-migration.md) | Hogares, parejas y migración | Aceptada |
+| [0021](0021-storage-spoilage.md) | Capacidad de almacén y caducidad de la comida | Aceptada |

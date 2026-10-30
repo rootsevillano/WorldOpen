@@ -1,6 +1,6 @@
 {
   "name": "lifecycle-year",
-  "description": "S5/ADR-0019: en un año con natalidad y mortalidad ×3 (para tener conteos con 300 habitantes) nacen y mueren personas por edad, nadie muere de hambre con la economía normal y la población se mantiene. Ticks de 10 min (se comportan como los de 1 min).",
+  "description": "S5/ADR-0019: en un año con natalidad y mortalidad ×3 (para tener conteos con 300 habitantes) nacen y mueren personas por edad, nadie muere de hambre con la economía normal y la población se mantiene. Las existencias no crecen sin límite (ADR-0021). Ticks de 10 min (se comportan como los de 1 min).",
   "seeds": [
     1,
     2
@@ -56,6 +56,12 @@
       "metric": "agents.avgHealth",
       "op": ">=",
       "value": 0.95
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.maxStorageRatio",
+      "op": "<=",
+      "value": 1
     }
   ]
 }

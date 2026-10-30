@@ -1,4 +1,5 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
+import { storageCap } from './agents/economy';
 import { nightFactor, temperature } from './agents/environment';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
@@ -142,6 +143,13 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     // Proporción del agua de las fuentes sobre su capacidad (300 por fuente): comparable entre mapas.
     case 'economy.fountainWaterRatio': return e!.fountainWater / Math.max(1, 300 * sim.world.map.byUse.publicServices.length);
     case 'economy.sawmillWood': return e!.sawmillWood;
+    // Mayor ocupación de almacén de huertas y aserraderos (≤ 1: la producción se detiene al llenarse, ADR-0021).
+    case 'economy.maxStorageRatio': {
+      let max = 0;
+      for (const f of sim.world.map.byUse.agriculture) max = Math.max(max, bs.food[f]! / storageCap(sim.world, f));
+      for (const s of sim.world.map.byUse.industrial) max = Math.max(max, bs.wood[s]! / storageCap(sim.world, s));
+      return max;
+    }
     case 'economy.pantryFood': return e!.pantryFood;
     case 'economy.pantryWater': return e!.pantryWater;
     case 'economy.pantryWood': return e!.pantryWood;

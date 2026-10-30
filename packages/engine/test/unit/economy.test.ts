@@ -2,6 +2,8 @@ import { AgentActivity, BuildingState, type CommandEnvelope } from '@worldopen/c
 import { describe, expect, it } from 'vitest';
 import { Action, Simulation } from '../../src';
 import { manifest } from '../helpers';
+import { nearestShop, storageCap } from '../../src/agents/economy';
+import { metric } from '../../src/metrics';
 
 const admin = { userId: 'god', role: 'admin' as const };
 let n = 0;
@@ -117,3 +119,47 @@ describe('Inspector', () => {
   });
 });
 
+
+describe('Almacenes y caducidad (ADR-0021)', () => {
+  const atMinute = (sim: Simulation, minute: number) => {
+    while (sim.frame().date.minuteOfDay !== minute) sim.step();
+  };
+
+  it('huertas y aserraderos dejan de producir al llenarse', () => {
+    const sim = new Simulation(manifest(2, { criteria: { 'society.initialPopulation': 200 } }));
+    const { byUse } = sim.world.map;
+    const bs = sim.world.buildings;
+    for (const f of byUse.agriculture) bs.food[f] = storageCap(sim.world, f);
+    for (const s of byUse.industrial) bs.wood[s] = storageCap(sim.world, s);
+    for (let t = 0; t < 1440; t++) {
+      sim.step();
+      for (const f of byUse.agriculture) expect(bs.food[f]).toBeLessThanOrEqual(storageCap(sim.world, f));
+      for (const s of byUse.industrial) expect(bs.wood[s]).toBeLessThanOrEqual(storageCap(sim.world, s));
+    }
+    expect(metric(sim, 'economy.maxStorageRatio')).toBeLessThanOrEqual(1);
+  });
+
+  it('la comida de las tiendas caduca a medianoche (2 % diario)', () => {
+    const sim = new Simulation(manifest(2, { criteria: { 'society.initialPopulation': 0 } }));
+    const shop = sim.world.map.byUse.retail[0]!;
+    atMinute(sim, 0); // el próximo tick es el de medianoche
+    sim.world.buildings.food[shop] = 1000;
+    sim.step();
+    expect(sim.world.buildings.food[shop]).toBeCloseTo(980, 3);
+  });
+
+  it('el reparto de cosecha va a la tienda más cercana con hueco; si todas están llenas, no hay reparto', () => {
+    const sim = new Simulation(manifest(2, { criteria: { 'society.initialPopulation': 0 } }));
+    const shops = sim.world.map.byUse.retail;
+    const bs = sim.world.buildings;
+    const c = sim.world.map.buildings[shops[0]!]!.centroid;
+    const nearest = nearestShop(sim.world, c.x, c.z);
+    expect(nearest).toBe(shops[0]);
+    bs.food[shops[0]!] = storageCap(sim.world, shops[0]!);
+    const next = nearestShop(sim.world, c.x, c.z);
+    expect(next).not.toBe(shops[0]);
+    expect(next).toBeGreaterThanOrEqual(0);
+    for (const s of shops) bs.food[s] = storageCap(sim.world, s);
+    expect(nearestShop(sim.world, c.x, c.z)).toBe(-1);
+  });
+});

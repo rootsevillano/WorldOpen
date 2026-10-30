@@ -11,6 +11,7 @@ import {
   SERVICE_MINUTES,
   chooseSource,
   nearestShop,
+  storageCap,
   employed,
   homeWarm,
   sourceOpen,
@@ -209,7 +210,8 @@ export function decisionSystem(world: World): void {
         consider(Action.Work, 0.55 + (1 - a.work[i]!) * 0.8 + (current === Action.Work ? 0.2 : 0));
       }
       // Logística (ADR-0018): un agricultor en su huerta lleva la cosecha acumulada a la tienda más cercana.
-      if (occupation === Occupation.Farmer && loc >= 0 && loc === a.workplace[i] && world.buildings.food[loc]! >= DELIVERY_MIN && sourceOpen(world, Resource.Food)) {
+      // Solo si alguna tienda tiene hueco (ADR-0021).
+      if (occupation === Occupation.Farmer && loc >= 0 && loc === a.workplace[i] && world.buildings.food[loc]! >= DELIVERY_MIN && sourceOpen(world, Resource.Food) && nearestShop(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!) >= 0) {
         consider(Action.Deliver, 0.95);
       }
     }
@@ -266,7 +268,7 @@ export function startAction(world: World, i: number, action: Action, home: numbe
       a.action[i] = Action.Stay;
       target = -1;
     } else {
-      const amount = Math.min(world.buildings.food[farm]!, DELIVERY_MAX);
+      const amount = Math.min(world.buildings.food[farm]!, DELIVERY_MAX, storageCap(world, target) - world.buildings.food[target]!);
       world.buildings.food[farm]! -= amount;
       a.carryKind[i] = Resource.Food;
       a.carryAmount[i] = amount;
@@ -337,7 +339,8 @@ function arrive(world: World, i: number, target: number): void {
   a.flags[i] = AgentFlag.Indoors;
   const action = a.action[i]!;
   if (action === Action.Deliver && a.carryKind[i] === Resource.Food) {
-    world.buildings.food[target]! += a.carryAmount[i]!;
+    // Si otra entrega la llenó mientras tanto, lo que no cabe se pierde.
+    world.buildings.food[target] = Math.max(world.buildings.food[target]!, Math.min(storageCap(world, target), world.buildings.food[target]! + a.carryAmount[i]!));
     world.emit('harvest.delivered', { agentId: a.ids[i], name: a.names[i], building: world.map.buildings[target]!.id, amount: Math.round(a.carryAmount[i]!) });
     a.carryKind[i] = Resource.None;
     a.carryAmount[i] = 0;
