@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Ciclo de vida (S5) · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Hogares, parejas y migración · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
 
-## Ciclo de vida — entregado (ADR-0019)
+## Hogares — entregado (ADR-0020)
+- Hogar explícito, parejas que se forman entre amigos y se van a vivir juntas, emancipación, emigración de jóvenes
+  solteros e inmigración a viviendas libres; criterios `society.immigration` y `society.emigration`.
+- Behavior 13/13 en ambos mapas (nuevo `households-year`); 120 tests. Motor 0.8.0.
+
+## Ciclo de vida (anterior) — completado
+
+### ADR-0019
 - Cumpleaños con etapas, embarazos y nacimientos, muertes por edad y por hambre, duelo; criterios de natalidad y
   mortalidad en el Modo Dios. Economía corregida para sostenerse años (6 defectos hallados al simular a largo plazo).
 - Behavior 12/12 en ambos mapas (nuevo `lifecycle-year`); 115 tests. Motor 0.7.0.
@@ -26,7 +33,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: formación de parejas y migración, caducidad de alimentos, dinero y empleo (E1-C), vehículos; LOD si se pasa de 6 000.
+- Siguiente modelo: caducidad de alimentos y tope de producción, dinero y empleo (E1-C), vehículos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

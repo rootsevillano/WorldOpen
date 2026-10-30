@@ -53,11 +53,15 @@ export const Memory = {
   Grief: 7,
   /** Nació un hijo (S5). */
   NewChild: 8,
+  /** Empezó una relación de pareja (ADR-0020). */
+  Partner: 9,
+  /** Se mudó de casa (ADR-0020). */
+  Moved: 10,
 } as const;
-export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome', 'grief', 'newChild'] as const;
+export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome', 'grief', 'newChild', 'partner', 'moved'] as const;
 
-export const RelationKind = { None: 0, Family: 1, Acquaintance: 2, Friend: 3 } as const;
-export const RELATION_NAMES = ['none', 'family', 'acquaintance', 'friend'] as const;
+export const RelationKind = { None: 0, Family: 1, Acquaintance: 2, Friend: 3, Partner: 4 } as const;
+export const RELATION_NAMES = ['none', 'family', 'acquaintance', 'friend', 'partner'] as const;
 
 export const MEMORY_SLOTS = 8;
 export const RELATION_SLOTS = 8;
@@ -66,6 +70,8 @@ export class AgentStore {
   readonly capacity: number;
   count = 0;
   nextId = 1;
+  /** Siguiente id de hogar (ADR-0020). */
+  nextHousehold = 1;
 
   // — Contrato de render —
   readonly ids: Uint32Array;
@@ -111,6 +117,8 @@ export class AgentStore {
   /** Día del año del cumpleaños (0–359) y días de embarazo (0 = no) (S5, ADR-0019). */
   readonly birthDay: Uint16Array;
   readonly pregnantDays: Uint16Array;
+  /** Hogar al que pertenece (un edificio puede tener varios: bloques de pisos) (ADR-0020). */
+  readonly household: Uint32Array;
   /** Puntuaciones de la última decisión (stride `ACTION_COUNT`). */
   readonly scores: Float32Array;
 
@@ -162,6 +170,7 @@ export class AgentStore {
     this.bedtime = new Uint16Array(c);
     this.birthDay = new Uint16Array(c);
     this.pregnantDays = new Uint16Array(c);
+    this.household = new Uint32Array(c);
     this.scores = new Float32Array(c * ACTION_COUNT);
     this.memTick = new Uint32Array(c * MEMORY_SLOTS);
     this.memKind = new Uint8Array(c * MEMORY_SLOTS);
@@ -180,7 +189,7 @@ export class AgentStore {
       ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
       ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
-      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['scores', this.scores, ACTION_COUNT],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['scores', this.scores, ACTION_COUNT],
       ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
       ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
       ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],
@@ -236,11 +245,12 @@ export class AgentStore {
     return this.columns;
   }
 
-  serialize(): { nextId: number; count: number; columns: Record<string, number[]>; names: string[]; paths: (number[] | null)[] } {
+  serialize(): { nextId: number; nextHousehold: number; count: number; columns: Record<string, number[]>; names: string[]; paths: (number[] | null)[] } {
     const columns: Record<string, number[]> = {};
     for (const [name, col, stride] of this.columns) columns[name] = Array.from(col.subarray(0, this.count * stride));
     return {
       nextId: this.nextId,
+      nextHousehold: this.nextHousehold,
       count: this.count,
       columns,
       names: this.names.slice(0, this.count),
@@ -252,6 +262,7 @@ export class AgentStore {
     if (data.count > this.capacity) throw new Error(`El snapshot tiene ${data.count} agentes; capacidad ${this.capacity}`);
     this.count = data.count;
     this.nextId = data.nextId;
+    this.nextHousehold = data.nextHousehold;
     for (const [name, col] of this.columns) {
       const values = data.columns[name];
       if (!values) throw new Error(`Falta la columna ${name} en el snapshot`);

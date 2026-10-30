@@ -17,9 +17,9 @@ const OCCUPATIONS_ES: Record<string, string> = {
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',
   newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
-  newChild: 'nació un hijo en casa',
+  newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa',
 };
-const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad' };
+const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad', partner: 'pareja' };
 const USES_ES: Record<string, string> = {
   residential: 'Vivienda', agriculture: 'Huerta', industrial: 'Aserradero', office: 'Oficina', retail: 'Tienda',
   publicServices: 'Servicio público (fuente)', unknown: 'Desconocido',

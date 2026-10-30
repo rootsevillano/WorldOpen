@@ -1,6 +1,7 @@
 import { disasterSystem } from '../agents/disasters';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
+import { householdsSystem } from '../agents/households';
 import { socialSystem } from '../agents/social';
 import { decisionSystem, movementSystem, needsSystem } from '../agents/systems';
 import { agentRemoveV1, agentSpawnV1 } from '../commands/agents';
@@ -48,6 +49,18 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.immigration',
+      type: 'number', min: 0, max: 5, default: 1,
+      description: 'Multiplicador de la llegada de hogares nuevos a viviendas libres (1 ≈ 2 % de la población al año).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.emigration',
+      type: 'number', min: 0, max: 5, default: 1,
+      description: 'Multiplicador de la marcha de jóvenes solteros (más si no hay vivienda libre).',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.initialPopulation',
       type: 'number', min: 0, max: 10000, default: 5,
       description: 'Habitantes al crear el mundo. Después, la población cambia con comandos.',
@@ -70,6 +83,7 @@ export const contemporary: Ruleset = {
     { name: 'service', run: serviceSystem },
     { name: 'social', run: socialSystem },
     { name: 'lifecycle', run: lifecycleSystem },
+    { name: 'households', run: householdsSystem },
   ],
 };
 

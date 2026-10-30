@@ -1,0 +1,79 @@
+{
+  "name": "households-year",
+  "description": "ADR-0020: en un año con migración ×3 (para tener conteos con 300 habitantes) se forman parejas que se van a vivir juntas, llegan hogares a viviendas libres sin superar las del mapa y emigran jóvenes solteros; la población se mantiene. Ticks de 10 min.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 360,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": {
+        "year": 1,
+        "month": 3,
+        "day": 21,
+        "hour": 6,
+        "minute": 0
+      }
+    },
+    "criteria": {
+      "society.initialPopulation": 300,
+      "society.immigration": 3,
+      "society.emigration": 3
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "events.couple.formed",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "events.household.moved",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "events.household.arrived",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "events.agent.emigrated:reason=emigration",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "households.occupancy",
+      "op": "<=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.partneredRatio",
+      "op": ">=",
+      "value": 0.5
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.partneredRatio",
+      "op": "<=",
+      "value": 0.85
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.count",
+      "op": ">=",
+      "value": 280
+    }
+  ]
+}

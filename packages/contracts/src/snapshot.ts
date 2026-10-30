@@ -9,6 +9,8 @@ export interface Snapshot {
   criteria: CriteriaValues;
   agents: {
     nextId: number;
+    /** Siguiente id de hogar. */
+    nextHousehold: number;
     count: number;
     /** Columnas numéricas del almacén de agentes (nombre → valores, `count × stride`). */
     columns: Record<string, number[]>;

@@ -2,7 +2,7 @@ import { MINUTES_PER_DAY } from '../time/clock';
 import { Memory, Occupation, RELATION_SLOTS, RelationKind } from '../world/agents';
 import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
-import { bedtimeFor, pickOccupation, removeAgent, spawnAgent } from './population';
+import { bedtimeFor, hasFather, pickOccupation, removeAgent, spawnAgent } from './population';
 import { fertilityAt } from './fertility';
 import { remember } from './social';
 
@@ -34,27 +34,20 @@ function dayOfYear(world: World): number {
   return (day + elapsed) % DAYS_PER_YEAR;
 }
 
-/** ¿Hay un hombre adulto que convive con ella? (pareja; el modelo no distingue más.) */
-function hasPartner(world: World, i: number): boolean {
-  const a = world.agents;
-  const home = a.home[i]!;
-  for (let j = 0; j < a.count; j++) {
-    if (j !== i && a.home[j] === home && a.sex[j] === 1 && a.age[j]! >= 18) return true;
-  }
-  return false;
-}
-
-/** Familia y amigos de quien muere lo recuerdan y les baja la necesidad social. */
-function mourn(world: World, deadId: number): void {
+/**
+ * Borra las relaciones con quien deja el pueblo. Si muere (`grieve`), familia, pareja y amigos lo recuerdan y les
+ * baja la necesidad social.
+ */
+export function forgetAgent(world: World, deadId: number, grieve = true): void {
   const a = world.agents;
   for (let j = 0; j < a.count; j++) {
     for (let s = 0; s < RELATION_SLOTS; s++) {
       const k = j * RELATION_SLOTS + s;
       if (a.relId[k] !== deadId) continue;
       const kind = a.relKind[k]!;
-      if (kind === RelationKind.Family || kind === RelationKind.Friend) {
+      if (grieve && kind !== RelationKind.Acquaintance) {
         remember(world, j, Memory.Grief, a.home[j]!);
-        a.social[j] = Math.max(0, a.social[j]! - (kind === RelationKind.Family ? 0.5 : 0.25));
+        a.social[j] = Math.max(0, a.social[j]! - (kind === RelationKind.Friend ? 0.25 : 0.5));
       }
       a.relKind[k] = RelationKind.None;
       a.relId[k] = 0;
@@ -93,7 +86,7 @@ export function lifecycleSystem(world: World): void {
     if (rng.nextFloat() >= p) continue;
     const id = a.ids[i]!;
     const cause = starving ? 'starvation' : 'age';
-    mourn(world, id);
+    forgetAgent(world, id);
     removeAgent(world, id, 'agent.died', { age: a.age[i], cause });
   }
 
@@ -108,13 +101,13 @@ export function lifecycleSystem(world: World): void {
         continue;
       }
       const home = a.home[i]!;
-      const babyId = spawnAgent(world, home, 0);
-      for (let j = 0; j < a.count; j++) if (a.home[j] === home && a.age[j]! >= 18) remember(world, j, Memory.NewChild, home);
+      const babyId = spawnAgent(world, home, 0, a.household[i]);
+      for (let j = 0; j < a.count; j++) if (a.household[j] === a.household[i] && a.age[j]! >= 18) remember(world, j, Memory.NewChild, home);
       world.emit('agent.born', { agentId: babyId, motherId: a.ids[i], mother: a.names[i], home: world.map.buildings[home]!.id });
       continue;
     }
     if (a.sex[i] !== 0 || a.occupation[i] === Occupation.Child) continue;
     const p = (fertilityAt(a.age[i]!) / DAYS_PER_YEAR) * fertility;
-    if (p > 0 && rng.nextFloat() < p && hasPartner(world, i)) a.pregnantDays[i] = 1;
+    if (p > 0 && rng.nextFloat() < p && hasFather(world, i)) a.pregnantDays[i] = 1;
   }
 }

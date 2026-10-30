@@ -36,7 +36,7 @@ describe('Ciclo de vida (S5, ADR-0019)', () => {
     const id = a.ids[i]!;
     const home = a.home[i]!;
     const residents = sim.world.buildings.residents[home]!;
-    const relatives = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.home[k] === home && k !== i).map((k) => a.ids[k]!);
+    const relatives = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.household[k] === a.household[i] && k !== i).map((k) => a.ids[k]!);
     let died = false;
     for (let d = 0; d < 400 && !died; d++) {
       a.health[a.indexOf(id)] = 0;

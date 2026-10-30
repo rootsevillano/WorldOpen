@@ -1,5 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { nightFactor, temperature } from './agents/environment';
+import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
 import { Action, Occupation } from './world/agents';
@@ -84,6 +85,24 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.count': return a.count;
     case 'agents.childrenRatio': return ratio((i) => a.age[i]! < 18);
     case 'agents.elderlyRatio': return ratio((i) => a.age[i]! >= 65);
+    // Adultos con pareja / adultos (ADR-0020).
+    case 'agents.partneredRatio': {
+      let adults = 0;
+      let partnered = 0;
+      for (let i = 0; i < a.count; i++) {
+        if (a.age[i]! < 18) continue;
+        adults++;
+        if (partnerId(sim.world, i) !== 0) partnered++;
+      }
+      return adults === 0 ? 0 : partnered / adults;
+    }
+    case 'households.count': return new Set(a.household.subarray(0, a.count)).size;
+    // Viviendas ocupadas / viviendas del mapa (un edificio sin datos cuenta como una).
+    case 'households.occupancy': {
+      let total = 0;
+      for (const h of sim.world.map.homes) total += Math.max(1, uses[h]!.dwellings);
+      return new Set(a.household.subarray(0, a.count)).size / total;
+    }
     case 'agents.studentsAtSchoolRatio': {
       let students = 0;
       let atSchool = 0;

@@ -106,3 +106,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   cosechas, reparto de importaciones a partes iguales, tope global, bloques de pisos como un solo hogar, atención por
   tick). Lección: probar el modelo a la escala temporal en la que se va a usar. Los ticks de 10 min reproducen los de
   1 min; los de 30–60 min no (discretización de necesidades): para gates de años, 10 min.
+- (2026-10-30) Hogares: "mismo edificio" no es "mismo hogar" (bloques de pisos). Al subir ENGINE_VERSION antes de
+  registrar criterios nuevos, la recarga en caliente del dev server guardó un mundo sin ellos ("criterio no numérico"):
+  registrar criterios y versión en el mismo cambio, o crear un mundo nuevo al verificar.

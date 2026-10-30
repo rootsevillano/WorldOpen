@@ -105,15 +105,15 @@ describe('Inspector', () => {
     expect(sim.building('nope')).toBeNull();
   });
 
-  it('quien comparte casa es familia', () => {
+  it('quien comparte hogar es familia o pareja', () => {
     const sim = new Simulation(manifest(1, { criteria: { 'society.initialPopulation': 80 } }));
     const a = sim.world.agents;
     let pair: [number, number] | null = null;
-    for (let i = 0; i < a.count && !pair; i++) for (let j = i + 1; j < a.count && !pair; j++) if (a.home[i] === a.home[j]) pair = [i, j];
+    for (let i = 0; i < a.count && !pair; i++) for (let j = i + 1; j < a.count && !pair; j++) if (a.household[i] === a.household[j]) pair = [i, j];
     expect(pair).not.toBeNull();
     const [i, j] = pair!;
     const rel = sim.agent(a.ids[i]!)!.relations.find((r) => r.agentId === a.ids[j]);
-    expect(rel).toMatchObject({ kind: 'family' });
+    expect(['family', 'partner']).toContain(rel!.kind);
   });
 });
 

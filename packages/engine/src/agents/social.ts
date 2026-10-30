@@ -43,7 +43,7 @@ export function bond(world: World, i: number, otherId: number, delta: number, ki
     }
     if (kind === RelationKind.None) {
       if (free < 0) free = k;
-    } else if (kind !== RelationKind.Family && (weakest < 0 || a.relAffinity[k]! < a.relAffinity[weakest]!)) {
+    } else if (kind !== RelationKind.Family && kind !== RelationKind.Partner && (weakest < 0 || a.relAffinity[k]! < a.relAffinity[weakest]!)) {
       weakest = k;
     }
   }
@@ -62,6 +62,30 @@ export function bond(world: World, i: number, otherId: number, delta: number, ki
     return true;
   }
   return false;
+}
+
+/** Id de la pareja de `i` (0 = sin pareja). */
+export function partnerId(world: World, i: number): number {
+  const a = world.agents;
+  for (let s = 0; s < RELATION_SLOTS; s++) {
+    const k = i * RELATION_SLOTS + s;
+    if (a.relKind[k] === RelationKind.Partner) return a.relId[k]!;
+  }
+  return 0;
+}
+
+/** Une a `i` y `j` como pareja (en ambos sentidos). */
+export function pair(world: World, i: number, j: number): void {
+  const a = world.agents;
+  for (const [x, y] of [[i, j], [j, i]] as const) {
+    bond(world, x, a.ids[y]!, 0, RelationKind.Partner);
+    for (let s = 0; s < RELATION_SLOTS; s++) {
+      const k = x * RELATION_SLOTS + s;
+      if (a.relId[k] !== a.ids[y] || a.relKind[k] === RelationKind.None) continue;
+      a.relKind[k] = RelationKind.Partner;
+      a.relAffinity[k] = Math.max(a.relAffinity[k]!, 0.8);
+    }
+  }
 }
 
 /** Una vez por hora de juego, quienes coinciden en un local charlan con alguien presente (al azar determinista). */

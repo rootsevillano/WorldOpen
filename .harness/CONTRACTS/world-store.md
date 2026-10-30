@@ -3,7 +3,8 @@
 Código: `packages/contracts/src/store.ts`, `manifest.ts`, `snapshot.ts`. Decisión en ADR-0004.
 
 - **Mundo = manifiesto + log de comandos + snapshots.** El manifiesto es inmutable; el log, append-only.
-- El snapshot guarda los agentes por columnas (`agents.columns`, en el orden fijo de `AgentStore`), nombres y rutas en
+- El snapshot guarda los agentes por columnas (`agents.columns`, en el orden fijo de `AgentStore`; `nextId` y
+  `nextHousehold`), nombres y rutas en
   curso, más los comandos aceptados aún pendientes. El mapa no va en el snapshot: se reconstruye del manifiesto.
 - Snapshot cada `1440 / minutesPerTick` ticks (un día de juego) y al pausar/cerrar.
 - Reproducir el tick T: `getSnapshot(worldId, T)` → `Simulation.restore` → aplicar `readCommands(worldId, snapshot.tick)`
