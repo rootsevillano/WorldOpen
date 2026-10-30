@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Almacenes y caducidad · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Dinero y empleo (E1-C) · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
 
-## Almacenes y caducidad — entregado (ADR-0021)
+## Dinero y empleo — entregado (ADR-0022)
+- Monederos y cajas, precios fijos, jornal diario, pensiones y prestaciones, contratación y despido, exportaciones;
+  criterios de precios, salarios y bienestar en el Modo Dios; paro, ahorros y cajas en el HUD. Motor 0.10.0.
+- Behavior 14/14 en ambos mapas (nuevo `money-crisis`); 130 tests.
+
+## Almacenes (anterior) — completado
+
+### ADR-0021
 - Capacidad de almacén por superficie, reparto de cosecha solo a tiendas con hueco, caducidad diaria de la comida e
   importaciones ajustadas (7/persona/día). Existencias acotadas; sin hambre en 14 meses en el mapa real. Motor 0.9.0.
 
@@ -39,7 +46,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: dinero y empleo (E1-C), vehículos; LOD si se pasa de 6 000.
+- Siguiente modelo: precios dinámicos y alquileres (E1-D), vehículos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

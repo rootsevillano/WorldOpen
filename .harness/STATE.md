@@ -1,6 +1,6 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-30 (almacenes y caducidad)_
+_Actualizado: 2026-10-30 (dinero y empleo)_
 
 ## Implementado
 
@@ -9,10 +9,11 @@ _Actualizado: 2026-10-30 (almacenes y caducidad)_
 | Mapa real | `almensilla-3d/tools/gis/{build_logic,pack_map}.py`, `engine/src/map/mappack.ts`, `cli/src/mappacks.ts`, `render/src/realMap.ts` | Map-pack anonimizado «Valdeolivo» (2 793 edificios, grafo de 2 119 nodos), lector validador, resolvedores (fetch/disco), render con huellas, terreno, viales, árboles y cotas (ADR-0017) |
 | Servidor | `apps/server`, `packages/host` | Mundo vivo compartido, usuarios scrypt, sesiones, límite de intentos, `/ws/live` y `/ws/study`, guardado cada 30 s y comandos al instante (ADR-0016) |
 | Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
-| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.9.0** (0.9: capacidad de almacén y caducidad; 0.8: hogares, parejas y migración; snapshot con `nextHousehold`; 0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.10.0** (0.10: dinero, empleo y precios; inspector con dinero y caja; 0.9: capacidad de almacén y caducidad; 0.8: hogares, parejas y migración; snapshot con `nextHousehold`; 0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
 | Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep (cronotipo), Provision, Work (trabajo o escuela), **Deliver** (ADR-0018) |
+| Dinero y empleo | `engine/src/agents/money.ts` | Monederos y cajas, precios fijos, jornal diario, Estado y Exterior, contratación y despido semanal, demanda de las tiendas; criterios `economy.priceLevel`, `economy.wageLevel`, `economy.welfare` (ADR-0022) |
 | Almacenes | `engine/src/agents/economy.ts` | Capacidad por superficie (huertas y aserraderos se detienen llenos, reparto solo a tiendas con hueco), caducidad diaria de la comida, importaciones 7/persona/día (ADR-0021) |
 | Hogares | `engine/src/agents/households.ts` | Hogar explícito por agente, parejas, convivencia, emancipación, emigración e inmigración a viviendas libres; criterios `society.immigration` y `society.emigration` (ADR-0020) |
 | Ciclo de vida | `engine/src/agents/lifecycle.ts` | Cumpleaños y etapas, embarazos (270 días) y nacimientos, muertes por edad y por hambre, duelo; criterios `society.fertility` y `society.mortality` (ADR-0019) |
@@ -28,6 +29,7 @@ _Actualizado: 2026-10-30 (almacenes y caducidad)_
 | CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
+- Dinero y empleo ✅ Behavior 14/14 en ambos mapas (nuevo `money-crisis`); 130 tests; un año sin hambre en ambos mapas.
 - Almacenes y caducidad ✅ Behavior 13/13 en ambos mapas; 123 tests; existencias acotadas en 14 meses sin hambre.
 - Hogares y migración ✅ Behavior 13/13 en mapa sintético y real (nuevo `households-year`); 120 tests.
 - Ciclo de vida ✅ Behavior 12/12 en mapa sintético y real (nuevo `lifecycle-year`); 115 tests; 2 años sin hambrunas.

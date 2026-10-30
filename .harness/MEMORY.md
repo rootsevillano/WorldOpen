@@ -111,3 +111,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   registrar criterios y versión en el mismo cambio, o crear un mundo nuevo al verificar.
 - (2026-10-30) Un excedente sin límite oculta déficits estacionales: al acotar existencias apareció hambre invernal en el
   mapa real. Al tocar la economía, sondear un año completo (incluido el invierno) en ambos mapas y varias semillas.
+- (2026-10-30) Dinero: las cuentas por agente deben cerrar en la semana (se cobra 5 días, se gasta 7) y con la asistencia
+  real (250–360 min/jornada), no la nominal. Un agente que "decide pero nunca llega" se detecta trazando acción y
+  ubicación tick a tick: la causa fue que se contaba a sí mismo en la penalización de recados del hogar.

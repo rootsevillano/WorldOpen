@@ -3,6 +3,7 @@ import { ticksPerDay } from '../time/clock';
 import { Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import { harvestFactor, minuteOfDay, shopsOpen, temperature } from './environment';
+import { WHOLESALE_PRICE, buy, cannotPay, clockWork, exportSurplus } from './money';
 import { recalls, remember } from './social';
 
 /**
@@ -18,8 +19,9 @@ const DRINK = 0.5;
 const MEAL_MINUTES = 20;
 
 /** Producción por trabajador presente. */
-const FARM_FOOD = 0.12;
-const SAWMILL_WOOD = 0.1;
+// ADR-0022: ×1.5 para que un jornal semanal cubra los gastos de la semana (el excedente se exporta).
+const FARM_FOOD = 0.18;
+const SAWMILL_WOOD = 0.15;
 /** Importaciones diarias de comida por tienda a las 06:00, × `economy.foodAbundance`. */
 /**
  * Importaciones diarias de comida del Exterior por habitante, × `economy.foodAbundance` (ADR-0019): un pueblo así no
@@ -27,6 +29,8 @@ const SAWMILL_WOOD = 0.1;
  * las tiendas y desataba una espiral de hambre.
  */
 const IMPORT_PER_PERSON = 7;
+/** Con dinero, la tienda repone lo vendido (hasta 3 días): el Exterior sirve hasta 10 por persona y día × abundancia. */
+const IMPORT_MAX_PER_PERSON = 10;
 // ADR-0021: de 6 a 7; sin el excedente acumulado sin límite, el invierno vaciaba las tiendas del mapa real.
 /** Consumo medio medido (≈ 4.3 raciones por persona y día): con `foodAbundance` 0.7 las importaciones cubren casi todo; la cosecha local completa. */
 /** Manantial de cada fuente pública y su capacidad. */
@@ -140,6 +144,7 @@ function countPresence(world: World): void {
 /** Producción, suministros, calefacción y consumo doméstico. Se ejecuta al inicio de cada tick. */
 export function economySystem(world: World): void {
   countPresence(world);
+  clockWork(world);
   const bs = world.buildings;
   const map = world.map;
   const dt = world.time.minutesPerTick;
@@ -167,36 +172,20 @@ export function economySystem(world: World): void {
 
   // 06:00: importaciones del Exterior (E5). Las cosechas ya no se teletransportan: las llevan los agricultores.
   if (m <= 360 && 360 < m + dt) {
-    const shops = map.byUse.retail.filter((s) => usable(world, s));
-    // Reparto según el área de influencia de cada tienda (residentes cuya tienda más cercana es esa) y tope de unos
-    // 3 días de consumo por tienda. Repartir a partes iguales vaciaba las céntricas, y un tope global dejaba sin
-    // importaciones a las céntricas cuando las cosechas llenaban las periféricas (ADR-0019).
-    const weight = new Float64Array(shops.length).fill(1);
-    for (const h of map.homes) {
-      const res = bs.residents[h]!;
-      if (res === 0) continue;
-      const c = map.buildings[h]!.centroid;
-      let best = 0;
-      let bestD = Infinity;
-      shops.forEach((sh, k) => {
-        const q = map.buildings[sh]!.centroid;
-        const d = (q.x - c.x) * (q.x - c.x) + (q.z - c.z) * (q.z - c.z);
-        if (d < bestD) {
-          bestD = d;
-          best = k;
-        }
-      });
-      weight[best]! += res;
+    updateShopDemand(world);
+    for (const sh of map.byUse.retail) {
+      if (!usable(world, sh)) continue;
+      const room = Math.max(0, bs.demand[sh]! - bs.food[sh]!);
+      const share = world.agents.count > 0 ? bs.demand[sh]! / (3 * world.agents.count * IMPORT_PER_PERSON) : 0;
+      // La tienda paga la mercancía al por mayor: sin caja, no repone (ADR-0022).
+      const price = WHOLESALE_PRICE * world.num('economy.priceLevel');
+      const amount = Math.min(room, world.agents.count * IMPORT_MAX_PER_PERSON * foodAbundance * share, bs.cash[sh]! / price);
+      bs.food[sh]! += amount;
+      bs.cash[sh]! -= amount * price;
     }
-    let total = 0;
-    for (const w of weight) total += w;
-    const daily = world.agents.count * IMPORT_PER_PERSON;
-    shops.forEach((sh, k) => {
-      const share = weight[k]! / total;
-      const room = Math.max(0, 3 * daily * share - bs.food[sh]!);
-      bs.food[sh]! += Math.min(room, daily * foodAbundance * share);
-    });
   }
+
+  if (m <= 360 && 360 < m + dt) exportSurplus(world, (b) => storageCap(world, b));
 
   // Calefacción: con frío, cada hogar ocupado quema leña.
   if (temperature(world) < 14) {
@@ -229,6 +218,46 @@ export function economySystem(world: World): void {
       a.activities[i] = AgentActivity.Eating;
     }
   }
+}
+
+/**
+ * Existencias objetivo de cada tienda: unos 3 días de consumo de su área de influencia (residentes cuya tienda más
+ * cercana es esa). Repartir a partes iguales vaciaba las céntricas, y un tope global dejaba sin importaciones a las
+ * céntricas cuando las cosechas llenaban las periféricas (ADR-0019). Con dinero, la tienda solo compra (importación o
+ * cosecha) hasta ese objetivo: comprar más de lo que vende la arruinaba (ADR-0022).
+ */
+export function updateShopDemand(world: World): void {
+  const map = world.map;
+  const bs = world.buildings;
+  const shops = map.byUse.retail.filter((s) => usable(world, s));
+  const weight = new Float64Array(shops.length).fill(1);
+  for (const h of map.homes) {
+    const res = bs.residents[h]!;
+    if (res === 0) continue;
+    const c = map.buildings[h]!.centroid;
+    let best = 0;
+    let bestD = Infinity;
+    shops.forEach((sh, k) => {
+      const q = map.buildings[sh]!.centroid;
+      const d = (q.x - c.x) * (q.x - c.x) + (q.z - c.z) * (q.z - c.z);
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
+    });
+    weight[best]! += res;
+  }
+  let total = 0;
+  for (const w of weight) total += w;
+  for (const s of map.byUse.retail) bs.demand[s] = 0;
+  shops.forEach((sh, k) => {
+    bs.demand[sh] = (3 * world.agents.count * IMPORT_PER_PERSON * weight[k]!) / total;
+  });
+}
+
+/** Hueco de una tienda para comprar cosecha: hasta su objetivo y su capacidad. */
+export function shopRoom(world: World, s: number): number {
+  return Math.min(storageCap(world, s), world.buildings.demand[s]!) - world.buildings.food[s]!;
 }
 
 /** ¿El hogar tiene calefacción si hace frío? */
@@ -281,7 +310,15 @@ function collect(world: World, i: number, b: number): void {
   const r = a.seeking[i]!;
   const home = a.home[i]!;
   const want = Math.max(1, world.buildings.residents[home]! * PANTRY_TARGET[r]! - stockOf(world, home, r));
-  const take = Math.min(stockOf(world, b, r), want, CARRY_MAX);
+  const available = Math.min(stockOf(world, b, r), want, CARRY_MAX);
+  // Se paga lo que se lleva; sin dinero, se vuelve sin nada (no recuerda la tienda como vacía).
+  const take = available >= 1 ? buy(world, i, b, r, Math.floor(available)) : 0;
+  if (available >= 1 && take < 1) {
+    cannotPay(world, i, b, r);
+    a.seeking[i] = Resource.None;
+    a.action[i] = Action.Stay;
+    return;
+  }
   if (take < 1) {
     remember(world, i, EMPTY_MEMORY[r]!, b);
     world.emit('source.empty', { agentId: a.ids[i], name: a.names[i], building: world.map.buildings[b]!.id, resource: r });
@@ -320,7 +357,7 @@ export function nearestShop(world: World, x: number, z: number): number {
   let best = -1;
   let bestD = Infinity;
   for (const s of world.map.byUse.retail) {
-    if (!usable(world, s) || storageCap(world, s) - world.buildings.food[s]! < DELIVERY_MIN) continue;
+    if (!usable(world, s) || shopRoom(world, s) < DELIVERY_MIN) continue;
     const c = world.map.buildings[s]!.centroid;
     const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
     if (d < bestD) {
@@ -340,4 +377,5 @@ export function seedStocks(world: World): void {
   // Unos tres días de comida por habitante, repartidos entre las tiendas: no depende de cuántas haya.
   const food = 3 * world.agents.count;
   for (const s of u.retail) bs.food[s] = food / u.retail.length;
+  updateShopDemand(world);
 }

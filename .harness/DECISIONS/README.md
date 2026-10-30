@@ -26,3 +26,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0019](0019-life-cycle.md) | Ciclo de vida y economía sostenible a largo plazo | Aceptada |
 | [0020](0020-households-migration.md) | Hogares, parejas y migración | Aceptada |
 | [0021](0021-storage-spoilage.md) | Capacidad de almacén y caducidad de la comida | Aceptada |
+| [0022](0022-money-employment.md) | Dinero, empleo y precios (E1-C) | Aceptada |

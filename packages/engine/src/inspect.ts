@@ -8,8 +8,10 @@ import {
   RELATION_NAMES,
   RELATION_SLOTS,
   RESOURCE_NAMES,
+  Occupation,
   RelationKind,
 } from './world/agents';
+import { isBusiness, positionsOf } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -60,6 +62,7 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
       hunger: round(a.hunger[i]!), thirst: round(a.thirst[i]!), work: round(a.work[i]!),
     },
     health: round(a.health[i]!),
+    money: round(a.money[i]!),
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,
     lastScores: scores,
     memory,
@@ -77,7 +80,9 @@ export function buildingDetail(world: World, id: string): BuildingDetail | null 
   let occupants = 0;
   let workers = 0;
   let queue = 0;
+  let staff = 0;
   for (let i = 0; i < a.count; i++) {
+    if (a.workplace[i] === index && a.occupation[i] !== Occupation.Student) staff++;
     if (a.location[i] !== index) continue;
     occupants++;
     if (a.workplace[i] === index) workers++;
@@ -94,6 +99,7 @@ export function buildingDetail(world: World, id: string): BuildingDetail | null 
     residents: bs.residents[index]!,
     workers,
     queue,
+    business: isBusiness(world, index) ? { cash: round(bs.cash[index]!), staff, positions: positionsOf(world, index) } : null,
   };
 }
 
@@ -103,7 +109,19 @@ export function economySummary(world: World): EconomySummary {
   const sum = (list: number[], col: Float32Array) => round(list.reduce((s, b) => s + col[b]!, 0));
   const a = world.agents;
   let queueing = 0;
-  for (let i = 0; i < a.count; i++) if (a.busyLeft[i]! > 0 && a.location[i] !== a.home[i]) queueing++;
+  let money = 0;
+  let active = 0;
+  let jobless = 0;
+  for (let i = 0; i < a.count; i++) {
+    if (a.busyLeft[i]! > 0 && a.location[i] !== a.home[i]) queueing++;
+    money += a.money[i]!;
+    const occ = a.occupation[i]!;
+    if (a.age[i]! < 18 || occ === Occupation.Retired || occ === Occupation.Student || occ === Occupation.Child) continue;
+    active++;
+    if (occ === Occupation.Unemployed) jobless++;
+  }
+  let cash = 0;
+  for (let b = 0; b < world.map.buildings.length; b++) if (isBusiness(world, b)) cash += bs.cash[b]!;
   return {
     shopFood: sum(u.retail, bs.food),
     fountainWater: sum(u.publicServices, bs.water),
@@ -112,5 +130,8 @@ export function economySummary(world: World): EconomySummary {
     pantryWater: sum(world.map.homes, bs.water),
     pantryWood: sum(world.map.homes, bs.wood),
     queueing,
+    householdMoney: round(money),
+    businessCash: round(cash),
+    unemploymentRate: active === 0 ? 0 : round(jobless / active),
   };
 }

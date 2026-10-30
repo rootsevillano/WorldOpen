@@ -25,6 +25,8 @@ export interface AgentDetail {
   /** 0 = crítica, 1 = satisfecha. */
   needs: Record<'energy' | 'shelter' | 'social' | 'hunger' | 'thirst' | 'work', number>;
   health: number;
+  /** Dinero propio (ADR-0022). */
+  money: number;
   carrying: { resource: ResourceKind; amount: number } | null;
   /** Puntuaciones de la última decisión (Utility AI explicable, ADR-0008). */
   lastScores: Record<string, number>;
@@ -46,6 +48,8 @@ export interface BuildingDetail {
   workers: number;
   /** Agentes esperando a ser atendidos (cola). */
   queue: number;
+  /** Negocios (ADR-0022): caja, plantilla y puestos; `null` en viviendas y servicios públicos. */
+  business: { cash: number; staff: number; positions: number } | null;
 }
 
 /** Resumen económico global para el HUD y las métricas. */
@@ -57,4 +61,8 @@ export interface EconomySummary {
   pantryWater: number;
   pantryWood: number;
   queueing: number;
+  /** Dinero de los habitantes y caja de los negocios; paro sobre la población activa (ADR-0022). */
+  householdMoney: number;
+  businessCash: number;
+  unemploymentRate: number;
 }

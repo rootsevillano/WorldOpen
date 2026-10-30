@@ -13,6 +13,10 @@ export class BuildingStore {
   readonly stateUntil: Uint32Array;
   /** Habitantes empadronados (se mantiene al crear/eliminar agentes). */
   readonly residents: Uint16Array;
+  /** Caja de los negocios (ADR-0022). */
+  readonly cash: Float64Array;
+  /** Existencias objetivo de las tiendas (≈ 3 días de su área de influencia), recalculadas a las 06:00 (ADR-0022). */
+  readonly demand: Float32Array;
 
   // Transitorias.
   readonly occupants: Uint16Array;
@@ -20,7 +24,7 @@ export class BuildingStore {
   readonly queue: Uint16Array;
   readonly served: Uint16Array;
 
-  private readonly persisted: [string, Float32Array | Uint8Array | Uint32Array | Uint16Array][];
+  private readonly persisted: [string, Float32Array | Float64Array | Uint8Array | Uint32Array | Uint16Array][];
 
   constructor(count: number) {
     this.count = count;
@@ -30,17 +34,19 @@ export class BuildingStore {
     this.state = new Uint8Array(count);
     this.stateUntil = new Uint32Array(count);
     this.residents = new Uint16Array(count);
+    this.cash = new Float64Array(count);
+    this.demand = new Float32Array(count);
     this.occupants = new Uint16Array(count);
     this.workers = new Uint16Array(count);
     this.queue = new Uint16Array(count);
     this.served = new Uint16Array(count);
     this.persisted = [
       ['food', this.food], ['water', this.water], ['wood', this.wood],
-      ['state', this.state], ['stateUntil', this.stateUntil], ['residents', this.residents],
+      ['state', this.state], ['stateUntil', this.stateUntil], ['residents', this.residents], ['cash', this.cash], ['demand', this.demand],
     ];
   }
 
-  eachColumn(): readonly [string, Float32Array | Uint8Array | Uint32Array | Uint16Array][] {
+  eachColumn(): readonly [string, Float32Array | Float64Array | Uint8Array | Uint32Array | Uint16Array][] {
     return this.persisted;
   }
 

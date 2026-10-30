@@ -1,0 +1,60 @@
+{
+  "name": "money-crisis",
+  "description": "ADR-0022: con precios ×2,5 y sin estado del bienestar los ahorros duran unos días; después muchos hogares se quedan sin dinero para comida (aunque las tiendas tienen), dejan de comprar y la salud cae. Ticks de 10 min.",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "days": 20,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": {
+        "year": 1,
+        "month": 3,
+        "day": 21,
+        "hour": 6,
+        "minute": 0
+      }
+    },
+    "criteria": {
+      "society.initialPopulation": 200,
+      "economy.priceLevel": 2.5,
+      "economy.welfare": 0
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.brokeRatio",
+      "op": "<=",
+      "value": 0.05,
+      "at": {
+        "day": 3,
+        "hour": 12
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.brokeRatio",
+      "op": ">=",
+      "value": 0.2
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.shopFood",
+      "op": ">",
+      "value": 500
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.avgHealth",
+      "op": "<",
+      "value": 0.95
+    }
+  ]
+}

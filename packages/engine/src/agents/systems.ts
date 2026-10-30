@@ -11,6 +11,7 @@ import {
   SERVICE_MINUTES,
   chooseSource,
   nearestShop,
+  shopRoom,
   storageCap,
   employed,
   homeWarm,
@@ -21,6 +22,7 @@ import {
 } from './economy';
 import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
+import { canAfford, payHarvest, spendLeisure } from './money';
 import { remember } from './social';
 
 /**
@@ -111,6 +113,8 @@ function provisionScore(world: World, i: number, r: number, night: number, outdo
   const residents = Math.max(1, world.buildings.residents[home]!);
   const pantry = stockOf(world, home, r);
   const shortage = 1 - clamp01(pantry / (residents * PANTRY_TARGET[r]!));
+  // Sin dinero para una unidad, no va a comprar (el agua de las fuentes es gratis).
+  if (!canAfford(world, i, r)) return 0;
   let urgency = 0;
   if (r === Resource.Food) urgency = pantry < 1 ? (1 - a.hunger[i]!) * 1.2 : 0;
   else if (r === Resource.Water) urgency = pantry < 1 ? (1 - a.thirst[i]!) * 1.4 : 0;
@@ -120,7 +124,10 @@ function provisionScore(world: World, i: number, r: number, night: number, outdo
   let s = shortage * (r === Resource.Wood ? 0.35 : 0.55) * outdoorAppeal + urgency - night * 0.5;
   // Si otro miembro del hogar ya va a por ello, casi nadie más va.
   // Si ya va bastante gente de la casa (uno por cada 3 residentes: los bloques de pisos son varios hogares), casi nadie más.
-  if (busyHouseholds[home * 4 + r]! >= Math.max(1, Math.ceil(residents / 3))) s *= 0.15;
+  // Sin contarse a sí mismo: si no, quien ya va a por ello se desanimaba y alternaba con otra acción sin llegar nunca
+  // (ADR-0022, hallado al simular un año con dinero).
+  const own = (a.action[i] === Action.Provision ? a.seeking[i]! || a.carryKind[i]! : a.carryKind[i]!) === r ? 1 : 0;
+  if (busyHouseholds[home * 4 + r]! - own >= Math.max(1, Math.ceil(residents / 3))) s *= 0.15;
   return s;
 }
 
@@ -268,7 +275,7 @@ export function startAction(world: World, i: number, action: Action, home: numbe
       a.action[i] = Action.Stay;
       target = -1;
     } else {
-      const amount = Math.min(world.buildings.food[farm]!, DELIVERY_MAX, storageCap(world, target) - world.buildings.food[target]!);
+      const amount = Math.min(world.buildings.food[farm]!, DELIVERY_MAX, shopRoom(world, target));
       world.buildings.food[farm]! -= amount;
       a.carryKind[i] = Resource.Food;
       a.carryAmount[i] = amount;
@@ -341,6 +348,7 @@ function arrive(world: World, i: number, target: number): void {
   if (action === Action.Deliver && a.carryKind[i] === Resource.Food) {
     // Si otra entrega la llenó mientras tanto, lo que no cabe se pierde.
     world.buildings.food[target] = Math.max(world.buildings.food[target]!, Math.min(storageCap(world, target), world.buildings.food[target]! + a.carryAmount[i]!));
+    if (a.workplace[i]! >= 0) payHarvest(world, target, a.workplace[i]!, a.carryAmount[i]!);
     world.emit('harvest.delivered', { agentId: a.ids[i], name: a.names[i], building: world.map.buildings[target]!.id, amount: Math.round(a.carryAmount[i]!) });
     a.carryKind[i] = Resource.None;
     a.carryAmount[i] = 0;
@@ -348,6 +356,7 @@ function arrive(world: World, i: number, target: number): void {
     a.activities[i] = activityAt(world, i);
     return;
   }
+  if (action === Action.GoOut) spendLeisure(world, i, target);
   if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
     a.busyLeft[i] = SERVICE_MINUTES;
   } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter) {

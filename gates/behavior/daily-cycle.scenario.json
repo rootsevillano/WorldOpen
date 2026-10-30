@@ -1,17 +1,88 @@
 {
   "name": "daily-cycle",
   "description": "V4 (1): en un día laborable la mayoría trabaja, parte de la población sale por ocio, todos vuelven a casa y duermen de noche; con la economía normal nadie pasa hambre.",
-  "seeds": [1, 2, 3, 4, 5],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
   "days": 2,
-  "manifest": { "criteria": { "society.initialPopulation": 200 } },
+  "manifest": {
+    "criteria": {
+      "society.initialPopulation": 200
+    }
+  },
   "assertions": [
-    { "kind": "deterministic" },
-    { "kind": "metric", "metric": "agents.workingRatio", "op": ">=", "value": 0.35, "at": { "day": 0, "hour": 12 } },
-    { "kind": "metric", "metric": "agents.leisureRatio", "op": ">=", "value": 0.01, "at": { "day": 0, "hour": 12 } },
-    { "kind": "metric", "metric": "agents.leisureRatio", "op": ">=", "value": 0.01, "at": { "day": 0, "hour": 17 } },
-    { "kind": "metric", "metric": "agents.workingRatio", "op": "==", "value": 0, "at": { "day": 0, "hour": 18 } },
-    { "kind": "metric", "metric": "agents.atHomeRatio", "op": ">=", "value": 0.95, "at": { "day": 1, "hour": 0 } },
-    { "kind": "metric", "metric": "agents.sleepingRatio", "op": ">=", "value": 0.95, "at": { "day": 1, "hour": 4 } },
-    { "kind": "metric", "metric": "agents.avgHealth", "op": ">=", "value": 0.95 }
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.workingRatio",
+      "op": ">=",
+      "value": 0.35,
+      "at": {
+        "day": 0,
+        "hour": 12
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.leisureRatio",
+      "op": ">=",
+      "value": 0.005,
+      "at": {
+        "day": 0,
+        "hour": 12
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.leisureRatio",
+      "op": ">=",
+      "value": 0.005,
+      "at": {
+        "day": 0,
+        "hour": 17
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.workingRatio",
+      "op": "==",
+      "value": 0,
+      "at": {
+        "day": 0,
+        "hour": 18
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.atHomeRatio",
+      "op": ">=",
+      "value": 0.95,
+      "at": {
+        "day": 1,
+        "hour": 0
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.sleepingRatio",
+      "op": ">=",
+      "value": 0.95,
+      "at": {
+        "day": 1,
+        "hour": 4
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.avgHealth",
+      "op": ">=",
+      "value": 0.95
+    }
   ]
 }

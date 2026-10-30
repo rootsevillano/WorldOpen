@@ -1,6 +1,7 @@
 import { disasterSystem } from '../agents/disasters';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
+import { moneySystem } from '../agents/money';
 import { householdsSystem } from '../agents/households';
 import { socialSystem } from '../agents/social';
 import { decisionSystem, movementSystem, needsSystem } from '../agents/systems';
@@ -55,6 +56,24 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'economy.priceLevel',
+      type: 'number', min: 0.25, max: 4, default: 1,
+      description: 'Nivel de precios: venta al público, mayorista, exportación y gastos fijos de los hogares (1 = normal).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'economy.wageLevel',
+      type: 'number', min: 0.25, max: 4, default: 1,
+      description: 'Nivel de salarios (1 = 9 por hora trabajada).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'economy.welfare',
+      type: 'number', min: 0, max: 3, default: 1,
+      description: 'Multiplicador de pensiones, prestación por desempleo y ayuda por hijo (0 = sin estado del bienestar).',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.emigration',
       type: 'number', min: 0, max: 5, default: 1,
       description: 'Multiplicador de la marcha de jóvenes solteros (más si no hay vivienda libre).',
@@ -84,6 +103,7 @@ export const contemporary: Ruleset = {
     { name: 'social', run: socialSystem },
     { name: 'lifecycle', run: lifecycleSystem },
     { name: 'households', run: householdsSystem },
+    { name: 'money', run: moneySystem },
   ],
 };
 

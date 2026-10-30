@@ -2,7 +2,7 @@
  * Almacén de agentes en estructura de arrays (ECS sobre TypedArrays, ADR-0001). Capacidad fija; borrado por
  * intercambio con el último (los índices no son estables, los `ids` sí).
  */
-type Column = Uint8Array | Uint16Array | Uint32Array | Int32Array | Float32Array;
+type Column = Uint8Array | Uint16Array | Uint32Array | Int32Array | Float32Array | Float64Array;
 
 /** Acción en curso decidida por la Utility AI (ADR-0008). El orden define las columnas de `scores`. */
 export const Action = {
@@ -57,8 +57,10 @@ export const Memory = {
   Partner: 9,
   /** Se mudó de casa (ADR-0020). */
   Moved: 10,
+  /** No pudo pagar una compra (ADR-0022). */
+  Broke: 11,
 } as const;
-export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome', 'grief', 'newChild', 'partner', 'moved'] as const;
+export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome', 'grief', 'newChild', 'partner', 'moved', 'broke'] as const;
 
 export const RelationKind = { None: 0, Family: 1, Acquaintance: 2, Friend: 3, Partner: 4 } as const;
 export const RELATION_NAMES = ['none', 'family', 'acquaintance', 'friend', 'partner'] as const;
@@ -119,6 +121,10 @@ export class AgentStore {
   readonly pregnantDays: Uint16Array;
   /** Hogar al que pertenece (un edificio puede tener varios: bloques de pisos) (ADR-0020). */
   readonly household: Uint32Array;
+  /** Minutos trabajados hoy (jornal de medianoche, ADR-0022). */
+  readonly workedToday: Uint16Array;
+  /** Dinero propio (ADR-0022). Float64: se acumula durante años sin perder céntimos. */
+  readonly money: Float64Array;
   /** Puntuaciones de la última decisión (stride `ACTION_COUNT`). */
   readonly scores: Float32Array;
 
@@ -171,6 +177,8 @@ export class AgentStore {
     this.birthDay = new Uint16Array(c);
     this.pregnantDays = new Uint16Array(c);
     this.household = new Uint32Array(c);
+    this.money = new Float64Array(c);
+    this.workedToday = new Uint16Array(c);
     this.scores = new Float32Array(c * ACTION_COUNT);
     this.memTick = new Uint32Array(c * MEMORY_SLOTS);
     this.memKind = new Uint8Array(c * MEMORY_SLOTS);
@@ -189,7 +197,7 @@ export class AgentStore {
       ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
       ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
-      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['scores', this.scores, ACTION_COUNT],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['scores', this.scores, ACTION_COUNT],
       ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
       ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
       ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],

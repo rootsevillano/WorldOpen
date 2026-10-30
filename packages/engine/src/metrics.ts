@@ -1,10 +1,11 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
+import { MONEY_AGE, isBusiness, priceOf } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
-import { Action, Occupation } from './world/agents';
+import { Action, Occupation, Resource } from './world/agents';
 
 /**
  * Referencia a un edificio en escenarios: `@<uso>[n]` = n-ésimo edificio de ese uso en el mapa
@@ -143,6 +144,37 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     // Proporción del agua de las fuentes sobre su capacidad (300 por fuente): comparable entre mapas.
     case 'economy.fountainWaterRatio': return e!.fountainWater / Math.max(1, 300 * sim.world.map.byUse.publicServices.length);
     case 'economy.sawmillWood': return e!.sawmillWood;
+    // Paro: en paro / población activa (18–66, sin estudiantes) (ADR-0022).
+    case 'economy.unemploymentRate': {
+      let active = 0;
+      let jobless = 0;
+      for (let i = 0; i < a.count; i++) {
+        const occ = a.occupation[i]!;
+        if (a.age[i]! < 18 || occ === Occupation.Retired || occ === Occupation.Student || occ === Occupation.Child) continue;
+        active++;
+        if (occ === Occupation.Unemployed) jobless++;
+      }
+      return active === 0 ? 0 : jobless / active;
+    }
+    case 'economy.avgMoney': {
+      let n = 0;
+      let total = 0;
+      for (let i = 0; i < a.count; i++) if (a.age[i]! >= 18) { n++; total += a.money[i]!; }
+      return n === 0 ? 0 : total / n;
+    }
+    // Quien compra (14+) y no puede pagar ni una ración.
+    case 'economy.brokeRatio': {
+      const price = priceOf(sim.world, Resource.Food);
+      let n = 0;
+      let broke = 0;
+      for (let i = 0; i < a.count; i++) if (a.age[i]! >= MONEY_AGE) { n++; if (a.money[i]! < price) broke++; }
+      return n === 0 ? 0 : broke / n;
+    }
+    case 'economy.businessCash': {
+      let total = 0;
+      for (let b = 0; b < uses.length; b++) if (isBusiness(sim.world, b)) total += bs.cash[b]!;
+      return total;
+    }
     // Mayor ocupación de almacén de huertas y aserraderos (≤ 1: la producción se detiene al llenarse, ADR-0021).
     case 'economy.maxStorageRatio': {
       let max = 0;

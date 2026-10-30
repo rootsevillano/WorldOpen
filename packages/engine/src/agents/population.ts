@@ -96,6 +96,8 @@ export function spawnAgent(world: World, home = -1, age?: number, household = 0,
   a.workplace[i] = workplace;
   a.bedtime[i] = bedtimeFor(world, a.age[i]!);
   a.birthDay[i] = rng.int(0, 359);
+  // Ahorros iniciales de los adultos (ADR-0022).
+  a.money[i] = a.age[i]! >= 18 ? rng.int(300, 3000) : 0;
   a.home[i] = h;
   a.location[i] = h;
   a.flags[i] = AgentFlag.Indoors;

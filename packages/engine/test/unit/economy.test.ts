@@ -152,6 +152,8 @@ describe('Almacenes y caducidad (ADR-0021)', () => {
     const sim = new Simulation(manifest(2, { criteria: { 'society.initialPopulation': 0 } }));
     const shops = sim.world.map.byUse.retail;
     const bs = sim.world.buildings;
+    // Sin habitantes no hay demanda: se fija a mano el objetivo de existencias de cada tienda (ADR-0022).
+    for (const s of shops) bs.demand[s] = 10_000;
     const c = sim.world.map.buildings[shops[0]!]!.centroid;
     const nearest = nearestShop(sim.world, c.x, c.z);
     expect(nearest).toBe(shops[0]);

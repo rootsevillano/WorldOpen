@@ -339,6 +339,9 @@ function describeEvent(e: SimEvent): string {
     case 'agent.born': return `👶 Nace un bebé en ${String(d.home)} (madre: ${String(d.mother)})`;
     case 'agent.died': return `✝ Muere ${String(d.name)} a los ${String(d.age)} años${d.cause === 'starvation' ? ' (por hambre)' : ''}`;
     case 'birth.skipped': return 'Un nacimiento no cabe: se alcanzó la capacidad del mundo';
+    case 'job.hired': return `💼 ${String(d.name)} empieza a trabajar en ${String(d.building)}`;
+    case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
+    case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;
     case 'household.moved': return `${String(d.name)} se muda a ${String(d.home)}`;
     case 'household.arrived': return `🧳 Llega al pueblo un hogar de ${String(d.size)} ${d.size === 1 ? 'persona' : 'personas'} (${String(d.home)})`;

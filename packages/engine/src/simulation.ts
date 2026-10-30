@@ -14,6 +14,7 @@ import {
   type WorldManifest,
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
+import { seedCash } from './agents/money';
 import { populate } from './agents/population';
 import { agentDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
@@ -97,6 +98,7 @@ export class Simulation {
       const n = typeof initial === 'number' ? Math.min(initial, this.world.agents.capacity) : 0;
       populate(this.world, n);
       seedStocks(this.world);
+      seedCash(this.world);
     }
   }
 

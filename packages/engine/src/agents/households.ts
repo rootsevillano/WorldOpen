@@ -1,5 +1,5 @@
 import { BuildingState } from '@worldopen/contracts';
-import { Action, Memory, RELATION_SLOTS, RelationKind } from '../world/agents';
+import { Action, Memory, Occupation, RELATION_SLOTS, RelationKind } from '../world/agents';
 import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
 import { forgetAgent } from './lifecycle';
@@ -224,7 +224,7 @@ function leaveHome(world: World, census: Census, emigrants: number[]): void {
       }
     }
     if (age > EMIGRATION_AGE[1] || (s.adults === 1 && s.minors > 0)) continue;
-    const pressure = withParents && !housing ? HOUSING_PRESSURE : 1;
+    const pressure = (withParents && !housing ? HOUSING_PRESSURE : 1) * (a.occupation[i] === Occupation.Unemployed ? 2 : 1);
     if (rng.nextFloat() < (EMIGRATION_YEARLY / DAYS_PER_YEAR) * emigration * pressure) emigrants.push(a.ids[i]!);
   }
   // Menores sin ningún adulto en su hogar: los acoge familia de fuera.

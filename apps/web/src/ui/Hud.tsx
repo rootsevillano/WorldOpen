@@ -30,6 +30,8 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
               Tiendas {economy.shopFood.toFixed(0)} comida · Fuentes {economy.fountainWater.toFixed(0)} agua · Aserradero {economy.sawmillWood.toFixed(0)} leña
               <br />
               Despensas: {economy.pantryFood.toFixed(0)} comida · {economy.pantryWater.toFixed(0)} agua · {economy.pantryWood.toFixed(0)} leña
+              <br />
+              Paro {(economy.unemploymentRate * 100).toFixed(0)} % · Ahorros {economy.householdMoney.toFixed(0)} · Cajas {economy.businessCash.toFixed(0)}
             </div>
           )}
           <div className="muted small">

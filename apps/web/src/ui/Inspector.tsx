@@ -17,7 +17,7 @@ const OCCUPATIONS_ES: Record<string, string> = {
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',
   newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
-  newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa',
+  newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa', broke: 'no pudo pagar',
 };
 const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad', partner: 'pareja' };
 const USES_ES: Record<string, string> = {
@@ -81,6 +81,7 @@ export function Inspector(props: {
             Ahora: <strong>{ACTIONS_ES[agent.action]}</strong> {agent.location ? `en ${agent.location}` : 'por la calle'}
             {agent.carrying && ` · lleva ${agent.carrying.amount.toFixed(0)} de ${agent.carrying.resource}`}
           </div>
+          <div className="small muted">Dinero: {agent.money.toFixed(2)}</div>
           <div className="bars">
             {Object.entries(agent.needs).map(([k, v]) => (
               <Bar key={k} label={NEEDS_ES[k] ?? k} value={v} />
@@ -141,6 +142,11 @@ export function Inspector(props: {
           <div className="small muted">
             {building.residents} residentes · {building.occupants} dentro · {building.workers} trabajando · {building.queue} en cola
           </div>
+          {building.business && (
+            <div className="small muted">
+              Caja {building.business.cash.toFixed(0)} · plantilla {building.business.staff}/{building.business.positions} puestos
+            </div>
+          )}
           {props.isAdmin && !props.readOnly && building.state === BuildingState.Normal && (
             <div className="god-actions">
               <button type="button" className="danger" onClick={() => client.command('disaster.fire', 1, { buildingId: building.id })}>
