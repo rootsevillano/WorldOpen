@@ -21,3 +21,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0014](0014-simulation-lod-deferred.md) | LOD de simulación aplazado | Aceptada |
 | [0015](0015-study-viewer.md) | Visor de estudio | Aceptada |
 | [0016](0016-server.md) | Servidor: mundo vivo compartido, acceso y visores privados | Aceptada |
+| [0017](0017-real-map-packs.md) | Map-packs reales y modelo sensible a la distancia | Aceptada |

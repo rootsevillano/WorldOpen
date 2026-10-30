@@ -22,6 +22,7 @@
     "gate:integration": "vitest run test/integration",
     "gate:behavior": "npm --workspace @worldopen/cli run worldopen -- gate behavior ../../gates/behavior",
     "gate:perf": "npm --workspace @worldopen/cli run worldopen -- simulate --ticks 10000 --agents 2000 --max-ms 60000",
+    "gate:real": "npm --workspace @worldopen/cli run worldopen -- gate behavior ../../gates/behavior --map-pack valdeolivo-1.0.0 && npm --workspace @worldopen/cli run worldopen -- simulate --map-pack valdeolivo-1.0.0 --ticks 10000 --agents 2000 --max-ms 60000",
     "gate:all": "npm run typecheck && npm run gate:unit && npm run gate:integration && npm run gate:behavior && npm run gate:perf"
   },
   "devDependencies": {

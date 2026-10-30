@@ -8,7 +8,8 @@ construido sobre un mapeado real. El administrador ("Dios") fija y cambia los cr
 > seguimiento; histórico de mundos guardado y **visor de estudio** (Fase 4): reproducir cualquier mundo con línea de
 > tiempo, intervenciones de Dios marcadas, gráficas por hora, verificación del replay y exportación CSV.
 > **Servidor** (Fase 5): el mundo vive aunque se cierre la pestaña; acceso con usuario y contraseña; los invitados
-> observan y estudian, solo Dios interviene.
+> observan y estudian, solo Dios interviene. **Mapa real** (Fase 2b): el pueblo ficticio «Valdeolivo» sobre el
+> mapeado real, desde un map-pack anonimizado.
 > Visión, decisiones y estado: [`.harness/`](.harness/).
 
 ## Requisitos
@@ -39,6 +40,17 @@ npm --workspace @worldopen/cli run worldopen -- worlds
 ```
 Lista los mundos guardados por el CLI; `verify <worldId>` los reproduce y comprueba cada snapshot;
 `study <worldId> --out series.csv` exporta sus series de métricas por hora.
+
+## Mapa real (map-packs)
+
+El map-pack lo genera [`almensilla-3d`](https://github.com/rootsevillano/almensilla-3d)
+(`python -P tools/gis/run_pipeline.py --only logic pack`) y se instala aquí:
+
+```bash
+npm --workspace @worldopen/cli run worldopen -- mappack install C:/Github/almensilla-3d/data/export/mappack/valdeolivo-1.0.0
+```
+Después, al crear un mundo se elige el mapa; en el CLI y el servidor, `--map-pack valdeolivo-1.0.0`.
+`npm run gate:real` pasa los escenarios y el rendimiento sobre el mapa real.
 
 ## Servidor (mundo compartido)
 

@@ -92,3 +92,10 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-29) Banderas de persistencia: no reutilizar `saving` para escrituras del log; en los tests síncronos (sin
   ceder a las microtareas) una bandera compartida bloqueaba los snapshots.
 - (2026-10-29) Usuarios de prueba del navegador: credenciales generadas en el scratchpad de la sesión, nunca en el repo.
+- (2026-10-30) Fase 2b: las salidas de `almensilla-3d` llevaban rastros reales fuera de los datos visibles (metadatos de
+  GLB con el nombre del fichero OSM y el código INE, origen EPSG en árboles, refcat en nodos de edificios). Lección:
+  auditar también metadatos y probar que la auditoría detecta lo que debe detectar.
+- (2026-10-30) Simplificar cada vía OSM por separado desconectó el grafo (208 componentes): partir en los cruces antes.
+- (2026-10-30) Umbrales de Behavior Gates calibrados en la cuadrícula sintética no valían en el mapa real (trayectos de
+  hasta 4 km): se cambió el modelo (decaimiento por distancia) y se reformularon las aserciones para medir el
+  comportamiento, no valores de una geometría concreta.

@@ -1,14 +1,15 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-29 (cierre de la Fase 5: servidor)_
+_Actualizado: 2026-10-30 (cierre de la Fase 2b: mapa real)_
 
 ## Implementado
 
 | Pieza | Ruta | Estado |
 |---|---|---|
+| Mapa real | `almensilla-3d/tools/gis/{build_logic,pack_map}.py`, `engine/src/map/mappack.ts`, `cli/src/mappacks.ts`, `render/src/realMap.ts` | Map-pack anonimizado «Valdeolivo» (2 793 edificios, grafo de 2 119 nodos), lector validador, resolvedores (fetch/disco), render con huellas, terreno, viales, árboles y cotas (ADR-0017) |
 | Servidor | `apps/server`, `packages/host` | Mundo vivo compartido, usuarios scrypt, sesiones, límite de intentos, `/ws/live` y `/ws/study`, guardado cada 30 s y comandos al instante (ADR-0016) |
 | Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
-| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.4.0** (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.5.0** (0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
 | Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep, **Provision**, **Work** |
@@ -23,7 +24,9 @@ _Actualizado: 2026-10-29 (cierre de la Fase 5: servidor)_
 | CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
-- Typecheck ✅ · Unit + Integration ✅ 101 tests (incluye 10 de servidor con HTTP/WebSocket reales: acceso, bloqueo,
+- Fase 2b ✅ `npm run gate:real`: Behavior 8/8 sobre el mapa real; 2 000 agentes × 10 000 ticks en 16 s (616 ticks/s).
+  `almensilla-3d`: 43 tests (9 del map-pack). Visual: pueblo real con habitantes, selección e incendio de edificio real.
+- Typecheck ✅ · Unit + Integration ✅ 106 tests (incluye 10 de servidor con HTTP/WebSocket reales: acceso, bloqueo,
   origen, roles, suplantación, enrutado de respuestas, visor privado, reanudación, web estática)
 - Behavior ✅ 8/8: `daily-cycle`, `heatwave-shelter`, `food-scarcity`, `water-cut`, `house-fire`, `survival-5`,
   `tick-duration`, `world-alive`
@@ -46,5 +49,5 @@ _Actualizado: 2026-10-29 (cierre de la Fase 5: servidor)_
 - Incendio de una casa: evacuación inmediata, sus residentes duermen en un servicio público, la casa vuelve a usarse.
 
 ## No implementado
-- Map-pack real (`almensilla-3d`), comparación de mundos en el visor, varios mundos vivos por servidor, gestión de usuarios en la web, ciclo de vida
+- Ortofoto en el map-pack, comparación de mundos en el visor, varios mundos vivos por servidor, gestión de usuarios en la web, ciclo de vida
   (nacimientos/muertes), vehículos/animales, logística con agentes, LOD de simulación (ADR-0014).
