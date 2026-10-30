@@ -104,7 +104,7 @@ export function needsSystem(world: World): void {
 }
 
 /** Puntuación de abastecerse de cada recurso para el hogar del agente (0 si no procede). */
-function provisionScore(world: World, i: number, r: number, night: number, outdoorAppeal: number, busyHouseholds: Uint8Array): number {
+function provisionScore(world: World, i: number, r: number, night: number, outdoorAppeal: number, busyHouseholds: Uint16Array): number {
   const a = world.agents;
   const home = a.home[i]!;
   const residents = Math.max(1, world.buildings.residents[home]!);
@@ -113,11 +113,13 @@ function provisionScore(world: World, i: number, r: number, night: number, outdo
   let urgency = 0;
   if (r === Resource.Food) urgency = pantry < 1 ? (1 - a.hunger[i]!) * 1.2 : 0;
   else if (r === Resource.Water) urgency = pantry < 1 ? (1 - a.thirst[i]!) * 1.4 : 0;
-  else urgency = homeWarm(world, home) ? 0 : 0.6;
+  // La leña se compra de día para las noches frías (mínima = base − 6 °C por debajo de 14 °C).
+  else urgency = !homeWarm(world, home) ? 0.6 : pantry < residents && world.num('climate.baseTemperatureC') - 6 < 14 ? 0.5 : 0;
   // Reponer sin urgencia se aplaza si fuera hace un tiempo hostil; la urgencia no.
   let s = shortage * (r === Resource.Wood ? 0.35 : 0.55) * outdoorAppeal + urgency - night * 0.5;
   // Si otro miembro del hogar ya va a por ello, casi nadie más va.
-  if (busyHouseholds[home]! & (1 << r)) s *= 0.15;
+  // Si ya va bastante gente de la casa (uno por cada 3 residentes: los bloques de pisos son varios hogares), casi nadie más.
+  if (busyHouseholds[home * 4 + r]! >= Math.max(1, Math.ceil(residents / 3))) s *= 0.15;
   return s;
 }
 
@@ -133,11 +135,12 @@ export function decisionSystem(world: World): void {
   const minute = minuteOfDay(world);
   const map = world.map;
 
-  // Hogares que ya tienen a alguien abasteciéndose de cada recurso (máscara de bits por edificio).
-  const busyHouseholds = new Uint8Array(map.buildings.length);
+  // Cuánta gente de cada edificio está ya abasteciéndose de cada recurso.
+  // Recaderos en curso por edificio y recurso (índice edificio × 4 + recurso).
+  const busyHouseholds = new Uint16Array(map.buildings.length * 4);
   for (let i = 0; i < a.count; i++) {
     const r = a.action[i] === Action.Provision ? a.seeking[i]! || a.carryKind[i]! : a.carryKind[i]!;
-    if (r !== Resource.None) busyHouseholds[a.home[i]!]! |= 1 << r;
+    if (r !== Resource.None) busyHouseholds[a.home[i]! * 4 + r]!++;
   }
 
   for (let i = 0; i < a.count; i++) {
@@ -344,7 +347,8 @@ function arrive(world: World, i: number, target: number): void {
   }
   if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
     a.busyLeft[i] = SERVICE_MINUTES;
-  } else if (action !== Action.Sleep && action !== Action.Work) {
+  } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter) {
+    // Quien llega refugiándose sigue "refugiado" (no es ocio) hasta su siguiente decisión.
     a.action[i] = Action.Stay;
   }
   if (target === effectiveHome(world, i)) unload(world, i);

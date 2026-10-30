@@ -1,0 +1,61 @@
+{
+  "name": "lifecycle-year",
+  "description": "S5/ADR-0019: en un año con natalidad y mortalidad ×3 (para tener conteos con 300 habitantes) nacen y mueren personas por edad, nadie muere de hambre con la economía normal y la población se mantiene. Ticks de 10 min (se comportan como los de 1 min).",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 360,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": {
+        "year": 1,
+        "month": 3,
+        "day": 21,
+        "hour": 6,
+        "minute": 0
+      }
+    },
+    "criteria": {
+      "society.initialPopulation": 300,
+      "society.fertility": 3,
+      "society.mortality": 3
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "events.agent.born",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "events.agent.died:cause=age",
+      "op": ">=",
+      "value": 2
+    },
+    {
+      "kind": "metric",
+      "metric": "events.agent.died:cause=starvation",
+      "op": "==",
+      "value": 0
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.count",
+      "op": ">=",
+      "value": 270
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.avgHealth",
+      "op": ">=",
+      "value": 0.95
+    }
+  ]
+}

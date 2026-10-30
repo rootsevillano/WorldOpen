@@ -102,3 +102,7 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-30) Calibración: medir primero a escala real (6 000) destapó problemas invisibles con 200 habitantes (colas
   de madrugada en tiendas cerradas por falta de mostradores y de cierre). Un artefacto propio (el agricultor que
   entrega queda "de ocio" en la tienda) apareció como fallo de un escenario: revisar la métrica antes que el umbral.
+- (2026-10-30) Ciclo de vida: simular años destapó hambrunas invisibles en simulaciones de días (fin de semana sin
+  cosechas, reparto de importaciones a partes iguales, tope global, bloques de pisos como un solo hogar, atención por
+  tick). Lección: probar el modelo a la escala temporal en la que se va a usar. Los ticks de 10 min reproducen los de
+  1 min; los de 30–60 min no (discretización de necesidades): para gates de años, 10 min.

@@ -23,3 +23,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0016](0016-server.md) | Servidor: mundo vivo compartido, acceso y visores privados | Aceptada |
 | [0017](0017-real-map-packs.md) | Map-packs reales y modelo sensible a la distancia | Aceptada |
 | [0018](0018-model-calibration.md) | Calibración del modelo a escala real | Aceptada |
+| [0019](0019-life-cycle.md) | Ciclo de vida y economía sostenible a largo plazo | Aceptada |

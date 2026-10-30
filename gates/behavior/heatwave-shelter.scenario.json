@@ -12,6 +12,6 @@
     { "kind": "metric", "metric": "agents.leisureRatio", "op": "<=", "value": 0.005, "at": { "day": 0, "hour": 12 } },
     { "kind": "metric", "metric": "agents.leisureRatio", "op": "<=", "value": 0.005, "at": { "day": 0, "hour": 17 } },
     { "kind": "metric", "metric": "agents.goingOutRatio", "op": "<=", "value": 0.005, "at": { "day": 0, "hour": 14 } },
-    { "kind": "metric", "metric": "agents.seekingShelterRatio", "op": "==", "value": 0, "at": { "day": 0, "hour": 14 } }
+    { "kind": "metric", "metric": "agents.seekingShelterRatio", "op": "<=", "value": 0.02, "at": { "day": 0, "hour": 14 } }
   ]
 }

@@ -1,6 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Calibración del modelo a escala real · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Ciclo de vida (S5) · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+
+## Ciclo de vida — entregado (ADR-0019)
+- Cumpleaños con etapas, embarazos y nacimientos, muertes por edad y por hambre, duelo; criterios de natalidad y
+  mortalidad en el Modo Dios. Economía corregida para sostenerse años (6 defectos hallados al simular a largo plazo).
+- Behavior 12/12 en ambos mapas (nuevo `lifecycle-year`); 115 tests. Motor 0.7.0.
+
+## Calibración (anterior) — completada
 **Anterior:** Fase 2b — Mapa real (completada)
 
 ## Calibración — entregado (ADR-0018)
@@ -19,7 +26,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: nacimientos y muertes (S5), dinero y empleo (E1-C), vehículos; LOD de simulación si se pasa de 6 000.
+- Siguiente modelo: formación de parejas y migración, caducidad de alimentos, dinero y empleo (E1-C), vehículos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

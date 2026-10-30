@@ -44,22 +44,33 @@ describe('Calibración (ADR-0018)', () => {
   });
 
   it('un agricultor lleva la cosecha de su huerta a una tienda', () => {
-    const sim = new Simulation(manifest(3, { criteria: { 'society.initialPopulation': 400 } }));
+    const sim = new Simulation(manifest(3, { criteria: { 'society.initialPopulation': 400, 'society.mortality': 0 } }));
     const w = sim.world;
     const a = w.agents;
-    const farmer = Array.from({ length: a.count }, (_, i) => i).find((i) => a.occupation[i] === Occupation.Farmer)!;
-    expect(farmer).toBeDefined();
-    const farm = a.workplace[farmer]!;
-    sim.step(4 * 60); // 10:00 del primer día (laborable)
-    w.buildings.food[farm] = 30;
-    let delivered = 0;
-    for (let t = 0; t < 600 && delivered === 0; t++) {
+    // Un agricultor que llegue a su huerta en la jornada del primer día.
+    let farmerId = -1;
+    let farm = -1;
+    for (let t = 0; t < 8 * 60 && farmerId < 0; t++) {
       sim.step();
-      delivered = sim.drainEvents().filter((e) => e.type === 'harvest.delivered').length;
+      for (let i = 0; i < a.count; i++) {
+        if (a.occupation[i] === Occupation.Farmer && a.location[i] === a.workplace[i]) {
+          farmerId = a.ids[i]!;
+          farm = a.workplace[i]!;
+          break;
+        }
+      }
     }
-    expect(delivered).toBeGreaterThan(0);
+    expect(farmerId).toBeGreaterThan(0);
+    w.buildings.food[farm] = 30;
+    sim.drainEvents();
+    let mine = 0;
+    for (let t = 0; t < 600 && mine === 0; t++) {
+      sim.step();
+      mine = sim.drainEvents().filter((e) => e.type === 'harvest.delivered' && e.data.agentId === farmerId).length;
+    }
+    expect(mine).toBe(1);
     expect(w.buildings.food[farm]).toBeLessThan(30);
-    expect([Action.Deliver, Action.Stay, Action.Work, Action.GoHome]).toContain(a.action[farmer]);
+    expect(a.action[a.indexOf(farmerId)]).not.toBe(Action.Provision);
   });
 
   it('al cerrar las tiendas nadie se queda en la cola', () => {

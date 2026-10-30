@@ -1,6 +1,6 @@
 {
   "name": "food-scarcity",
-  "description": "V4 (3): sin cosechas ni importaciones las tiendas se vacían; la gente va de tienda en tienda (desplazamientos), hace cola, trabaja mucho menos que con la economía normal (~70 % a mediodía) por buscar comida —hasta que, sabiendo vacías todas las tiendas, algunos desisten— y su salud cae.",
+  "description": "V4 (3): sin cosechas ni importaciones las tiendas se vacían; la gente va de tienda en tienda (desplazamientos), hace cola, trabaja mucho menos que con la economía normal (≥ 0,40 a mediodía; < 0,37 con escasez) por buscar comida —hasta que, sabiendo vacías todas las tiendas, algunos desisten— y su salud cae.",
   "seeds": [1, 2, 3],
   "days": 4,
   "manifest": { "criteria": { "society.initialPopulation": 200, "economy.foodAbundance": 0 } },
@@ -9,7 +9,7 @@
     { "kind": "metric", "metric": "economy.shopFood", "op": "<", "value": 5, "at": { "day": 1, "hour": 14 } },
     { "kind": "metric", "metric": "events.source.empty", "op": ">=", "value": 500, "at": { "day": 2, "hour": 12 } },
     { "kind": "metric", "metric": "agents.queueingRatio", "op": ">", "value": 0, "at": { "day": 1, "hour": 18 }, "minPassRatio": 0.6 },
-    { "kind": "metric", "metric": "agents.workingRatio", "op": "<", "value": 0.45, "at": { "day": 2, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.workingRatio", "op": "<", "value": 0.37, "at": { "day": 2, "hour": 12 } },
     { "kind": "metric", "metric": "agents.avgHealth", "op": "<", "value": 0.5, "at": { "day": 3, "hour": 12 } }
   ]
 }

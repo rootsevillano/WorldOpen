@@ -1,5 +1,6 @@
 import { disasterSystem } from '../agents/disasters';
 import { economySystem, serviceSystem } from '../agents/economy';
+import { lifecycleSystem } from '../agents/lifecycle';
 import { socialSystem } from '../agents/social';
 import { decisionSystem, movementSystem, needsSystem } from '../agents/systems';
 import { agentRemoveV1, agentSpawnV1 } from '../commands/agents';
@@ -35,6 +36,18 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.fertility',
+      type: 'number', min: 0, max: 5, default: 1,
+      description: 'Multiplicador de la natalidad (1 = tasas aproximadas de España; 0 = sin nacimientos).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.mortality',
+      type: 'number', min: 0, max: 5, default: 1,
+      description: 'Multiplicador de la mortalidad por edad (1 = tasas aproximadas de España). El hambre mata aparte.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.initialPopulation',
       type: 'number', min: 0, max: 10000, default: 5,
       description: 'Habitantes al crear el mundo. Después, la población cambia con comandos.',
@@ -56,6 +69,7 @@ export const contemporary: Ruleset = {
     { name: 'movement', run: movementSystem },
     { name: 'service', run: serviceSystem },
     { name: 'social', run: socialSystem },
+    { name: 'lifecycle', run: lifecycleSystem },
   ],
 };
 

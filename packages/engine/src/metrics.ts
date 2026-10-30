@@ -90,7 +90,8 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       for (let i = 0; i < a.count; i++) {
         if (a.occupation[i] !== Occupation.Student) continue;
         students++;
-        if (a.location[i] === a.workplace[i]) atSchool++;
+        // En clase (la escuela también es fuente pública: ir a por agua no cuenta como asistir).
+        if (a.location[i] === a.workplace[i] && a.action[i] === Action.Work) atSchool++;
       }
       return students === 0 ? 0 : atSchool / students;
     }
@@ -100,7 +101,7 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.leisureRatio':
       return ratio((i) => {
         const loc = a.location[i]!;
-        return loc >= 0 && loc !== a.home[i] && loc !== a.workplace[i] && a.action[i] !== Action.Provision && a.action[i] !== Action.Deliver && uses[loc]!.use !== 'residential';
+        return loc >= 0 && loc !== a.home[i] && loc !== a.workplace[i] && a.action[i] !== Action.Provision && a.action[i] !== Action.Deliver && a.action[i] !== Action.SeekShelter && uses[loc]!.use !== 'residential';
       });
     // Quien ha decidido salir por ocio, esté de camino o ya en el local.
     case 'agents.goingOutRatio': return ratio((i) => a.action[i] === Action.GoOut);
@@ -108,7 +109,8 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.sleepingRatio': return ratio((i) => a.action[i] === Action.Sleep && a.location[i]! >= 0);
     case 'agents.workingRatio': return ratio((i) => a.action[i] === Action.Work && a.location[i] === a.workplace[i]);
     case 'agents.queueingRatio': return ratio((i) => a.busyLeft[i]! > 0 && a.location[i] !== a.home[i]);
-    case 'agents.seekingShelterRatio': return ratio((i) => a.action[i] === Action.SeekShelter);
+    // En la calle buscando refugio (quien ya llegó a un refugio no cuenta).
+    case 'agents.seekingShelterRatio': return ratio((i) => a.action[i] === Action.SeekShelter && a.location[i]! < 0);
     case 'agents.avgShelter': return mean(a.shelter);
     case 'agents.avgEnergy': return mean(a.energy);
     case 'agents.avgSocial': return mean(a.social);

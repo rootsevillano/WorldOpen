@@ -2,6 +2,7 @@ import { AgentActivity, AgentFlag, type BuildingUse } from '@worldopen/contracts
 import { personName } from '../content/names';
 import { Action, Occupation, RelationKind } from '../world/agents';
 import type { World } from '../world/world';
+import { fertilityAt } from './fertility';
 import { SCHOOL_SCALE_M, WORK_SCALE_M, pickNearby } from './nearby';
 import { bond } from './social';
 
@@ -33,7 +34,7 @@ function pickHome(world: World): number {
  * Ocupación según la edad: 0–5 en casa, 6–17 a la escuela más cercana (un servicio público), 67+ jubilados; los
  * adultos, un puesto proporcional a los disponibles y cercano a su casa, o paro (15 %).
  */
-function pickOccupation(world: World, age: number, home: number): [number, number] {
+export function pickOccupation(world: World, age: number, home: number): [number, number] {
   const c = world.map.buildings[home]!.centroid;
   if (age < 6) return [Occupation.Child, -1];
   if (age < 18) {
@@ -69,7 +70,7 @@ function adultAge(world: World): number {
 }
 
 /** Cronotipo: hora preferida de acostarse (minuto del día). Niños 21:00–22:00; jóvenes y adultos 22:30–00:30. */
-function bedtimeFor(world: World, age: number): number {
+export function bedtimeFor(world: World, age: number): number {
   if (age < 12) return world.rng.int(1260, 1320);
   if (age < 18) return world.rng.int(1350, 1410);
   return world.rng.int(1350, 1470) % 1440;
@@ -90,6 +91,7 @@ export function spawnAgent(world: World, home = -1, age?: number): number {
   a.occupation[i] = occupation;
   a.workplace[i] = workplace;
   a.bedtime[i] = bedtimeFor(world, a.age[i]!);
+  a.birthDay[i] = rng.int(0, 359);
   a.home[i] = h;
   a.location[i] = h;
   a.flags[i] = AgentFlag.Indoors;
@@ -145,6 +147,29 @@ function householdAges(world: World, size: number): number[] {
  * determinista), con tamaños y edades de hogar realistas. Si hay más gente que viviendas, se comparten.
  */
 export function populate(world: World, n: number): void {
+  populateHouseholds(world, n);
+  seedPregnancies(world);
+}
+
+/**
+ * Estado estacionario de embarazos (ADR-0019): una población real ya tiene embarazos en curso. Cada mujer en edad
+ * fértil con pareja lo está con probabilidad fecundidad × 270/360, en un día al azar del embarazo.
+ */
+function seedPregnancies(world: World): void {
+  const a = world.agents;
+  const rng = world.rng;
+  const fertility = world.num('society.fertility');
+  for (let i = 0; i < a.count; i++) {
+    if (a.sex[i] !== 0) continue;
+    const p = fertilityAt(a.age[i]!) * fertility * 0.75;
+    if (p <= 0 || rng.nextFloat() >= p) continue;
+    let partner = false;
+    for (let j = 0; j < a.count && !partner; j++) partner = j !== i && a.home[j] === a.home[i] && a.sex[j] === 1 && a.age[j]! >= 18;
+    if (partner) a.pregnantDays[i] = rng.int(1, 269);
+  }
+}
+
+function populateHouseholds(world: World, n: number): void {
   const rng = world.rng;
   const slots: number[] = [];
   for (const h of world.map.homes) for (let d = 0; d < Math.max(1, world.map.buildings[h]!.dwellings); d++) slots.push(h);
@@ -169,12 +194,12 @@ export function populate(world: World, n: number): void {
   }
 }
 
-export function removeAgent(world: World, id: number): boolean {
+export function removeAgent(world: World, id: number, event = 'agent.removed', extra: Record<string, unknown> = {}): boolean {
   const i = world.agents.indexOf(id);
   if (i < 0) return false;
   const home = world.agents.home[i]!;
   if (home >= 0 && world.buildings.residents[home]! > 0) world.buildings.residents[home]!--;
-  world.emit('agent.removed', { agentId: id, name: world.agents.names[i] });
+  world.emit(event, { agentId: id, name: world.agents.names[i], ...extra });
   world.agents.removeAt(i);
   return true;
 }

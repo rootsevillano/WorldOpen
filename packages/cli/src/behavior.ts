@@ -94,9 +94,17 @@ export function runScenario(file: string, scenario: Scenario, mapPack?: string):
       if (!res.ok) rejected.push(res.message);
     }
     // Recuento acumulado de eventos por tipo: métricas `events.<tipo>`.
+    // Recuento por tipo y por tipo:clave=valor de sus datos (p. ej. `agent.died:cause=starvation`).
     const events = new Map<string, number>();
     const drain = () => {
-      for (const e of sim.drainEvents()) events.set(e.type, (events.get(e.type) ?? 0) + 1);
+      for (const e of sim.drainEvents()) {
+        events.set(e.type, (events.get(e.type) ?? 0) + 1);
+        for (const [k, v] of Object.entries(e.data)) {
+          if (typeof v !== 'string') continue;
+          const key = `${e.type}:${k}=${v}`;
+          events.set(key, (events.get(key) ?? 0) + 1);
+        }
+      }
     };
     // Muestras por checkpoint: tick → métrica → valor.
     const samples = new Map<number, Map<string, CriterionValue | undefined>>();

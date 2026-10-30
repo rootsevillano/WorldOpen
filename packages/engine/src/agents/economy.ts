@@ -21,23 +21,30 @@ const MEAL_MINUTES = 20;
 const FARM_FOOD = 0.12;
 const SAWMILL_WOOD = 0.1;
 /** Importaciones diarias de comida por tienda a las 06:00, × `economy.foodAbundance`. */
-const IMPORT_FOOD = 12;
+/**
+ * Importaciones diarias de comida del Exterior por habitante, × `economy.foodAbundance` (ADR-0019): un pueblo así no
+ * se alimenta de sus huertas. Antes eran 12 por tienda y, sin el traslado mágico de cosechas, el fin de semana vaciaba
+ * las tiendas y desataba una espiral de hambre.
+ */
+const IMPORT_PER_PERSON = 6;
+/** Consumo medio medido (≈ 4.3 raciones por persona y día): con `foodAbundance` 0.7 las importaciones cubren casi todo; la cosecha local completa. */
 /** Manantial de cada fuente pública y su capacidad. */
 const FOUNTAIN_REFILL = 0.5;
 const FOUNTAIN_CAP = 300;
 /** Agua corriente por hogar, × `economy.waterSupply`. */
-const TAP_WATER = 0.06;
+/** Agua corriente por residente y minuto (un edificio de pisos recibe más que una casa). */
+const TAP_WATER = 0.02;
 /** Leña que gasta un hogar ocupado por debajo de 14 °C. */
 const HEATING_WOOD = 0.004;
 
 /** Objetivo de despensa por residente. */
-export const PANTRY_TARGET: Record<number, number> = { [Resource.Food]: 4, [Resource.Water]: 6, [Resource.Wood]: 3 };
+export const PANTRY_TARGET: Record<number, number> = { [Resource.Food]: 6, [Resource.Water]: 6, [Resource.Wood]: 3 };
 /** Lo que puede cargar un agente de una vez. */
 const CARRY_MAX = 12;
 /** Minutos de servicio por cliente en el punto de suministro. */
 export const SERVICE_MINUTES = 5;
 /** Un recuerdo de "vacío" o "incendio" disuade durante un día. */
-export const AVOID_TICKS_DAYS = 1;
+export const AVOID_TICKS_DAYS = 0.5;
 
 export function stockOf(world: World, b: number, r: number): number {
   const bs = world.buildings;
@@ -75,20 +82,27 @@ export function chooseSource(world: World, i: number, r: number): number {
   const a = world.agents;
   const x = a.positions[i * 3]!;
   const z = a.positions[i * 3 + 2]!;
-  const avoid = AVOID_TICKS_DAYS * ticksPerDay(world.time);
+  const avoid = Math.round(AVOID_TICKS_DAYS * ticksPerDay(world.time));
   let best = -1;
   let bestD = Infinity;
+  let fallback = -1;
+  let fallbackD = Infinity;
   for (const b of sourcesOf(world, r)) {
     if (!usable(world, b)) continue;
-    if (recalls(world, i, EMPTY_MEMORY[r]!, b, avoid) || recalls(world, i, Memory.Fire, b, avoid)) continue;
     const c = world.map.buildings[b]!.centroid;
     const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
+    // Si las recuerda todas vacías, vuelve a probar en la más cercana (pudieron reponerla) en vez de rendirse.
+    if (d < fallbackD && !recalls(world, i, Memory.Fire, b, avoid)) {
+      fallbackD = d;
+      fallback = b;
+    }
+    if (recalls(world, i, EMPTY_MEMORY[r]!, b, avoid) || recalls(world, i, Memory.Fire, b, avoid)) continue;
     if (d < bestD) {
       bestD = d;
       best = b;
     }
   }
-  return best;
+  return best >= 0 ? best : fallback;
 }
 
 /** Recalcula ocupantes y trabajadores presentes (transitorio). */
@@ -122,13 +136,41 @@ export function economySystem(world: World): void {
   for (const p of map.byUse.publicServices) if (usable(world, p)) bs.water[p] = Math.min(FOUNTAIN_CAP, bs.water[p]! + dt * FOUNTAIN_REFILL);
   for (const h of map.homes) {
     const cap = bs.residents[h]! * PANTRY_TARGET[Resource.Water]!;
-    if (bs.water[h]! < cap && usable(world, h)) bs.water[h] = Math.min(cap, bs.water[h]! + dt * TAP_WATER * waterSupply);
+    if (bs.water[h]! < cap && usable(world, h)) bs.water[h] = Math.min(cap, bs.water[h]! + dt * TAP_WATER * Math.max(1, bs.residents[h]!) * waterSupply);
   }
 
   // 06:00: importaciones del Exterior (E5). Las cosechas ya no se teletransportan: las llevan los agricultores.
   const m = minuteOfDay(world);
   if (m <= 360 && 360 < m + dt) {
-    for (const s of map.byUse.retail) if (usable(world, s)) bs.food[s]! += IMPORT_FOOD * foodAbundance;
+    const shops = map.byUse.retail.filter((s) => usable(world, s));
+    // Reparto según el área de influencia de cada tienda (residentes cuya tienda más cercana es esa) y tope de unos
+    // 3 días de consumo por tienda. Repartir a partes iguales vaciaba las céntricas, y un tope global dejaba sin
+    // importaciones a las céntricas cuando las cosechas llenaban las periféricas (ADR-0019).
+    const weight = new Float64Array(shops.length).fill(1);
+    for (const h of map.homes) {
+      const res = bs.residents[h]!;
+      if (res === 0) continue;
+      const c = map.buildings[h]!.centroid;
+      let best = 0;
+      let bestD = Infinity;
+      shops.forEach((sh, k) => {
+        const q = map.buildings[sh]!.centroid;
+        const d = (q.x - c.x) * (q.x - c.x) + (q.z - c.z) * (q.z - c.z);
+        if (d < bestD) {
+          bestD = d;
+          best = k;
+        }
+      });
+      weight[best]! += res;
+    }
+    let total = 0;
+    for (const w of weight) total += w;
+    const daily = world.agents.count * IMPORT_PER_PERSON;
+    shops.forEach((sh, k) => {
+      const share = weight[k]! / total;
+      const room = Math.max(0, 3 * daily * share - bs.food[sh]!);
+      bs.food[sh]! += Math.min(room, daily * foodAbundance * share);
+    });
   }
 
   // Calefacción: con frío, cada hogar ocupado quema leña.
@@ -144,6 +186,11 @@ export function economySystem(world: World): void {
       a.busyLeft[i] = Math.max(0, a.busyLeft[i]! - dt);
       if (a.busyLeft[i] === 0 && a.activities[i] === AgentActivity.Eating) a.activities[i] = AgentActivity.Idle;
       continue;
+    }
+    // Quien trabaja en una huerta come de su cosecha si tiene hambre.
+    if (loc >= 0 && loc === a.workplace[i] && map.buildings[loc]!.use === 'agriculture' && a.hunger[i]! < EAT_BELOW && bs.food[loc]! >= 1) {
+      bs.food[loc]! -= 1;
+      a.hunger[i] = Math.min(1, a.hunger[i]! + MEAL);
     }
     if (loc !== a.home[i] || a.action[i] === Action.Sleep || !usable(world, loc)) continue;
     if (a.thirst[i]! < DRINK_BELOW && bs.water[loc]! >= 1) {
@@ -184,7 +231,8 @@ export function serviceSystem(world: World): void {
       a.activities[i] = AgentActivity.Idle;
       continue;
     }
-    const capacity = counters(world, loc) + 2 * bs.workers[loc]!;
+    // Clientes atendidos por tick: un mostrador atiende dt / SERVICE_MINUTES clientes (no depende del tamaño del tick).
+    const capacity = (counters(world, loc) + 2 * bs.workers[loc]!) * Math.max(1, Math.floor(dt / SERVICE_MINUTES));
     if (bs.served[loc]! >= capacity) {
       bs.queue[loc]!++;
       a.activities[i] = AgentActivity.Queueing;

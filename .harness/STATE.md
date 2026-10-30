@@ -1,6 +1,6 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-30 (calibración del modelo a escala real)_
+_Actualizado: 2026-10-30 (ciclo de vida y economía a largo plazo)_
 
 ## Implementado
 
@@ -9,10 +9,11 @@ _Actualizado: 2026-10-30 (calibración del modelo a escala real)_
 | Mapa real | `almensilla-3d/tools/gis/{build_logic,pack_map}.py`, `engine/src/map/mappack.ts`, `cli/src/mappacks.ts`, `render/src/realMap.ts` | Map-pack anonimizado «Valdeolivo» (2 793 edificios, grafo de 2 119 nodos), lector validador, resolvedores (fetch/disco), render con huellas, terreno, viales, árboles y cotas (ADR-0017) |
 | Servidor | `apps/server`, `packages/host` | Mundo vivo compartido, usuarios scrypt, sesiones, límite de intentos, `/ws/live` y `/ws/study`, guardado cada 30 s y comandos al instante (ADR-0016) |
 | Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
-| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.6.0** (0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.7.0** (0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
 | Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep (cronotipo), Provision, Work (trabajo o escuela), **Deliver** (ADR-0018) |
+| Ciclo de vida | `engine/src/agents/lifecycle.ts` | Cumpleaños y etapas, embarazos (270 días) y nacimientos, muertes por edad y por hambre, duelo; criterios `society.fertility` y `society.mortality` (ADR-0019) |
 | Población | `engine/src/agents/population.ts` | Por hogares sobre viviendas catastrales, pirámide de edades, estudiantes y niños, cronotipos (ADR-0018) |
 | Economía | `engine/src/agents/economy.ts` | Comida, agua, leña; producción, importaciones, agua corriente, calefacción, colas (ADR-0012) |
 | Social | `engine/src/agents/social.ts` | Familia al crear; charlas por hora en locales → amistades; memoria de fuentes vacías e incendios |
@@ -25,6 +26,7 @@ _Actualizado: 2026-10-30 (calibración del modelo a escala real)_
 | CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
+- Ciclo de vida ✅ Behavior 12/12 en mapa sintético y real (nuevo `lifecycle-year`); 115 tests; 2 años sin hambrunas.
 - Calibración ✅ Behavior 11/11 en mapa sintético y real (nuevos: `sleep-schedule`, `households`, `harvest-delivery`);
   110 tests; 6 000 habitantes en el mapa real ≈ 185 ticks/s; 2 000 ≈ 590 ticks/s.
 - Fase 2b ✅ `npm run gate:real`: Behavior 8/8 sobre el mapa real; 2 000 agentes × 10 000 ticks en 16 s (616 ticks/s).
@@ -55,4 +57,4 @@ _Actualizado: 2026-10-30 (calibración del modelo a escala real)_
 
 ## No implementado
 - Ortofoto en el map-pack, comparación de mundos en el visor, varios mundos vivos por servidor, gestión de usuarios en la web, ciclo de vida
-  (nacimientos/muertes), vehículos/animales, logística con agentes, LOD de simulación (ADR-0014).
+  (formación de parejas y migración), caducidad de alimentos, vehículos/animales, logística con agentes, LOD de simulación (ADR-0014).

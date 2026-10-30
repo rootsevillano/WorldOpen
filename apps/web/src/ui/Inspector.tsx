@@ -16,7 +16,8 @@ const OCCUPATIONS_ES: Record<string, string> = {
 };
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',
-  newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio',
+  newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
+  newChild: 'nació un hijo en casa',
 };
 const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad' };
 const USES_ES: Record<string, string> = {
