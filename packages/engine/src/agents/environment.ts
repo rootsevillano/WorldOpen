@@ -27,6 +27,12 @@ export function inShift(world: World): boolean {
   return dayOfWeek(world) < 5 && m >= 480 && m < 900;
 }
 
+/** Horario escolar: días 0–4, de 09:00 a 14:00. */
+export function inSchool(world: World): boolean {
+  const m = minuteOfDay(world);
+  return dayOfWeek(world) < 5 && m >= 540 && m < 840;
+}
+
 /** Comercios abiertos de 08:00 a 21:00. */
 export function shopsOpen(world: World): boolean {
   const m = minuteOfDay(world);
@@ -44,14 +50,29 @@ export function harvestFactor(world: World): number {
   return 1.1;
 }
 
-/** 0 = pleno día, 1 = noche cerrada. Transiciones 06:00–07:30 y 20:30–22:00. */
+/** 0 = pleno día, 1 = noche cerrada. Transiciones 06:00–07:30 y 21:30–23:00 (horario español, ADR-0018). */
 export function nightFactor(world: World): number {
   const m = minuteOfDay(world);
   if (m < 360) return 1;
   if (m < 450) return 1 - (m - 360) / 90;
-  if (m < 1230) return 0;
-  if (m < 1320) return (m - 1230) / 90;
+  if (m < 1290) return 0;
+  if (m < 1380) return (m - 1290) / 90;
   return 1;
+}
+
+/** Horas de sueño por edad (min): niños 10 h, adolescentes 9 h, adultos 7.5 h. */
+export function sleepMinutes(age: number): number {
+  return age < 12 ? 600 : age < 18 ? 540 : 450;
+}
+
+/** ¿Está el reloj dentro de la ventana de sueño que empieza en `bedtime` (minuto del día)? */
+export function inSleepWindow(minute: number, bedtime: number, age: number): boolean {
+  return (minute - bedtime + 1440) % 1440 < sleepMinutes(age);
+}
+
+/** Minutos que faltan para `bedtime` (0–1439). */
+export function minutesToBed(minute: number, bedtime: number): number {
+  return (bedtime - minute + 1440) % 1440;
 }
 
 /** Temperatura actual (°C): base del criterio ± 6 °C, mínima a las 06:00 y máxima a las 15:00. */

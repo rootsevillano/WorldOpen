@@ -1,0 +1,80 @@
+{
+  "name": "households",
+  "description": "D4/ADR-0018: la población nace por hogares con una pirámide de edades realista (menores ~15–30 %, 65+ ~12–28 %) y en horario escolar casi todos los estudiantes están en su escuela.",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "days": 1,
+  "manifest": {
+    "criteria": {
+      "society.initialPopulation": 400
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.childrenRatio",
+      "op": ">=",
+      "value": 0.15,
+      "at": {
+        "day": 0,
+        "hour": 6
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.childrenRatio",
+      "op": "<=",
+      "value": 0.3,
+      "at": {
+        "day": 0,
+        "hour": 6
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.elderlyRatio",
+      "op": ">=",
+      "value": 0.12,
+      "at": {
+        "day": 0,
+        "hour": 6
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.elderlyRatio",
+      "op": "<=",
+      "value": 0.28,
+      "at": {
+        "day": 0,
+        "hour": 6
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.studentsAtSchoolRatio",
+      "op": ">=",
+      "value": 0.6,
+      "at": {
+        "day": 0,
+        "hour": 11
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.studentsAtSchoolRatio",
+      "op": "==",
+      "value": 0,
+      "at": {
+        "day": 0,
+        "hour": 20
+      }
+    }
+  ]
+}

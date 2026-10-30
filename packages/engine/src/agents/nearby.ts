@@ -31,3 +31,4 @@ export function pickNearby(world: World, x: number, z: number, candidates: reado
 /** Escala de distancia al elegir puesto de trabajo y local de ocio (m). */
 export const WORK_SCALE_M = 600;
 export const LEISURE_SCALE_M = 400;
+export const SCHOOL_SCALE_M = 500;

@@ -1,13 +1,16 @@
 import { AgentActivity, AgentFlag, BuildingState } from '@worldopen/contracts';
 import { headingOf } from '../math/angles';
-import { ACTION_COUNT, Action, Memory, Resource } from '../world/agents';
+import { ACTION_COUNT, Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import {
   DRINK_BELOW,
   EAT_BELOW,
   PANTRY_TARGET,
+  DELIVERY_MAX,
+  DELIVERY_MIN,
   SERVICE_MINUTES,
   chooseSource,
+  nearestShop,
   employed,
   homeWarm,
   sourceOpen,
@@ -15,7 +18,7 @@ import {
   unload,
   usable,
 } from './economy';
-import { inShift, nightFactor, thermalDiscomfort } from './environment';
+import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { remember } from './social';
 
@@ -69,6 +72,7 @@ export function needsSystem(world: World): void {
   const discomfort = thermalDiscomfort(world);
   const exposure = 1 + night + 1.5 * discomfort;
   const shift = inShift(world);
+  const school = inSchool(world);
   const map = world.map;
   for (let i = 0; i < a.count; i++) {
     const loc = a.location[i]!;
@@ -90,7 +94,7 @@ export function needsSystem(world: World): void {
       a.social[i] = clamp01(a.social[i]! - dt * SOCIAL_AT_HOME);
     }
 
-    if (shift && employed(world, i)) {
+    if ((a.occupation[i] === Occupation.Student ? school : shift) && employed(world, i)) {
       a.work[i] = clamp01(a.work[i]! + dt * (loc === a.workplace[i] ? WORK_DONE : -WORK_MISSED));
     }
 
@@ -125,6 +129,8 @@ export function decisionSystem(world: World): void {
   const discomfort = thermalDiscomfort(world);
   const outdoorAppeal = 1 - (discomfort > 1 ? 1 : discomfort);
   const shift = inShift(world);
+  const school = inSchool(world);
+  const minute = minuteOfDay(world);
   const map = world.map;
 
   // Hogares que ya tienen a alguien abasteciéndose de cada recurso (máscara de bits por edificio).
@@ -139,9 +145,12 @@ export function decisionSystem(world: World): void {
     if (a.busyLeft[i]! > 0) continue;
     const moving = a.paths[i] !== null;
     const due = (world.tick + a.ids[i]!) % every === 0;
-    const stranded = a.action[i] === Action.Provision && a.seeking[i] === Resource.None && a.carryKind[i] === Resource.None && !moving;
+    const stranded =
+      (a.action[i] === Action.Provision && a.seeking[i] === Resource.None && a.carryKind[i] === Resource.None && !moving) ||
+      (a.action[i] === Action.Deliver && a.carryKind[i] === Resource.None && !moving);
     if (!due && !stranded) continue;
-    if (moving && a.action[i] === Action.SeekShelter) continue;
+    // Huir o llevar la cosecha no se interrumpe a mitad de camino.
+    if (moving && (a.action[i] === Action.SeekShelter || a.action[i] === Action.Deliver)) continue;
 
     const loc = a.location[i]!;
     const home = effectiveHome(world, i);
@@ -170,23 +179,39 @@ export function decisionSystem(world: World): void {
     // Llevar la carga a casa es prioritario.
     const carrying = a.carryKind[i] !== Resource.None;
 
+    const age = a.age[i]!;
+    const bedtime = a.bedtime[i]!;
+    const sleepTime = inSleepWindow(minute, bedtime, age);
+    // Antes de acostarse se vuelve a casa (en la última hora, cada vez con más ganas).
+    const toBed = minutesToBed(minute, bedtime);
+    const bedPull = sleepTime ? 1.2 : toBed <= 60 ? 0.9 * (1 - toBed / 60) : 0;
     if (atHome) {
       const tired = 1 - energy;
-      consider(Action.Sleep, night * (0.6 + tired) + tired * tired * 0.8 + (current === Action.Sleep && night > 0 ? 0.3 : 0));
+      // Se duerme en la ventana del cronotipo; fuera de ella, solo con agotamiento.
+      consider(Action.Sleep, (sleepTime ? 1.2 + 0.5 * tired : tired > 0.9 ? tired : 0) + (current === Action.Sleep && sleepTime ? 0.3 : 0));
     } else {
       const pantryFood = stockOf(world, home, Resource.Food) >= 1 && a.hunger[i]! < EAT_BELOW ? (1 - a.hunger[i]!) * 0.6 : 0;
       const pantryWater = stockOf(world, home, Resource.Water) >= 1 && a.thirst[i]! < DRINK_BELOW ? (1 - a.thirst[i]!) * 0.6 : 0;
       consider(
         Action.GoHome,
-        0.3 * (1 - shelter) + night * 0.9 + (1 - energy) * 0.6 + pantryFood + pantryWater + (carrying ? 1 : 0) +
+        0.3 * (1 - shelter) + Math.max(night * 0.9, bedPull) + (1 - energy) * 0.6 + pantryFood + pantryWater + (carrying ? 1 : 0) +
           (atVenue && social > 0.95 && current !== Action.Work ? 0.5 : 0) + (current === Action.GoHome ? 0.2 : 0),
       );
     }
-    if (!carrying) {
-      if (shift && employed(world, i)) {
+    const occupation = a.occupation[i]!;
+    // Los menores de 14 ni salen solos ni hacen recados; los de 0–5 se quedan en casa.
+    const minor = age < 14;
+    if (!carrying && occupation !== Occupation.Child) {
+      if ((occupation === Occupation.Student ? school : shift) && employed(world, i)) {
         consider(Action.Work, 0.55 + (1 - a.work[i]!) * 0.8 + (current === Action.Work ? 0.2 : 0));
       }
-      if (night < 0.5 && map.venues.length > 0) {
+      // Logística (ADR-0018): un agricultor en su huerta lleva la cosecha acumulada a la tienda más cercana.
+      if (occupation === Occupation.Farmer && loc >= 0 && loc === a.workplace[i] && world.buildings.food[loc]! >= DELIVERY_MIN && sourceOpen(world, Resource.Food)) {
+        consider(Action.Deliver, 0.95);
+      }
+    }
+    if (!carrying && !minor) {
+      if (night < 0.5 && map.venues.length > 0 && !sleepTime) {
         consider(Action.GoOut, (1 - social) * (0.4 + 0.8 * a.sociability[i]!) * (1 - night) * outdoorAppeal - (atVenue ? 0.2 : 0));
       }
       let bestR: number = Resource.None;
@@ -230,6 +255,18 @@ export function startAction(world: World, i: number, action: Action, home: numbe
       // No queda ninguna fuente que el agente crea útil: se rinde por ahora.
       a.action[i] = Action.Stay;
       a.seeking[i] = Resource.None;
+    }
+  } else if (action === Action.Deliver) {
+    const farm = a.location[i]!;
+    target = nearestShop(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!);
+    if (target < 0 || farm < 0) {
+      a.action[i] = Action.Stay;
+      target = -1;
+    } else {
+      const amount = Math.min(world.buildings.food[farm]!, DELIVERY_MAX);
+      world.buildings.food[farm]! -= amount;
+      a.carryKind[i] = Resource.Food;
+      a.carryAmount[i] = amount;
     }
   } else if (action === Action.SeekShelter) {
     target = nearestShelter(world, i, home);
@@ -296,6 +333,15 @@ function arrive(world: World, i: number, target: number): void {
   a.location[i] = target;
   a.flags[i] = AgentFlag.Indoors;
   const action = a.action[i]!;
+  if (action === Action.Deliver && a.carryKind[i] === Resource.Food) {
+    world.buildings.food[target]! += a.carryAmount[i]!;
+    world.emit('harvest.delivered', { agentId: a.ids[i], name: a.names[i], building: world.map.buildings[target]!.id, amount: Math.round(a.carryAmount[i]!) });
+    a.carryKind[i] = Resource.None;
+    a.carryAmount[i] = 0;
+    // Sigue en Deliver sin carga: decide en el siguiente tick (volver a la huerta o a casa).
+    a.activities[i] = activityAt(world, i);
+    return;
+  }
   if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
     a.busyLeft[i] = SERVICE_MINUTES;
   } else if (action !== Action.Sleep && action !== Action.Work) {

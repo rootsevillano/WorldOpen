@@ -103,7 +103,7 @@ function countPresence(world: World): void {
     const loc = a.location[i]!;
     if (loc < 0) continue;
     bs.occupants[loc]!++;
-    if (a.action[i] === Action.Work && loc === a.workplace[i]) bs.workers[loc]!++;
+    if (a.action[i] === Action.Work && loc === a.workplace[i] && a.occupation[i] !== Occupation.Student) bs.workers[loc]!++;
   }
 }
 
@@ -125,18 +125,10 @@ export function economySystem(world: World): void {
     if (bs.water[h]! < cap && usable(world, h)) bs.water[h] = Math.min(cap, bs.water[h]! + dt * TAP_WATER * waterSupply);
   }
 
-  // 06:00: reparto de cosechas e importaciones a las tiendas abiertas.
+  // 06:00: importaciones del Exterior (E5). Las cosechas ya no se teletransportan: las llevan los agricultores.
   const m = minuteOfDay(world);
   if (m <= 360 && 360 < m + dt) {
-    const shops = map.byUse.retail.filter((s) => usable(world, s));
-    if (shops.length > 0) {
-      let harvested = 0;
-      for (const f of map.byUse.agriculture) {
-        harvested += bs.food[f]!;
-        bs.food[f] = 0;
-      }
-      for (const s of shops) bs.food[s]! += harvested / shops.length + IMPORT_FOOD * foodAbundance;
-    }
+    for (const s of map.byUse.retail) if (usable(world, s)) bs.food[s]! += IMPORT_FOOD * foodAbundance;
   }
 
   // Calefacción: con frío, cada hogar ocupado quema leña.
@@ -184,7 +176,15 @@ export function serviceSystem(world: World): void {
     if (a.action[i] !== Action.Provision) continue;
     const loc = a.location[i]!;
     if (loc < 0 || loc === a.home[i] || a.busyLeft[i] === 0) continue;
-    const capacity = 2 + 2 * bs.workers[loc]!;
+    // Al cerrar, quien sigue en la cola se va sin nada (no la recuerda como vacía: estaba cerrada).
+    if (!sourceOpen(world, a.seeking[i]!)) {
+      a.busyLeft[i] = 0;
+      a.seeking[i] = Resource.None;
+      a.action[i] = Action.Stay;
+      a.activities[i] = AgentActivity.Idle;
+      continue;
+    }
+    const capacity = counters(world, loc) + 2 * bs.workers[loc]!;
     if (bs.served[loc]! >= capacity) {
       bs.queue[loc]!++;
       a.activities[i] = AgentActivity.Queueing;
@@ -195,6 +195,11 @@ export function serviceSystem(world: World): void {
     a.busyLeft[i] = Math.max(0, a.busyLeft[i]! - dt);
     if (a.busyLeft[i] === 0) collect(world, i, loc);
   }
+}
+
+/** Mostradores de un punto de suministro según su tamaño: uno por cada 50 m² de planta, mínimo 2 (ADR-0018). */
+function counters(world: World, b: number): number {
+  return Math.max(2, Math.floor(world.map.buildings[b]!.grossFloorAreaM2 / 50));
 }
 
 /** Fin del servicio: el agente se lleva lo que necesita su casa (o recuerda que estaba vacío). */
@@ -230,7 +235,27 @@ export function unload(world: World, i: number): void {
 export function employed(world: World, i: number): boolean {
   const a = world.agents;
   const occ = a.occupation[i]!;
-  return occ !== Occupation.Unemployed && occ !== Occupation.Retired && a.workplace[i]! >= 0 && usable(world, a.workplace[i]!);
+  return occ !== Occupation.Unemployed && occ !== Occupation.Retired && occ !== Occupation.Child && a.workplace[i]! >= 0 && usable(world, a.workplace[i]!);
+}
+
+/** Cosecha mínima que justifica un viaje de reparto y lo que cabe en un viaje. */
+export const DELIVERY_MIN = 20;
+export const DELIVERY_MAX = 40;
+
+/** Tienda en uso más cercana a (x, z), o −1. */
+export function nearestShop(world: World, x: number, z: number): number {
+  let best = -1;
+  let bestD = Infinity;
+  for (const s of world.map.byUse.retail) {
+    if (!usable(world, s)) continue;
+    const c = world.map.buildings[s]!.centroid;
+    const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
+    if (d < bestD) {
+      bestD = d;
+      best = s;
+    }
+  }
+  return best;
 }
 
 /** Existencias iniciales de los puntos de suministro al crear el mundo (tras crear la población). */

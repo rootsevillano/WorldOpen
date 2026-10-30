@@ -1,6 +1,6 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-30 (cierre de la Fase 2b: mapa real)_
+_Actualizado: 2026-10-30 (calibración del modelo a escala real)_
 
 ## Implementado
 
@@ -9,10 +9,11 @@ _Actualizado: 2026-10-30 (cierre de la Fase 2b: mapa real)_
 | Mapa real | `almensilla-3d/tools/gis/{build_logic,pack_map}.py`, `engine/src/map/mappack.ts`, `cli/src/mappacks.ts`, `render/src/realMap.ts` | Map-pack anonimizado «Valdeolivo» (2 793 edificios, grafo de 2 119 nodos), lector validador, resolvedores (fetch/disco), render con huellas, terreno, viales, árboles y cotas (ADR-0017) |
 | Servidor | `apps/server`, `packages/host` | Mundo vivo compartido, usuarios scrypt, sesiones, límite de intentos, `/ws/live` y `/ws/study`, guardado cada 30 s y comandos al instante (ADR-0016) |
 | Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
-| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.5.0** (0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.6.0** (0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
-| Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep, **Provision**, **Work** |
+| Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep (cronotipo), Provision, Work (trabajo o escuela), **Deliver** (ADR-0018) |
+| Población | `engine/src/agents/population.ts` | Por hogares sobre viviendas catastrales, pirámide de edades, estudiantes y niños, cronotipos (ADR-0018) |
 | Economía | `engine/src/agents/economy.ts` | Comida, agua, leña; producción, importaciones, agua corriente, calefacción, colas (ADR-0012) |
 | Social | `engine/src/agents/social.ts` | Familia al crear; charlas por hora en locales → amistades; memoria de fuentes vacías e incendios |
 | Desastres | `engine/src/agents/disasters.ts` | `disaster.fire`: evacuación, testigos, dañado 2 días, refugio en servicio público si arde tu casa |
@@ -24,6 +25,8 @@ _Actualizado: 2026-10-30 (cierre de la Fase 2b: mapa real)_
 | CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
+- Calibración ✅ Behavior 11/11 en mapa sintético y real (nuevos: `sleep-schedule`, `households`, `harvest-delivery`);
+  110 tests; 6 000 habitantes en el mapa real ≈ 185 ticks/s; 2 000 ≈ 590 ticks/s.
 - Fase 2b ✅ `npm run gate:real`: Behavior 8/8 sobre el mapa real; 2 000 agentes × 10 000 ticks en 16 s (616 ticks/s).
   `almensilla-3d`: 43 tests (9 del map-pack). Visual: pueblo real con habitantes, selección e incendio de edificio real.
 - Typecheck ✅ · Unit + Integration ✅ 106 tests (incluye 10 de servidor con HTTP/WebSocket reales: acceso, bloqueo,
@@ -41,6 +44,8 @@ _Actualizado: 2026-10-30 (cierre de la Fase 2b: mapa real)_
   FPS no medidos (el panel del navegador estaba oculto).
 
 ## Comportamiento observado (200 agentes)
+- Escala real (6 000, mapa real): 24 % menores, 20 % 65+; a las 21:00 duerme ~10 %, a medianoche todos en casa, a la
+  01:00 todos dormidos; a las 08:00 la mayoría ya levantada; los agricultores reparten cosechas durante el día.
 - Laborable: ~70 % trabajando a mediodía, 4–7 % de ocio; a las 17:00 sube el ocio; de noche 100 % en casa durmiendo.
 - Ola de calor: ocio 0 todo el día; solo se camina al trabajo o a casa.
 - Escasez de comida: tiendas vacías el día 1, cientos/miles de visitas a tiendas vacías, colas, el trabajo cae

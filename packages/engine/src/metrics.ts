@@ -2,7 +2,7 @@ import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { nightFactor, temperature } from './agents/environment';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
-import { Action } from './world/agents';
+import { Action, Occupation } from './world/agents';
 
 /**
  * Referencia a un edificio en escenarios: `@<uso>[n]` = n-ésimo edificio de ese uso en el mapa
@@ -82,13 +82,25 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'env.night': return nightFactor(sim.world);
     case 'env.temperatureC': return temperature(sim.world);
     case 'agents.count': return a.count;
+    case 'agents.childrenRatio': return ratio((i) => a.age[i]! < 18);
+    case 'agents.elderlyRatio': return ratio((i) => a.age[i]! >= 65);
+    case 'agents.studentsAtSchoolRatio': {
+      let students = 0;
+      let atSchool = 0;
+      for (let i = 0; i < a.count; i++) {
+        if (a.occupation[i] !== Occupation.Student) continue;
+        students++;
+        if (a.location[i] === a.workplace[i]) atSchool++;
+      }
+      return students === 0 ? 0 : atSchool / students;
+    }
     case 'agents.atHomeRatio': return ratio((i) => a.location[i] === a.home[i]);
     case 'agents.awayFromHomeRatio': return ratio((i) => a.location[i] !== a.home[i]);
     case 'agents.atVenueRatio': return ratio((i) => a.location[i]! >= 0 && a.location[i] !== a.home[i] && uses[a.location[i]!]!.use !== 'residential');
     case 'agents.leisureRatio':
       return ratio((i) => {
         const loc = a.location[i]!;
-        return loc >= 0 && loc !== a.home[i] && loc !== a.workplace[i] && a.action[i] !== Action.Provision && uses[loc]!.use !== 'residential';
+        return loc >= 0 && loc !== a.home[i] && loc !== a.workplace[i] && a.action[i] !== Action.Provision && a.action[i] !== Action.Deliver && uses[loc]!.use !== 'residential';
       });
     // Quien ha decidido salir por ocio, esté de camino o ya en el local.
     case 'agents.goingOutRatio': return ratio((i) => a.action[i] === Action.GoOut);

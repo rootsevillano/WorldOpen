@@ -336,6 +336,7 @@ function describeEvent(e: SimEvent): string {
     case 'agent.seekingShelter': return `${String(d.name)} busca cobijo en ${String(d.building)}`;
     case 'agent.friendship': return `${String(d.name)} y ${String(d.friend)} se hacen amigos`;
     case 'source.empty': return `${String(d.name)} no encuentra ${RESOURCE_ES[Number(d.resource)] ?? 'género'} en ${String(d.building)}`;
+    case 'harvest.delivered': return `${String(d.name)} lleva ${String(d.amount)} de cosecha a ${String(d.building)}`;
     case 'fire.started': return `🔥 Arde ${String(d.building)} (${String(d.use)}); lo ven ${String(d.witnesses)} vecinos`;
     case 'fire.ended': return `El fuego de ${String(d.building)} se ha apagado; queda dañado`;
     case 'building.repaired': return `${String(d.building)} vuelve a estar en uso`;

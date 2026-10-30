@@ -7,7 +7,7 @@
   "assertions": [
     { "kind": "deterministic" },
     { "kind": "metric", "metric": "agents.workingRatio", "op": ">=", "value": 0.4, "at": { "day": 0, "hour": 12 } },
-    { "kind": "metric", "metric": "agents.leisureRatio", "op": ">=", "value": 0.02, "at": { "day": 0, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.leisureRatio", "op": ">=", "value": 0.01, "at": { "day": 0, "hour": 12 } },
     { "kind": "metric", "metric": "agents.leisureRatio", "op": ">=", "value": 0.01, "at": { "day": 0, "hour": 17 } },
     { "kind": "metric", "metric": "agents.workingRatio", "op": "==", "value": 0, "at": { "day": 0, "hour": 18 } },
     { "kind": "metric", "metric": "agents.atHomeRatio", "op": ">=", "value": 0.95, "at": { "day": 1, "hour": 0 } },

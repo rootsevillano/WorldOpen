@@ -22,3 +22,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0015](0015-study-viewer.md) | Visor de estudio | Aceptada |
 | [0016](0016-server.md) | Servidor: mundo vivo compartido, acceso y visores privados | Aceptada |
 | [0017](0017-real-map-packs.md) | Map-packs reales y modelo sensible a la distancia | Aceptada |
+| [0018](0018-model-calibration.md) | Calibración del modelo a escala real | Aceptada |

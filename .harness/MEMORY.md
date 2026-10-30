@@ -99,3 +99,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-30) Umbrales de Behavior Gates calibrados en la cuadrícula sintética no valían en el mapa real (trayectos de
   hasta 4 km): se cambió el modelo (decaimiento por distancia) y se reformularon las aserciones para medir el
   comportamiento, no valores de una geometría concreta.
+- (2026-10-30) Calibración: medir primero a escala real (6 000) destapó problemas invisibles con 200 habitantes (colas
+  de madrugada en tiendas cerradas por falta de mostradores y de cierre). Un artefacto propio (el agricultor que
+  entrega queda "de ocio" en la tienda) apareció como fallo de un escenario: revisar la métrica antes que el umbral.

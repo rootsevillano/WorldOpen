@@ -8,11 +8,11 @@ const NEEDS_ES: Record<string, string> = {
 };
 const ACTIONS_ES: Record<string, string> = {
   stay: 'quedarse', goHome: 'volver a casa', goOut: 'salir', seekShelter: 'buscar cobijo', sleep: 'dormir',
-  provision: 'abastecerse', work: 'trabajar',
+  provision: 'abastecerse', work: 'trabajar / estudiar', deliver: 'llevar la cosecha',
 };
 const OCCUPATIONS_ES: Record<string, string> = {
   unemployed: 'en paro', retired: 'jubilado/a', shopkeeper: 'comercio', farmer: 'campo', sawyer: 'aserradero',
-  civilServant: 'servicio público',
+  civilServant: 'servicio público', student: 'estudiante', child: 'niño/a en casa',
 };
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',

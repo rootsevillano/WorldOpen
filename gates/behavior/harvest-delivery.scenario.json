@@ -1,0 +1,40 @@
+{
+  "name": "harvest-delivery",
+  "description": "ADR-0018: las cosechas ya no aparecen solas en las tiendas; las llevan los agricultores desde las huertas durante el horario comercial.",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "days": 2,
+  "manifest": {
+    "criteria": {
+      "society.initialPopulation": 400
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "events.harvest.delivered",
+      "op": ">=",
+      "value": 1,
+      "at": {
+        "day": 1,
+        "hour": 20
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.shopFood",
+      "op": ">",
+      "value": 0,
+      "at": {
+        "day": 1,
+        "hour": 20
+      }
+    }
+  ]
+}

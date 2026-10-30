@@ -14,7 +14,7 @@ import {
   type WorldManifest,
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
-import { spawnAgent } from './agents/population';
+import { populate } from './agents/population';
 import { agentDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
 import { CommandRegistry } from './commands/registry';
@@ -95,7 +95,7 @@ export class Simulation {
     if (!options.skipPopulation) {
       const initial = this.world.criteria['society.initialPopulation'];
       const n = typeof initial === 'number' ? Math.min(initial, this.world.agents.capacity) : 0;
-      for (let k = 0; k < n; k++) spawnAgent(this.world);
+      populate(this.world, n);
       seedStocks(this.world);
     }
   }

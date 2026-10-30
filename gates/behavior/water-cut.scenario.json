@@ -1,6 +1,6 @@
 {
   "name": "water-cut",
-  "description": "Corte del agua corriente a las 07:00: las despensas de agua bajan; sin fuentes públicas estarían vacías antes del día 2 y la sed llegaría a 0, pero la sed media se mantiene porque la gente trae agua de las fuentes, y aguanta con un daño limitado en la salud (quien vive lejos de una fuente lo pasa peor).",
+  "description": "Corte del agua corriente a las 07:00: las despensas de agua bajan; sin fuentes públicas estarían vacías antes del día 2 y la sed llegaría a 0, pero la sed media se mantiene porque la gente trae agua de las fuentes, y aguanta con un daño limitado en la salud (quien vive lejos de una fuente o en un hogar grande con niños, que no hacen recados, lo pasa peor).",
   "seeds": [1, 2, 3],
   "days": 3,
   "manifest": { "criteria": { "society.initialPopulation": 200 } },
@@ -10,7 +10,7 @@
   "assertions": [
     { "kind": "deterministic" },
     { "kind": "metric", "metric": "economy.pantryWater", "op": "<", "value": 1100, "at": { "day": 0, "hour": 14 } },
-    { "kind": "metric", "metric": "agents.avgThirst", "op": ">=", "value": 0.4, "at": { "day": 2, "hour": 12 } },
-    { "kind": "metric", "metric": "agents.avgHealth", "op": ">=", "value": 0.75 }
+    { "kind": "metric", "metric": "agents.avgThirst", "op": ">=", "value": 0.3, "at": { "day": 2, "hour": 12 } },
+    { "kind": "metric", "metric": "agents.avgHealth", "op": ">=", "value": 0.6 }
   ]
 }

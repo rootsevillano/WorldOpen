@@ -13,9 +13,11 @@ export const Action = {
   Sleep: 4,
   Provision: 5,
   Work: 6,
+  /** Llevar la cosecha de la huerta a una tienda (logística con agentes, ADR-0018). */
+  Deliver: 7,
 } as const;
 export type Action = (typeof Action)[keyof typeof Action];
-export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work'] as const;
+export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work', 'deliver'] as const;
 export const ACTION_COUNT = ACTION_NAMES.length;
 
 export const Occupation = {
@@ -25,9 +27,13 @@ export const Occupation = {
   Farmer: 3,
   Sawyer: 4,
   CivilServant: 5,
+  /** 6–17 años: va a la escuela (un servicio público) en horario escolar. */
+  Student: 6,
+  /** 0–5 años: se queda en casa. */
+  Child: 7,
 } as const;
 export type Occupation = (typeof Occupation)[keyof typeof Occupation];
-export const OCCUPATION_NAMES = ['unemployed', 'retired', 'shopkeeper', 'farmer', 'sawyer', 'civilServant'] as const;
+export const OCCUPATION_NAMES = ['unemployed', 'retired', 'shopkeeper', 'farmer', 'sawyer', 'civilServant', 'student', 'child'] as const;
 
 /** Recurso: 0 = ninguno. */
 export const Resource = { None: 0, Food: 1, Water: 2, Wood: 3 } as const;
@@ -96,6 +102,8 @@ export class AgentStore {
   readonly carryAmount: Float32Array;
   /** Minutos de servicio pendientes en una tienda/fuente, o de comida en casa. */
   readonly busyLeft: Uint16Array;
+  /** Hora preferida de acostarse (minuto del día; cronotipo, ADR-0018). */
+  readonly bedtime: Uint16Array;
   /** Puntuaciones de la última decisión (stride `ACTION_COUNT`). */
   readonly scores: Float32Array;
 
@@ -144,6 +152,7 @@ export class AgentStore {
     this.carryKind = new Uint8Array(c);
     this.carryAmount = new Float32Array(c);
     this.busyLeft = new Uint16Array(c);
+    this.bedtime = new Uint16Array(c);
     this.scores = new Float32Array(c * ACTION_COUNT);
     this.memTick = new Uint32Array(c * MEMORY_SLOTS);
     this.memKind = new Uint8Array(c * MEMORY_SLOTS);
@@ -162,7 +171,7 @@ export class AgentStore {
       ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
       ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
-      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['scores', this.scores, ACTION_COUNT],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['scores', this.scores, ACTION_COUNT],
       ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
       ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
       ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],

@@ -1,0 +1,61 @@
+{
+  "name": "sleep-schedule",
+  "description": "ADR-0018: cada habitante duerme según su cronotipo (niños desde las 21:00, adultos de 22:30 a 00:30): a las 21:00 casi nadie duerme, a medianoche todos están en casa y a la 01:00 casi todos duermen; a las 09:00 ya se han levantado.",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "days": 2,
+  "manifest": {
+    "criteria": {
+      "society.initialPopulation": 200
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.sleepingRatio",
+      "op": "<=",
+      "value": 0.25,
+      "at": {
+        "day": 0,
+        "hour": 21
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.atHomeRatio",
+      "op": ">=",
+      "value": 0.95,
+      "at": {
+        "day": 1,
+        "hour": 0
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.sleepingRatio",
+      "op": ">=",
+      "value": 0.9,
+      "at": {
+        "day": 1,
+        "hour": 1,
+        "minute": 30
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.sleepingRatio",
+      "op": "<=",
+      "value": 0.1,
+      "at": {
+        "day": 1,
+        "hour": 9
+      }
+    }
+  ]
+}
