@@ -264,7 +264,7 @@ function immigrate(world: World, census: Census): void {
   const a = world.agents;
   const rng = world.rng;
   // Un alquiler caro disuade de venir (y uno barato atrae, hasta ×1.5) (ADR-0024).
-  const appeal = Math.min(1.5, 1 / rentIndex(world));
+  const appeal = Math.min(1.5, 1 / (rentIndex(world) * world.num('economy.rentLevel')));
   let expected = (a.count * IMMIGRATION_YEARLY * world.num('society.immigration') * appeal) / (DAYS_PER_YEAR * MEAN_HOUSEHOLD);
   const free: number[] = [];
   for (const h of world.map.homes) if (census.vacant(h)) free.push(h);

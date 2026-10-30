@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Salarios y alquileres · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Vehículos · ✅ **completada** (2026-10-30) · ⏸️ revisión del usuario (O3)
 
-## Salarios y alquileres — entregado (ADR-0024)
+## Vehículos — entregado (ADR-0025)
+- Coche por hogar; los adultos lo cogen para trayectos largos, va más rápido y gasta gasolina; el render dibuja coches
+  y seleccionarlos muestra al conductor. Criterio `society.carOwnership`. Motor 0.13.0.
+- Behavior 15/15 en ambos mapas (`housing-crisis` revisado); 138 tests; Visual Gate superado.
+
+## Salarios y alquileres (anterior) — completado
+
+### ADR-0024
 - Cada negocio fija su salario según el mercado laboral (fichajes, subidas, bajadas); negocios vacíos reabren con
   capital de fuera. Hogares de alquiler con precio por ocupación, impagos y desahucios. Motor 0.12.0.
 - Behavior 15/15 en ambos mapas (nuevo `housing-crisis`); 135 tests.
@@ -60,7 +67,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: vehículos, propietarios locales y compra de vivienda; LOD si se pasa de 6 000.
+- Siguiente modelo: propietarios locales y compra de vivienda, atascos/transporte público, animales; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

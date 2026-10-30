@@ -12,6 +12,7 @@ import {
   RelationKind,
   Resource,
 } from './world/agents';
+import { householdHasCar } from './agents/vehicles';
 import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
@@ -65,6 +66,7 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
     health: round(a.health[i]!),
     money: round(a.money[i]!),
     housing: { tenure: a.renting[i] ? 'renter' : 'owner', arrears: a.arrears[i]! },
+    car: { household: householdHasCar(world, a.household[i]!), driving: a.driving[i] === 1 },
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,
     lastScores: scores,
     memory,

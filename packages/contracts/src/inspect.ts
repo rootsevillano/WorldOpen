@@ -29,6 +29,8 @@ export interface AgentDetail {
   money: number;
   /** Vivienda en propiedad o de alquiler y días de alquiler impagado (ADR-0024). */
   housing: { tenure: 'owner' | 'renter'; arrears: number };
+  /** Coche del hogar y si lo lleva ahora (ADR-0025). */
+  car: { household: boolean; driving: boolean };
   carrying: { resource: ResourceKind; amount: number } | null;
   /** Puntuaciones de la última decisión (Utility AI explicable, ADR-0008). */
   lastScores: Record<string, number>;

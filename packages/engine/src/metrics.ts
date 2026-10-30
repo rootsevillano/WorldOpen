@@ -2,6 +2,7 @@ import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
 import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
+import { householdHasCar } from './agents/vehicles';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
@@ -126,6 +127,14 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       });
     // Quien ha decidido salir por ocio, esté de camino o ya en el local.
     case 'agents.goingOutRatio': return ratio((i) => a.action[i] === Action.GoOut);
+    // En coche por la calle / con coche en el hogar (ADR-0025).
+    case 'agents.drivingRatio': return ratio((i) => a.driving[i] === 1 && a.location[i]! < 0);
+    case 'households.carRatio': {
+      const households = new Set(a.household.subarray(0, a.count));
+      let cars = 0;
+      for (const hh of households) if (householdHasCar(sim.world, hh)) cars++;
+      return households.size === 0 ? 0 : cars / households.size;
+    }
     case 'agents.outdoorsRatio': return ratio((i) => a.location[i]! < 0);
     case 'agents.sleepingRatio': return ratio((i) => a.action[i] === Action.Sleep && a.location[i]! >= 0);
     case 'agents.workingRatio': return ratio((i) => a.action[i] === Action.Work && a.location[i] === a.workplace[i]);

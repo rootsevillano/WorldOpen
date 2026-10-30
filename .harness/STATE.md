@@ -1,6 +1,6 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-30 (salarios y alquileres)_
+_Actualizado: 2026-10-30 (vehículos)_
 
 ## Implementado
 
@@ -9,10 +9,11 @@ _Actualizado: 2026-10-30 (salarios y alquileres)_
 | Mapa real | `almensilla-3d/tools/gis/{build_logic,pack_map}.py`, `engine/src/map/mappack.ts`, `cli/src/mappacks.ts`, `render/src/realMap.ts` | Map-pack anonimizado «Valdeolivo» (2 793 edificios, grafo de 2 119 nodos), lector validador, resolvedores (fetch/disco), render con huellas, terreno, viales, árboles y cotas (ADR-0017) |
 | Servidor | `apps/server`, `packages/host` | Mundo vivo compartido, usuarios scrypt, sesiones, límite de intentos, `/ws/live` y `/ws/study`, guardado cada 30 s y comandos al instante (ADR-0016) |
 | Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
-| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.12.0** (0.12: salarios de mercado y alquileres; 0.11: precios dinámicos por tienda y aserradero; 0.10: dinero, empleo y precios; inspector con dinero y caja; 0.9: capacidad de almacén y caducidad; 0.8: hogares, parejas y migración; snapshot con `nextHousehold`; 0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Contratos TS | `packages/contracts/src` | Protocolo **v4**, motor **0.13.0** (0.13: coches por hogar, `AgentFlag.Driving`; 0.12: salarios de mercado y alquileres; 0.11: precios dinámicos por tienda y aserradero; 0.10: dinero, empleo y precios; inspector con dinero y caja; 0.9: capacidad de almacén y caducidad; 0.8: hogares, parejas y migración; snapshot con `nextHousehold`; 0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
 | Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep (cronotipo), Provision, Work (trabajo o escuela), **Deliver** (ADR-0018) |
+| Vehículos | `engine/src/agents/vehicles.ts`, `render/src/WorldRenderer.ts` | Coche por hogar (`society.carOwnership`), se coge para trayectos ≥ 800 m, 24 km/h, gasolina; el render dibuja coches (ADR-0025) |
 | Salarios y alquileres | `engine/src/agents/money.ts`, `households.ts` | Salario por negocio (fichajes, subidas y bajadas), reapertura con capital de fuera; alquiler por ocupación, impagos y desahucios; criterio `economy.rentLevel` (ADR-0024) |
 | Precios | `engine/src/agents/money.ts` (`updatePrices`) | Multiplicador de precio por tienda y aserradero según existencias frente a demanda, con inercia; elección de tienda por precio y distancia (ADR-0023) |
 | Dinero y empleo | `engine/src/agents/money.ts` | Monederos y cajas, precios fijos, jornal diario, Estado y Exterior, contratación y despido semanal, demanda de las tiendas; criterios `economy.priceLevel`, `economy.wageLevel`, `economy.welfare` (ADR-0022) |
@@ -31,6 +32,7 @@ _Actualizado: 2026-10-30 (salarios y alquileres)_
 | CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
+- Vehículos ✅ Behavior 15/15 en ambos mapas; 138 tests; Visual Gate con coches en el mapa real.
 - Salarios y alquileres ✅ Behavior 15/15 en ambos mapas (nuevo `housing-crisis`); 135 tests; 18 meses sin hambre.
 - Precios dinámicos ✅ Behavior 14/14 en ambos mapas; 132 tests; comida 0,94–1,06× en un año normal, ≈ 1,43× con escasez.
 - Dinero y empleo ✅ Behavior 14/14 en ambos mapas (nuevo `money-crisis`); 130 tests; un año sin hambre en ambos mapas.

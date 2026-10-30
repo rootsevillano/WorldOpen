@@ -84,6 +84,7 @@ export function Inspector(props: {
           <div className="small muted">
             Dinero: {agent.money.toFixed(2)} · {agent.housing.tenure === 'renter' ? 'de alquiler' : 'vivienda propia'}
             {agent.housing.arrears > 0 && ` · ${agent.housing.arrears} días sin pagar el alquiler`}
+            {agent.car.household && (agent.car.driving ? ' · lleva el coche' : ' · hay coche en casa')}
           </div>
           <div className="bars">
             {Object.entries(agent.needs).map(([k, v]) => (

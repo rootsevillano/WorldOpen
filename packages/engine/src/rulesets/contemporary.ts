@@ -63,7 +63,7 @@ export const contemporary: Ruleset = {
     },
     {
       key: 'economy.rentLevel',
-      type: 'number', min: 0, max: 4, default: 1,
+      type: 'number', min: 0, max: 10, default: 1,
       description: 'Nivel de los alquileres (1 ≈ 300 al mes con el 90 % de viviendas ocupadas; 0 = sin alquileres).',
       mutableBy: 'admin',
     },
@@ -77,6 +77,12 @@ export const contemporary: Ruleset = {
       key: 'economy.welfare',
       type: 'number', min: 0, max: 3, default: 1,
       description: 'Multiplicador de pensiones, prestación por desempleo y ayuda por hijo (0 = sin estado del bienestar).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.carOwnership',
+      type: 'number', min: 0, max: 1, default: 0.75,
+      description: 'Proporción de hogares con coche (≈ 0,75 en España; en la época histórica no hay coches).',
       mutableBy: 'admin',
     },
     {

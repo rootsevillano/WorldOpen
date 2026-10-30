@@ -125,6 +125,8 @@ export class AgentStore {
   readonly workedToday: Uint16Array;
   /** Hogar de alquiler (1) o en propiedad (0) y días seguidos sin pagar el alquiler (ADR-0024). */
   readonly renting: Uint8Array;
+  /** Lleva el coche del hogar (desde que sale de casa con él hasta que vuelve) (ADR-0025). */
+  readonly driving: Uint8Array;
   readonly arrears: Uint16Array;
   /** Dinero propio (ADR-0022). Float64: se acumula durante años sin perder céntimos. */
   readonly money: Float64Array;
@@ -183,6 +185,7 @@ export class AgentStore {
     this.money = new Float64Array(c);
     this.workedToday = new Uint16Array(c);
     this.renting = new Uint8Array(c);
+    this.driving = new Uint8Array(c);
     this.arrears = new Uint16Array(c);
     this.scores = new Float32Array(c * ACTION_COUNT);
     this.memTick = new Uint32Array(c * MEMORY_SLOTS);
@@ -202,7 +205,7 @@ export class AgentStore {
       ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
       ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
-      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['renting', this.renting, 1], ['arrears', this.arrears, 1], ['scores', this.scores, ACTION_COUNT],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['renting', this.renting, 1], ['driving', this.driving, 1], ['arrears', this.arrears, 1], ['scores', this.scores, ACTION_COUNT],
       ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
       ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
       ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],

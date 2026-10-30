@@ -12,6 +12,8 @@ export class World {
   readonly agents: AgentStore;
   readonly buildings: BuildingStore;
   private pendingEvents: SimEvent[] = [];
+  /** Hogares con el coche fuera; transitorio, se recalcula al empezar cada decisión (ADR-0025). */
+  carsBusy = new Set<number>();
 
   constructor(
     readonly time: TimeConfig,

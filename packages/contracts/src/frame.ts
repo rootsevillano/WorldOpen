@@ -25,6 +25,8 @@ export interface RenderFrame {
 export const AgentFlag = {
   /** Dentro de un edificio: el render no lo dibuja en la calle. */
   Indoors: 1,
+  /** Va en coche: el render dibuja un coche en lugar de una persona (ADR-0025). */
+  Driving: 2,
 } as const;
 
 export const AgentActivity = {

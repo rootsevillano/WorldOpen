@@ -6,6 +6,33 @@ import { Heights, buildFootprints, buildTrees, loadGlb, type FootprintMesh } fro
 /** Latitud del mapa base, solo para la altura del sol (no se muestra en ningún sitio). */
 const LATITUDE_DEG = 37.3;
 const MAX_AGENTS = 10_000;
+
+/** Colores de coche (por id del conductor: estable entre frames). */
+const CAR_COLORS = [0xb03a2e, 0x1f618d, 0xd4ac0d, 0xeeeeee, 0x2c3e50, 0x7f8c8d, 0x117a65].map((c) => new THREE.Color(c));
+
+/** Une geometrías indexadas de caja en una sola (sin depender de BufferGeometryUtils). */
+function mergeBoxes(...parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  let offset = 0;
+  for (const g of parts) {
+    const p = g.getAttribute('position');
+    const nrm = g.getAttribute('normal');
+    for (let k = 0; k < p.count; k++) {
+      positions.push(p.getX(k), p.getY(k), p.getZ(k));
+      normals.push(nrm.getX(k), nrm.getY(k), nrm.getZ(k));
+    }
+    const idx = g.getIndex()!;
+    for (let k = 0; k < idx.count; k++) indices.push(idx.getX(k) + offset);
+    offset += p.count;
+  }
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  merged.setIndex(indices);
+  return merged;
+}
 const FLOOR_HEIGHT = 3;
 const STREET_WIDTH = { carriageway: 10, track: 5, pedestrian: 4 } as const;
 
@@ -53,6 +80,9 @@ export class WorldRenderer {
   private readonly sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
   private readonly hemi = new THREE.HemisphereLight(0xbcd6ec, 0x5b5a3c, 1.0);
   private readonly agents: THREE.InstancedMesh;
+  /** Coches en marcha (agentes con `AgentFlag.Driving`), ADR-0025. */
+  private readonly cars: THREE.InstancedMesh;
+  private carAtInstance: number[] = [];
   private readonly mapGroup = new THREE.Group();
   private buildingMesh: THREE.InstancedMesh | null = null;
   private footprints: FootprintMesh | null = null;
@@ -115,6 +145,15 @@ export class WorldRenderer {
     this.agents.name = 'AGENTS';
     this.scene.add(this.agents);
 
+    // Rumbo 0 = +X: el coche es largo en X. Carrocería y cabina en una sola malla.
+    const body = new THREE.BoxGeometry(4.2, 0.9, 1.8).translate(0, 0.65, 0);
+    const cabin = new THREE.BoxGeometry(2.2, 0.7, 1.6).translate(-0.2, 1.45, 0);
+    this.cars = new THREE.InstancedMesh(mergeBoxes(body, cabin), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2 }), MAX_AGENTS);
+    this.cars.count = 0;
+    this.cars.frustumCulled = false;
+    this.cars.name = 'CARS';
+    this.scene.add(this.cars);
+
     this.marker = new THREE.Mesh(
       new THREE.RingGeometry(1.2, 1.6, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0xffeb3b, side: THREE.DoubleSide, depthTest: false }),
@@ -138,6 +177,12 @@ export class WorldRenderer {
     const agentHit = this.raycaster.intersectObject(this.agents, false)[0];
     if (agentHit?.instanceId !== undefined) {
       const id = this.agentAtInstance[agentHit.instanceId];
+      if (id !== undefined) return { kind: 'agent', id };
+    }
+    this.cars.computeBoundingSphere();
+    const carHit = this.raycaster.intersectObject(this.cars, false)[0];
+    if (carHit?.instanceId !== undefined) {
+      const id = this.carAtInstance[carHit.instanceId];
       if (id !== undefined) return { kind: 'agent', id };
     }
     if (this.buildingMesh) {
@@ -349,6 +394,7 @@ export class WorldRenderer {
     // Los monigotes crecen con la distancia para que se vean desde la vista aérea.
     const scale = Math.max(1, this.camera.position.distanceTo(this.controls.target) / 70);
     let n = 0;
+    let c = 0;
     this.marker.visible = false;
     for (let i = 0; i < f.agentCount && n < MAX_AGENTS; i++) {
       const id = f.agentIds[i]!;
@@ -363,8 +409,19 @@ export class WorldRenderer {
         }
       }
       if (indoors) continue;
-      this.agentAtInstance[n] = id;
       const [x, y, z] = this.interpolated(f, i, now);
+      if (f.agentFlags[i]! & AgentFlag.Driving) {
+        this.carAtInstance[c] = id;
+        this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : y, z);
+        this.tmp.rotation.set(0, f.agentHeadings[i]!, 0);
+        this.tmp.scale.setScalar(Math.max(1, scale / 2));
+        this.tmp.updateMatrix();
+        this.cars.setMatrixAt(c, this.tmp.matrix);
+        this.cars.setColorAt(c, CAR_COLORS[id % CAR_COLORS.length]!);
+        c++;
+        continue;
+      }
+      this.agentAtInstance[n] = id;
       this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : y, z);
       this.tmp.rotation.set(0, f.agentHeadings[i]!, 0);
       this.tmp.scale.setScalar(scale);
@@ -376,6 +433,9 @@ export class WorldRenderer {
     this.agents.count = n;
     this.agents.instanceMatrix.needsUpdate = true;
     if (this.agents.instanceColor) this.agents.instanceColor.needsUpdate = true;
+    this.cars.count = c;
+    this.cars.instanceMatrix.needsUpdate = true;
+    if (this.cars.instanceColor) this.cars.instanceColor.needsUpdate = true;
   }
 
   /** Desplaza el foco de la cámara (y la cámara con él) hacia (x, z) con suavizado. */
@@ -409,9 +469,14 @@ export class WorldRenderer {
     this.scene.fog!.color.copy(sky);
   }
 
-  /** Agentes visibles en la calle (para el Visual Gate). */
+  /** Agentes visibles en la calle, a pie o en coche (para el Visual Gate). */
   get visibleAgents(): number {
-    return this.agents.count;
+    return this.agents.count + this.cars.count;
+  }
+
+  /** Coches en marcha visibles (ADR-0025). */
+  get visibleCars(): number {
+    return this.cars.count;
   }
 
   get currentTick(): number {

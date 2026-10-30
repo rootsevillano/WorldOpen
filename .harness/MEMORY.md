@@ -121,3 +121,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   Sortear después de las condiciones nuevas, o derivar del hash del id, mantiene los mundos comparables.
 - (2026-10-30) Mercado laboral: subidas salariales sin freno + puestos holgados = guerra salarial y despidos masivos en
   invierno. Un negocio sin plantilla nunca vuelve a contratar sin capital externo.
+- (2026-10-30) Visual Gate: tras muchos cambios en caliente, Vite puede servir un módulo a medias ("X is not
+  defined" con el código correcto en disco): reiniciar el servidor de desarrollo antes de diagnosticar.

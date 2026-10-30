@@ -29,3 +29,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0022](0022-money-employment.md) | Dinero, empleo y precios (E1-C) | Aceptada |
 | [0023](0023-dynamic-prices.md) | Precios dinámicos por existencias (E1-D) | Aceptada |
 | [0024](0024-wages-rents.md) | Salarios de mercado y alquileres | Aceptada |
+| [0025](0025-vehicles.md) | Vehículos (coche por hogar) | Aceptada |

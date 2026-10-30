@@ -1,6 +1,6 @@
 {
   "name": "housing-crisis",
-  "description": "ADR-0024: con alquileres ×4, salarios al 40 % y sin estado del bienestar, nadie llega a fin de mes: los hogares de alquiler acumulan impagos hasta agotar sus ahorros y, tras un mes de impagos, los desahucian y se van del pueblo; además mucha gente pasa hambre y la población cae a la mitad. Ticks de 10 min.",
+  "description": "ADR-0024: con alquileres desorbitados (×10, ≈ 3 000 al mes con viviendas de sobra) los hogares de alquiler agotan sus ahorros, acumulan impagos y, tras un mes, los desahucian y se van del pueblo; la ayuda de emergencia cubre la comida (nadie muere de hambre) pero no el alquiler, y no llega nadie a vivir. Ticks de 10 min.",
   "seeds": [
     1,
     2
@@ -19,9 +19,7 @@
     },
     "criteria": {
       "society.initialPopulation": 200,
-      "economy.rentLevel": 4,
-      "economy.wageLevel": 0.4,
-      "economy.welfare": 0
+      "economy.rentLevel": 10
     }
   },
   "assertions": [
@@ -45,6 +43,12 @@
       "metric": "agents.count",
       "op": "<",
       "value": 200
+    },
+    {
+      "kind": "metric",
+      "metric": "events.agent.died:cause=starvation",
+      "op": "==",
+      "value": 0
     }
   ]
 }

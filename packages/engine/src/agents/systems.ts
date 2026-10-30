@@ -24,6 +24,7 @@ import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFacto
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { canAfford, payHarvest, spendLeisure } from './money';
 import { remember } from './social';
+import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
 
 /**
  * Sistemas de los agentes (ADR-0008): necesidades → decisión (Utility AI) → movimiento.
@@ -133,6 +134,7 @@ function provisionScore(world: World, i: number, r: number, night: number, outdo
 
 export function decisionSystem(world: World): void {
   const a = world.agents;
+  world.carsBusy = carsInUse(world);
   const rng = world.rng;
   const every = Math.max(1, Math.round(DECISION_MINUTES / world.time.minutesPerTick));
   const night = nightFactor(world);
@@ -299,11 +301,16 @@ export function startAction(world: World, i: number, action: Action, home: numbe
     a.action[i] = Action.Stay;
     return;
   }
+  // Sale de casa: coge el coche si el trayecto es largo y está libre; fuera de casa, el coche va con él (ADR-0025).
+  if (!a.driving[i] && a.location[i] === a.home[i] && shouldDrive(world, i, pathLength(x, z, path), world.carsBusy)) {
+    a.driving[i] = 1;
+    world.carsBusy.add(a.household[i]!);
+  }
   a.paths[i] = path;
   a.pathPos[i] = 0;
   a.target[i] = target;
   a.location[i] = -1;
-  a.flags[i] = 0;
+  a.flags[i] = a.driving[i] ? AgentFlag.Driving : 0;
   a.activities[i] = action === Action.SeekShelter ? AgentActivity.Fleeing : AgentActivity.Moving;
 }
 
@@ -364,6 +371,8 @@ function arrive(world: World, i: number, target: number): void {
     a.action[i] = Action.Stay;
   }
   if (target === effectiveHome(world, i)) unload(world, i);
+  // De vuelta en casa, el coche queda aparcado.
+  if (target === a.home[i]) a.driving[i] = 0;
   a.activities[i] = activityAt(world, i);
 }
 
@@ -373,7 +382,9 @@ export function movementSystem(world: World): void {
   for (let i = 0; i < a.count; i++) {
     const path = a.paths[i];
     if (!path) continue;
-    let budget = a.action[i] === Action.SeekShelter ? speed * 1.3 : speed;
+    const driving = a.driving[i] === 1;
+    let budget = driving ? DRIVE_SPEED * world.time.minutesPerTick : a.action[i] === Action.SeekShelter ? speed * 1.3 : speed;
+    const start = budget;
     let x = a.positions[i * 3]!;
     let z = a.positions[i * 3 + 2]!;
     let k = a.pathPos[i]!;
@@ -398,6 +409,7 @@ export function movementSystem(world: World): void {
     a.positions[i * 3] = x;
     a.positions[i * 3 + 2] = z;
     a.pathPos[i] = k;
+    if (driving) a.money[i] = Math.max(0, a.money[i]! - fuelCost(world, start - budget));
     if (k * 2 >= path.length) {
       const target = a.target[i]!;
       a.paths[i] = null;
