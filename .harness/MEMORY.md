@@ -128,3 +128,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   monetarios a 2 años, no solo los flujos.
 - (2026-10-31) Con ticks de 10 min un trayecto corto empieza y termina dentro de un tick (los coches y los paseos
   "no se ven"): medir actividades por su intención (acción, local) y no por la posición al final del tick.
+- (2026-10-31) Un mecanismo nuevo puede quedar casi inerte por un supuesto de la población inicial (la herencia sin
+  parentesco entre hogares iba al Estado en el 80 % de los casos): mirar la proporción de cada desenlace en la sonda.

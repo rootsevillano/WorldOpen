@@ -213,6 +213,7 @@ export function populate(world: World, n: number): void {
   populateHouseholds(world, n);
   seedPregnancies(world);
   seedLandlords(world);
+  seedKinship(world);
 }
 
 /**
@@ -228,6 +229,44 @@ function seedPregnancies(world: World): void {
     const p = fertilityAt(a.age[i]!) * fertility * 0.75;
     if (p <= 0 || rng.nextFloat() >= p) continue;
     if (hasFather(world, i)) a.pregnantDays[i] = rng.int(1, 269);
+  }
+}
+
+/**
+ * Parentesco entre hogares (ADR-0028): un hogar con algún mayor de 60 tiene uno o dos hijos adultos (20–40 años más
+ * jóvenes) viviendo en otros hogares del pueblo. Elegidos por hash, sin consumir el PRNG. Son sus herederos.
+ */
+function seedKinship(world: World): void {
+  const a = world.agents;
+  const byAge: number[][] = Array.from({ length: 256 }, () => []);
+  const elder = new Map<number, number>();
+  for (let i = 0; i < a.count; i++) {
+    if (a.age[i]! >= 18) byAge[a.age[i]!]!.push(i);
+    const hh = a.household[i]!;
+    if (a.age[i]! >= 60 && (!elder.has(hh) || a.age[i]! > a.age[elder.get(hh)!]!)) elder.set(hh, i);
+  }
+  const mix = (x: number, y: number) => Math.imul(Math.imul(x, 0x9e3779b1) ^ Math.imul(y + 1, 0x85ebca6b), 0xc2b2ae35) >>> 0;
+  // Edad del progenitor más joven (de 50+) de cada hogar: los hijos tienen 20–40 años menos que él.
+  const youngest = new Map<number, number>();
+  for (let i = 0; i < a.count; i++) {
+    const hh = a.household[i]!;
+    if (elder.has(hh) && a.age[i]! >= 50) youngest.set(hh, Math.min(youngest.get(hh) ?? 255, a.age[i]!));
+  }
+  for (const hh of elder.keys()) {
+    const children = 1 + (mix(hh, 1) % 2);
+    for (let c = 0; c < children; c++) {
+      const age = youngest.get(hh)! - 20 - (mix(hh, 10 + c) % 21);
+      const list = byAge[Math.max(18, age)]!;
+      if (list.length === 0) continue;
+      const k = list[mix(hh, 20 + c) % list.length]!;
+      if (a.household[k] === hh) continue;
+      for (let j = 0; j < a.count; j++) {
+        // Solo la generación de los padres (los hijos que siguen en casa serían hermanos: no se modelan aquí).
+        if (a.household[j] !== hh || a.age[j]! < 50) continue;
+        bond(world, j, a.ids[k]!, 0.6, RelationKind.Family);
+        bond(world, k, a.ids[j]!, 0.6, RelationKind.Family);
+      }
+    }
   }
 }
 

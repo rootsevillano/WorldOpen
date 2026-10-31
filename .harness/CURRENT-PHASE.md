@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Animales · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Herencia y compraventa · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
 
-## Animales — entregado (ADR-0027)
+## Herencia y compraventa — entregado (ADR-0028)
+- Al morir el último adulto de un hogar, su familia de otro hogar hereda dinero, viviendas e inquilinos (o el Estado);
+  las viviendas de sobra se alquilan antes que comprar otras y se venden entre particulares. Motor 0.16.0.
+- Behavior 15/15 en ambos mapas; 150 tests.
+
+## Animales (anterior) — completado
+
+### ADR-0027
 - Perros de los hogares que salen con quien va de paseo (piden paseo y comida, envejecen, se adoptan) y ganado de las
   huertas (gallinas y ovejas que deambulan de día, se recogen de noche y dan comida). Protocolo v5; motor 0.15.0.
 - Behavior 15/15 en ambos mapas; 146 tests; Visual Gate superado.
@@ -82,7 +89,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: herencia y compraventa entre particulares, atascos/transporte público, fauna salvaje; LOD si se pasa de 6 000.
+- Siguiente modelo: inspector de animales, atascos/transporte público, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

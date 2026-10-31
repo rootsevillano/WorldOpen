@@ -21,7 +21,7 @@ function residentsConsistent(sim: Simulation): boolean {
 }
 
 describe('Hogares, parejas y migración (ADR-0020)', () => {
-  it('la población inicial forma hogares: las parejas conviven y la familia es solo la del hogar', () => {
+  it('la población inicial forma hogares: las parejas conviven y la familia de fuera es de padres e hijos', () => {
     const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 400, ...quiet } }));
     const a = sim.world.agents;
     const partnered = indices(sim).filter((i) => partnerId(sim.world, i) !== 0);
@@ -34,7 +34,12 @@ describe('Hogares, parejas y migración (ADR-0020)', () => {
     for (const i of indices(sim)) {
       for (let s = 0; s < 8; s++) {
         if (a.relKind[i * 8 + s] !== RelationKind.Family) continue;
-        expect(a.household[a.indexOf(a.relId[i * 8 + s]!)]).toBe(a.household[i]);
+        // Familia de otro hogar: solo padres mayores e hijos adultos (parentesco entre hogares, ADR-0028).
+        const j = a.indexOf(a.relId[i * 8 + s]!);
+        if (a.household[j] === a.household[i]) continue;
+        const gap = Math.abs(a.age[i]! - a.age[j]!);
+        expect(gap).toBeGreaterThanOrEqual(15);
+        expect(gap).toBeLessThanOrEqual(70);
       }
     }
     expect(metric(sim, 'agents.partneredRatio')).toBeGreaterThan(0.5);

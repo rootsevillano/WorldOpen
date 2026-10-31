@@ -32,3 +32,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0025](0025-vehicles.md) | Vehículos (coche por hogar) | Aceptada |
 | [0026](0026-landlords-housing.md) | Propietarios locales y compra de vivienda | Aceptada |
 | [0027](0027-animals.md) | Animales: perros y ganado | Aceptada |
+| [0028](0028-inheritance-sales.md) | Herencia y compraventa de viviendas entre particulares | Aceptada |
