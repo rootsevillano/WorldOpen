@@ -1,5 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
+import { housePrice } from './agents/housing';
 import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
@@ -186,6 +187,20 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'economy.rentIndex': return rentIndex(sim.world);
     case 'economy.wageIndex': return wageIndex(sim.world);
     case 'households.renterRatio': return ratio((i) => a.renting[i] === 1);
+    // Vivienda (ADR-0026): propia y pagada / con hipoteca; alquileres con casero del pueblo; precio de una vivienda.
+    case 'households.ownerRatio': return ratio((i) => a.renting[i] === 0 && a.mortgage[i] === 0);
+    case 'households.mortgageRatio': return ratio((i) => a.mortgage[i]! > 0);
+    case 'households.localLandlordRatio': {
+      let renters = 0;
+      let local = 0;
+      for (let i = 0; i < a.count; i++) {
+        if (!a.renting[i]) continue;
+        renters++;
+        if (a.landlord[i] !== 0) local++;
+      }
+      return renters === 0 ? 0 : local / renters;
+    }
+    case 'economy.housePrice': return housePrice(sim.world);
     case 'economy.businessCash': {
       let total = 0;
       for (let b = 0; b < uses.length; b++) if (isBusiness(sim.world, b)) total += bs.cash[b]!;

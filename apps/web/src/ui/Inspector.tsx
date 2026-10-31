@@ -19,6 +19,7 @@ const MEMORY_ES: Record<string, string> = {
   newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
   newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa', broke: 'no pudo pagar',
 };
+const TENURE_ES: Record<string, string> = { owner: 'vivienda propia', mortgaged: 'vivienda con hipoteca', renter: 'de alquiler' };
 const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad', partner: 'pareja' };
 const USES_ES: Record<string, string> = {
   residential: 'Vivienda', agriculture: 'Huerta', industrial: 'Aserradero', office: 'Oficina', retail: 'Tienda',
@@ -82,7 +83,9 @@ export function Inspector(props: {
             {agent.carrying && ` · lleva ${agent.carrying.amount.toFixed(0)} de ${agent.carrying.resource}`}
           </div>
           <div className="small muted">
-            Dinero: {agent.money.toFixed(2)} · {agent.housing.tenure === 'renter' ? 'de alquiler' : 'vivienda propia'}
+            Dinero: {agent.money.toFixed(2)} · {TENURE_ES[agent.housing.tenure]}
+            {agent.housing.tenure === 'renter' && ` (paga a ${agent.housing.landlord ?? 'un fondo de fuera'})`}
+            {agent.housing.mortgage > 0 && ` (le quedan ${agent.housing.mortgage.toFixed(0)})`}
             {agent.housing.arrears > 0 && ` · ${agent.housing.arrears} días sin pagar el alquiler`}
             {agent.car.household && (agent.car.driving ? ' · lleva el coche' : ' · hay coche en casa')}
           </div>

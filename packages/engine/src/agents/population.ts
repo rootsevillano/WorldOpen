@@ -3,6 +3,7 @@ import { personName } from '../content/names';
 import { Action, Occupation, RelationKind } from '../world/agents';
 import type { World } from '../world/world';
 import { fertilityAt } from './fertility';
+import { seedLandlords } from './housing';
 import { SCHOOL_SCALE_M, WORK_SCALE_M, pickNearby } from './nearby';
 import { bond, pair, partnerId } from './social';
 
@@ -122,6 +123,8 @@ export function spawnAgent(world: World, home = -1, age?: number, household = 0,
     if (j !== i && a.household[j] === a.household[i]) {
       a.renting[i] = a.renting[j]!;
       a.arrears[i] = a.arrears[j]!;
+      a.landlord[i] = a.landlord[j]!;
+      a.mortgage[i] = a.mortgage[j]!;
       bond(world, i, a.ids[j]!, 0.6, RelationKind.Family);
       bond(world, j, id, 0.6, RelationKind.Family);
     }
@@ -208,6 +211,7 @@ function householdAges(world: World, size: number): [number[], boolean] {
 export function populate(world: World, n: number): void {
   populateHouseholds(world, n);
   seedPregnancies(world);
+  seedLandlords(world);
 }
 
 /**

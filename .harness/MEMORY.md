@@ -123,3 +123,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   invierno. Un negocio sin plantilla nunca vuelve a contratar sin capital externo.
 - (2026-10-30) Visual Gate: tras muchos cambios en caliente, Vite puede servir un módulo a medias ("X is not
   defined" con el código correcto en disco): reiniciar el servidor de desarrollo antes de diagnosticar.
+- (2026-10-31) Toda acumulación necesita un sumidero: los ahorros sin gasto discrecional crecían sin límite y
+  distorsionaban cualquier mecanismo que dependa de ellos (compra de vivienda casi inmediata). Sondear los stocks
+  monetarios a 2 años, no solo los flujos.

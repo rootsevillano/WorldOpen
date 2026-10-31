@@ -13,10 +13,20 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
+import { housePrice } from './agents/housing';
 import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
+
+/** Nombre del adulto de más edad del hogar casero (o `null`: fondo de fuera o casero ya ido). */
+function landlordName(world: World, household: number): string | null {
+  if (household === 0) return null;
+  const a = world.agents;
+  let best = -1;
+  for (let j = 0; j < a.count; j++) if (a.household[j] === household && (best < 0 || a.age[j]! > a.age[best]!)) best = j;
+  return best < 0 ? null : a.names[best]!;
+}
 
 /** Vista del inspector de un agente (G1). Solo lectura. */
 export function agentDetail(world: World, id: number): AgentDetail | null {
@@ -65,7 +75,12 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
     },
     health: round(a.health[i]!),
     money: round(a.money[i]!),
-    housing: { tenure: a.renting[i] ? 'renter' : 'owner', arrears: a.arrears[i]! },
+    housing: {
+      tenure: a.renting[i] ? 'renter' : a.mortgage[i]! > 0 ? 'mortgaged' : 'owner',
+      arrears: a.arrears[i]!,
+      landlord: landlordName(world, a.renting[i] ? a.landlord[i]! : 0),
+      mortgage: round(a.mortgage[i]!),
+    },
     car: { household: householdHasCar(world, a.household[i]!), driving: a.driving[i] === 1 },
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,
     lastScores: scores,
@@ -149,5 +164,6 @@ export function economySummary(world: World): EconomySummary {
     woodPrice: round(marketPrice(world, Resource.Wood)),
     rent: round(rentNow(world)),
     wageIndex: round(wageIndex(world)),
+    housePrice: round(housePrice(world)),
   };
 }

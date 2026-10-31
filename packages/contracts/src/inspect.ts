@@ -28,7 +28,13 @@ export interface AgentDetail {
   /** Dinero propio (ADR-0022). */
   money: number;
   /** Vivienda en propiedad o de alquiler y días de alquiler impagado (ADR-0024). */
-  housing: { tenure: 'owner' | 'renter'; arrears: number };
+  housing: {
+    tenure: 'owner' | 'mortgaged' | 'renter';
+    arrears: number;
+    /** Quien cobra el alquiler (un vecino del hogar casero) o `null` si es un fondo de fuera (ADR-0026). */
+    landlord: string | null;
+    mortgage: number;
+  };
   /** Coche del hogar y si lo lleva ahora (ADR-0025). */
   car: { household: boolean; driving: boolean };
   carrying: { resource: ResourceKind; amount: number } | null;
@@ -75,4 +81,6 @@ export interface EconomySummary {
   /** Alquiler diario actual e índice medio de salarios (ADR-0024). */
   rent: number;
   wageIndex: number;
+  /** Precio de una vivienda (ADR-0026). */
+  housePrice: number;
 }

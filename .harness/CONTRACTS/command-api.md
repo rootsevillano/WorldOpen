@@ -28,6 +28,7 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | Clave | Tipo | Rango | Defecto | Mutable por |
 |---|---|---|---|---|
 | `climate.baseTemperatureC` | number | −10 … 50 | 18 | both |
+| `economy.creditAccess` | number | 0 … 2 | 1 | admin |
 | `economy.foodAbundance` | number | 0 … 1 | 0.7 | admin |
 | `economy.priceLevel` | number | 0.25 … 4 | 1 | admin |
 | `economy.rentLevel` | number | 0 … 10 | 1 | admin |

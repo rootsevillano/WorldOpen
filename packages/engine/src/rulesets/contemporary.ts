@@ -56,6 +56,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'economy.creditAccess',
+      type: 'number', min: 0, max: 2, default: 1,
+      description: 'Acceso al crédito hipotecario: 1 = entrada del 10 %; 0,5 = del 20 %; 0 = sin hipotecas (se compra al contado).',
+      mutableBy: 'admin',
+    },
+    {
       key: 'economy.priceLevel',
       type: 'number', min: 0.25, max: 4, default: 1,
       description: 'Nivel de precios: venta al público, mayorista, exportación y gastos fijos de los hogares (1 = normal).',

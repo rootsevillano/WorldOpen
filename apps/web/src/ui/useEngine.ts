@@ -341,8 +341,11 @@ function describeEvent(e: SimEvent): string {
     case 'birth.skipped': return 'Un nacimiento no cabe: se alcanzó la capacidad del mundo';
     case 'job.hired': return `💼 ${String(d.name)} empieza a trabajar en ${String(d.building)}`;
     case 'job.changed': return `${String(d.name)} deja ${String(d.from)} por un trabajo mejor pagado en ${String(d.building)}`;
-    case 'household.evicted': return `🏚 Desahucian a un hogar de ${String(d.size)} en ${String(d.home)}: se va del pueblo`;
+    case 'household.evicted': return `🏚 ${d.cause === 'mortgage' ? 'Ejecución hipotecaria' : 'Desahucio'} de un hogar de ${String(d.size)} en ${String(d.home)}: se va del pueblo`;
     case 'business.reopened': return `🔑 Reabre ${String(d.building)} con capital de fuera`;
+    case 'home.bought': return `🏠 ${String(d.name)} compra su vivienda en ${String(d.home)} por ${String(d.price)}${Number(d.mortgage) > 0 ? ` (hipoteca de ${String(d.mortgage)})` : ''}`;
+    case 'mortgage.paidOff': return `${String(d.name)} termina de pagar la hipoteca de ${String(d.home)}`;
+    case 'home.investment': return `Un hogar del pueblo compra una vivienda para alquilarla por ${String(d.price)}`;
     case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;

@@ -3,6 +3,7 @@ import { Action, Memory, Occupation, RELATION_SLOTS, RelationKind } from '../wor
 import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
 import { forgetAgent } from './lifecycle';
+import { assignLandlord } from './housing';
 import { EVICTION_DAYS, rentIndex, rentNow } from './money';
 import { pickNearby } from './nearby';
 import { householdSize, removeAgent, spawnHousehold } from './population';
@@ -136,10 +137,14 @@ class Census {
     // Entra en la vivienda de su nuevo hogar (propiedad o alquiler) o alquila una nueva (ADR-0024).
     a.renting[i] = 1;
     a.arrears[i] = 0;
+    a.landlord[i] = 0;
+    a.mortgage[i] = 0;
     for (let j = 0; j < a.count; j++) {
       if (j !== i && a.household[j] === household) {
         a.renting[i] = a.renting[j]!;
         a.arrears[i] = a.arrears[j]!;
+        a.landlord[i] = a.landlord[j]!;
+        a.mortgage[i] = a.mortgage[j]!;
         break;
       }
     }
@@ -215,6 +220,7 @@ function cohabit(world: World, census: Census): void {
       const household = a.nextHousehold++;
       census.move(i, home, household);
       census.move(j, home, household);
+      assignLandlord(world, household);
     }
   }
 }
@@ -235,7 +241,9 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
     if (withParents && age >= EMANCIPATION_AGE && rng.nextFloat() < EMANCIPATION_YEARLY / DAYS_PER_YEAR && a.money[i]! >= EMANCIPATION_RENT_DAYS * rent) {
       const home = census.findHome(a.home[i]!);
       if (home >= 0) {
-        census.move(i, home, a.nextHousehold++);
+        const household = a.nextHousehold++;
+        census.move(i, home, household);
+        assignLandlord(world, household);
         continue;
       }
     }
@@ -246,9 +254,11 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
   // Desahucio: el hogar con un mes de alquiler impagado se va del pueblo (ADR-0024).
   const evicted = new Set<number>();
   for (let i = 0; i < a.count; i++) {
-    if (a.renting[i] && a.arrears[i]! >= EVICTION_DAYS && !evicted.has(a.household[i]!)) {
+    if ((a.renting[i] || a.mortgage[i]! > 0) && a.arrears[i]! >= EVICTION_DAYS && !evicted.has(a.household[i]!)) {
       evicted.add(a.household[i]!);
-      world.emit('household.evicted', { home: world.map.buildings[a.home[i]!]!.id, size: census.households.get(a.household[i]!)!.adults + census.households.get(a.household[i]!)!.minors });
+      const s = census.households.get(a.household[i]!)!;
+      // Alquiler impagado: desahucio; hipoteca impagada: ejecución hipotecaria (ADR-0026).
+      world.emit('household.evicted', { home: world.map.buildings[a.home[i]!]!.id, size: s.adults + s.minors, cause: a.renting[i] ? 'rent' : 'mortgage' });
     }
   }
   for (let i = 0; i < a.count; i++) if (evicted.has(a.household[i]!) && !emigrants.includes(a.ids[i]!)) evictions.push(a.ids[i]!);
@@ -273,6 +283,7 @@ function immigrate(world: World, census: Census): void {
     const k = rng.int(0, free.length - 1);
     const home = free[k]!;
     const size = spawnHousehold(world, home, householdSize(world), IMMIGRANT_RENTERS);
+    if (size > 0 && a.renting[a.count - 1]) assignLandlord(world, a.household[a.count - 1]!);
     if (size === 0) return;
     census.used[home]!++;
     if (!census.vacant(home)) free.splice(k, 1);

@@ -2,6 +2,7 @@ import { Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import { dayOfWeek, minuteOfDay } from './environment';
 import { WORKPLACE_USE } from './population';
+import { housingDaily } from './housing';
 import { remember } from './social';
 
 /**
@@ -40,6 +41,9 @@ const UNEMPLOYMENT_BENEFIT = 25;
 const CHILD_BENEFIT = 15;
 /** Ayuda de emergencia: un hogar sin dinero para un día de comida recibe lo que le falta (× `economy.welfare`). */
 const FOOD_PER_DAY = 4.3;
+/** Colchón por miembro de 14+ y parte diaria del exceso que se gasta (ADR-0026). */
+const SAVINGS_BUFFER = 1000;
+const DISCRETIONARY_DAILY = 0.005;
 /** Un puesto de trabajo por cada 40 m² construidos (mínimo 1). */
 const POSITION_M2 = 40;
 /** Contrata si tiene caja para 4 semanas de nóminas; despide si no llega a media; reparte beneficios por encima de 8. */
@@ -57,7 +61,7 @@ function weeklyWage(world: World, b: number): number {
 }
 
 /** Alquiler diario base de una vivienda (≈ 300 al mes) y días de impago hasta el desahucio (ADR-0024). */
-const RENT_PER_DAY = 10;
+export const RENT_PER_DAY = 10;
 export const EVICTION_DAYS = 30;
 /** Mercado laboral: subida si no encuentra a quien contratar; bajada si despide con paro alto. */
 const WAGE_RAISE = 1.02;
@@ -284,18 +288,10 @@ export function dailyMoney(world: World): void {
     if (age >= MONEY_AGE) p[1]++;
     pool.set(hh, p);
   }
-  // Alquiler (ADR-0024): quien no llega paga lo que tiene y acumula un día de impago.
-  const rent = rentNow(world);
-  const renting = new Set<number>();
-  for (let i = 0; i < a.count; i++) if (a.renting[i]) renting.add(a.household[i]!);
-  const unpaid = new Set<number>();
-  for (const hh of renting) {
-    const p = pool.get(hh)!;
-    if (p[0] < rent) unpaid.add(hh);
-    p[0] -= Math.min(Math.max(0, p[0]), rent);
-  }
+  // Alquiler e hipoteca (ADR-0024, ADR-0026): quien no llega paga lo que tiene y acumula un día de impago.
+  const unpaid = housingDaily(world, pool);
   for (let i = 0; i < a.count; i++) {
-    if (!a.renting[i]) continue;
+    if (!a.renting[i] && a.mortgage[i] === 0) continue;
     a.arrears[i] = unpaid.has(a.household[i]!) ? Math.min(65535, a.arrears[i]! + 1) : 0;
   }
   // Ayuda de emergencia (servicios sociales): completa un día de comida del hogar.
@@ -305,6 +301,12 @@ export function dailyMoney(world: World): void {
   for (const [hh, p] of pool) {
     const need = day * size.get(hh)!;
     if (p[1] > 0 && p[0] < need) p[0] = Math.max(0, p[0]) + (need - Math.max(0, p[0])) * Math.min(1, welfare);
+  }
+  // Gasto discrecional (otros bienes, viajes; fuera del pueblo): lo que pasa de un colchón se va gastando poco a poco.
+  // Sin él, los ahorros crecían sin límite y comprar vivienda era casi inmediato (ADR-0026).
+  for (const p of pool.values()) {
+    const excess = p[0] - SAVINGS_BUFFER * p[1];
+    if (p[1] > 0 && excess > 0) p[0] -= excess * DISCRETIONARY_DAILY;
   }
   for (let i = 0; i < a.count; i++) {
     if (a.age[i]! < MONEY_AGE) {
