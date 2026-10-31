@@ -120,3 +120,35 @@ describe('Animales (ADR-0027)', () => {
     expect(resumed.frame().animalCount).toBe(full.frame().animalCount);
   });
 });
+
+describe('Inspector de animales (ADR-0029)', () => {
+  it('describe a un perro (dueño, casa, paseo) y a una gallina (huerta, comida); un id desconocido da null', () => {
+    const sim = new Simulation(manifest(4, { criteria: { 'society.initialPopulation': 200 } }));
+    const a = sim.world.agents;
+    const an = sim.world.animals;
+    atMinute(sim, 600);
+    const d = animalsOf(sim, Animal.Dog)[0]!;
+    const hh = an.household[d]!;
+    for (let j = 0; j < a.count; j++) if (a.household[j] === hh) {
+      a.action[j] = Action.Stay;
+      a.location[j] = a.home[j]!;
+    }
+    animalSystem(sim.world);
+    const atHome = sim.animal(an.ids[d]!)!;
+    expect(atHome).toMatchObject({ kind: 'dog', state: 'home', walker: null, farm: null, dailyFood: 0 });
+    const oldest = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.household[k] === hh).sort((x, y) => a.age[y]! - a.age[x]!)[0]!;
+    expect(atHome.owner).toEqual({ name: a.names[oldest], agentId: a.ids[oldest], home: sim.world.map.buildings[a.home[oldest]!]!.id });
+    // De paseo con alguien de su hogar.
+    const w = Array.from({ length: a.count }, (_, k) => k).find((k) => a.household[k] === hh && a.age[k]! >= 10)!;
+    a.action[w] = Action.GoOut;
+    a.location[w] = -1;
+    animalSystem(sim.world);
+    expect(sim.animal(an.ids[d]!)).toMatchObject({ state: 'walking', walker: { agentId: a.ids[w], name: a.names[w] } });
+
+    const hen = animalsOf(sim, Animal.Hen)[0]!;
+    const detail = sim.animal(an.ids[hen]!)!;
+    expect(detail).toMatchObject({ kind: 'hen', owner: null, walked: null, dailyFood: 0.5, farm: sim.world.map.buildings[an.farm[hen]!]!.id });
+    expect(['grazing', 'penned']).toContain(detail.state);
+    expect(sim.animal(999_999)).toBeNull();
+  });
+});

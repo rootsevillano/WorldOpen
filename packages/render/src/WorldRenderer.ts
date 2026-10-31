@@ -61,7 +61,7 @@ const ACTIVITY_COLORS: Record<number, THREE.Color> = {
 const BURNING = new THREE.Color(0xff5a1f);
 const DAMAGED = new THREE.Color(0x3b3b3b);
 
-export type Pick = { kind: 'agent'; id: number } | { kind: 'building'; id: string } | null;
+export type Pick = { kind: 'agent'; id: number } | { kind: 'building'; id: string } | { kind: 'animal'; id: number } | null;
 
 /** Recursos de dibujo de una región con map-pack (rutas ya resueltas a URL). */
 export interface RenderPack {
@@ -87,6 +87,8 @@ export class WorldRenderer {
   /** Animales por tipo (`AnimalKind`), ADR-0027. */
   private readonly animalMeshes: THREE.InstancedMesh[];
   private readonly prevAnimalPos = new Map<number, [number, number, number]>();
+  /** Id del animal dibujado en cada instancia, por tipo (para seleccionarlo). */
+  private readonly animalAtInstance: number[][] = [[], [], []];
   private readonly mapGroup = new THREE.Group();
   private buildingMesh: THREE.InstancedMesh | null = null;
   private footprints: FootprintMesh | null = null;
@@ -210,6 +212,12 @@ export class WorldRenderer {
     if (carHit?.instanceId !== undefined) {
       const id = this.carAtInstance[carHit.instanceId];
       if (id !== undefined) return { kind: 'agent', id };
+    }
+    for (const [k, mesh] of this.animalMeshes.entries()) {
+      mesh.computeBoundingSphere();
+      const hit = this.raycaster.intersectObject(mesh, false)[0];
+      const id = hit?.instanceId !== undefined ? this.animalAtInstance[k]![hit.instanceId] : undefined;
+      if (id !== undefined) return { kind: 'animal', id };
     }
     if (this.buildingMesh) {
       const hit = this.raycaster.intersectObject(this.buildingMesh, false)[0];
@@ -489,7 +497,14 @@ export class WorldRenderer {
       this.tmp.rotation.set(0, f.animalHeadings[i]!, 0);
       this.tmp.scale.setScalar(Math.max(1, scale / 3));
       this.tmp.updateMatrix();
-      mesh.setMatrixAt(counts[f.animalKinds[i]!]!++, this.tmp.matrix);
+      const n = counts[f.animalKinds[i]!]!++;
+      mesh.setMatrixAt(n, this.tmp.matrix);
+      this.animalAtInstance[f.animalKinds[i]!]![n] = f.animalIds[i]!;
+      if (this.selected?.kind === 'animal' && this.selected.id === f.animalIds[i]) {
+        this.marker.position.set(x, (this.heights?.at(x, z) ?? 0) + 0.2, z);
+        this.marker.scale.setScalar(Math.max(0.5, scale / 3));
+        this.marker.visible = true;
+      }
     }
     for (const [k, m] of this.animalMeshes.entries()) {
       m.count = counts[k]!;

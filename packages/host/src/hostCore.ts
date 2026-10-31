@@ -462,6 +462,7 @@ export class EngineHostCore {
       case 'map': return sim.mapLogic();
       case 'agent': return sim.agent(q.agentId);
       case 'building': return sim.building(q.buildingId);
+      case 'animal': return sim.animal(q.animalId);
       case 'economy': return sim.economy();
       case 'timeline': return this.timeline;
     }

@@ -1,4 +1,4 @@
-import { BuildingState, type AgentDetail, type BuildingDetail } from '@worldopen/contracts';
+import { BuildingState, type AgentDetail, type AnimalDetail, type BuildingDetail } from '@worldopen/contracts';
 import type { Pick, WorldRenderer } from '@worldopen/render';
 import { useEffect, useState } from 'react';
 import type { EngineClient } from '../engine-host/EngineClient';
@@ -26,6 +26,10 @@ const USES_ES: Record<string, string> = {
   publicServices: 'Servicio público (fuente)', unknown: 'Desconocido',
 };
 const STATES_ES = ['En uso', '🔥 Ardiendo', 'Dañado'];
+const ANIMALS_ES: Record<AnimalDetail['kind'], string> = { dog: 'Perro', sheep: 'Oveja', hen: 'Gallina' };
+const ANIMAL_STATES_ES: Record<AnimalDetail['state'], string> = {
+  home: 'en casa', walking: 'de paseo', waiting: 'esperando fuera de un local', penned: 'recogido en la nave', grazing: 'fuera, junto a la nave',
+};
 
 /** Inspector del Modo Dios (G1): consulta el motor cada medio segundo mientras hay selección. */
 export function Inspector(props: {
@@ -39,15 +43,18 @@ export function Inspector(props: {
   const { client, renderer, selection, onSelect } = props;
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [building, setBuilding] = useState<BuildingDetail | null>(null);
+  const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [following, setFollowing] = useState<number | null>(renderer.followingId);
 
   useEffect(() => {
     setAgent(null);
     setBuilding(null);
+    setAnimal(null);
     if (!selection) return;
     let alive = true;
     const poll = () => {
       if (selection.kind === 'agent') void client.ask({ kind: 'agent', agentId: selection.id }).then((d) => alive && setAgent(d));
+      else if (selection.kind === 'animal') void client.ask({ kind: 'animal', animalId: selection.id }).then((d) => alive && setAnimal(d));
       else void client.ask({ kind: 'building', buildingId: selection.id }).then((d) => alive && setBuilding(d));
     };
     poll();
@@ -68,7 +75,13 @@ export function Inspector(props: {
   return (
     <section className="panel inspector" aria-label="Inspector">
       <header>
-        <h2>{selection.kind === 'agent' ? (agent?.name ?? 'Habitante') : (building ? USES_ES[building.use] : 'Edificio')}</h2>
+        <h2>
+          {selection.kind === 'agent'
+            ? (agent?.name ?? 'Habitante')
+            : selection.kind === 'animal'
+              ? (animal ? ANIMALS_ES[animal.kind] : 'Animal')
+              : (building ? USES_ES[building.use] : 'Edificio')}
+        </h2>
         <button type="button" className="link" onClick={close}>Cerrar</button>
       </header>
 
@@ -139,6 +152,41 @@ export function Inspector(props: {
               {following === agent.id ? 'Dejar de seguir' : '🎥 Seguir'}
             </button>
           </div>
+        </>
+      )}
+
+      {selection.kind === 'animal' && !animal && <div className="small muted">Ya no está en el pueblo.</div>}
+      {selection.kind === 'animal' && animal && (
+        <>
+          <div className="muted small">
+            {animal.age} {animal.age === 1 ? 'año' : 'años'} · {ANIMAL_STATES_ES[animal.state]}
+          </div>
+          {animal.owner && (
+            <div className="small">
+              Es del hogar de{' '}
+              <button type="button" className="link inline" onClick={() => onSelect({ kind: 'agent', id: animal.owner!.agentId })}>{animal.owner.name}</button>
+              {' · vive en '}
+              <button type="button" className="link inline" onClick={() => onSelect({ kind: 'building', id: animal.owner!.home })}>{animal.owner.home}</button>
+            </div>
+          )}
+          {animal.walker && (
+            <div className="small">
+              Lo pasea{' '}
+              <button type="button" className="link inline" onClick={() => onSelect({ kind: 'agent', id: animal.walker!.agentId })}>{animal.walker.name}</button>
+            </div>
+          )}
+          {animal.walked && (
+            <div className="small muted">
+              Paseo: {animal.walked.today} min hoy · {animal.walked.yesterday} min ayer{animal.walked.yesterday < 20 ? ' (se quedó sin pasear)' : ''}
+            </div>
+          )}
+          {animal.farm && (
+            <div className="small">
+              De la huerta{' '}
+              <button type="button" className="link inline" onClick={() => onSelect({ kind: 'building', id: animal.farm! })}>{animal.farm}</button>
+              {` · da ${animal.dailyFood} ración(es) al día si se trabaja la huerta`}
+            </div>
+          )}
         </>
       )}
 

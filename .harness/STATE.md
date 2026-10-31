@@ -1,6 +1,6 @@
 # STATE — estado de la implementación
 
-_Actualizado: 2026-10-31 (herencia y compraventa)_
+_Actualizado: 2026-10-31 (inspector de animales)_
 
 ## Implementado
 
@@ -9,7 +9,7 @@ _Actualizado: 2026-10-31 (herencia y compraventa)_
 | Mapa real | `almensilla-3d/tools/gis/{build_logic,pack_map}.py`, `engine/src/map/mappack.ts`, `cli/src/mappacks.ts`, `render/src/realMap.ts` | Map-pack anonimizado «Valdeolivo» (2 793 edificios, grafo de 2 119 nodos), lector validador, resolvedores (fetch/disco), render con huellas, terreno, viales, árboles y cotas (ADR-0017) |
 | Servidor | `apps/server`, `packages/host` | Mundo vivo compartido, usuarios scrypt, sesiones, límite de intentos, `/ws/live` y `/ws/study`, guardado cada 30 s y comandos al instante (ADR-0016) |
 | Visor de estudio | `engine/src/study.ts`, `apps/web/src/ui/study/`, host | Replay, saltos, análisis por hora con verificación, línea de tiempo con intervenciones, gráficas, CSV (ADR-0015) |
-| Contratos TS | `packages/contracts/src` | Protocolo **v5** (animales en el frame), motor **0.16.0** (0.16: herencia, parentesco entre hogares, compraventa de viviendas; 0.15: perros y ganado; 0.14: caseros del pueblo, compra con hipoteca, gasto discrecional; 0.13: coches por hogar, `AgentFlag.Driving`; 0.12: salarios de mercado y alquileres; 0.11: precios dinámicos por tienda y aserradero; 0.10: dinero, empleo y precios; inspector con dinero y caja; 0.9: capacidad de almacén y caducidad; 0.8: hogares, parejas y migración; snapshot con `nextHousehold`; 0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
+| Contratos TS | `packages/contracts/src` | Protocolo **v6** (v6: consulta `animal`; v5: animales en el frame), motor **0.17.0** (0.17: inspector de animales; 0.16: herencia, parentesco entre hogares, compraventa de viviendas; 0.15: perros y ganado; 0.14: caseros del pueblo, compra con hipoteca, gasto discrecional; 0.13: coches por hogar, `AgentFlag.Driving`; 0.12: salarios de mercado y alquileres; 0.11: precios dinámicos por tienda y aserradero; 0.10: dinero, empleo y precios; inspector con dinero y caja; 0.9: capacidad de almacén y caducidad; 0.8: hogares, parejas y migración; snapshot con `nextHousehold`; 0.7: ciclo de vida y economía sostenible; 0.6: hogares, edades, cronotipos, reparto de cosechas; 0.5: trabajo y ocio cercanos) (replay, seek, analyze, timeline, series); antes v3: frames con estados de edificio, inspector (`AgentDetail`, `BuildingDetail`, `EconomySummary`), `load`/`end`, snapshot con edificios |
 | Mapa sintético | `engine/src/map/synthetic.ts` | 5×5 manzanas; viviendas, tiendas, servicios públicos (fuentes), aserradero y huertas en la corona |
 | Agentes | `engine/src/world/agents.ts`, `engine/src/agents/` | 35 columnas: rasgos, ocupación y puesto, 6 necesidades + salud, carga, memoria (8 recuerdos), relaciones (8 huecos), puntuaciones de la última decisión |
 | Utility AI | `engine/src/agents/systems.ts` | Stay, GoHome, GoOut, SeekShelter, Sleep (cronotipo), Provision, Work (trabajo o escuela), **Deliver** (ADR-0018) |
@@ -35,6 +35,7 @@ _Actualizado: 2026-10-31 (herencia y compraventa)_
 | CLI | `packages/cli` | `simulate --save/--end`, `worlds`, `verify`, `study` (CSV), métricas económicas, referencias `@uso[n]`, `events.<tipo>` |
 
 ## Gates (última ejecución: 2026-10-29)
+- Inspector de animales ✅ 151 tests; Behavior 15/15 en ambos mapas; Visual Gate (oveja seleccionada con su ficha).
 - Herencia y compraventa ✅ Behavior 15/15 en ambos mapas; 150 tests; casi todas las herencias tienen heredero.
 - Animales ✅ Behavior 15/15 en ambos mapas; 146 tests; Visual Gate con ovejas, gallinas y perros.
 - Propietarios y vivienda ✅ Behavior 15/15 en ambos mapas; 142 tests; dos años estables (alquiler ≈ 22 %, hipotecas 7–10 %).

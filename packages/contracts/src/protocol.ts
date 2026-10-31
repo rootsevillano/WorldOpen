@@ -2,7 +2,7 @@ import type { CommandDescriptor, CommandEnvelope, CommandRejectionReason, Logged
 import type { CriteriaValues, CriterionDefinition } from './criteria';
 import type { SimEvent } from './events';
 import type { RenderFrame } from './frame';
-import type { AgentDetail, BuildingDetail, EconomySummary } from './inspect';
+import type { AgentDetail, AnimalDetail, BuildingDetail, EconomySummary } from './inspect';
 import type { WorldManifest } from './manifest';
 import type { MapLogic } from './mappack';
 import type { Snapshot } from './snapshot';
@@ -40,6 +40,7 @@ export type EngineQuery =
   | { kind: 'map' }
   | { kind: 'agent'; agentId: number }
   | { kind: 'building'; buildingId: string }
+  | { kind: 'animal'; animalId: number }
   | { kind: 'economy' }
   | { kind: 'timeline' };
 
@@ -57,6 +58,7 @@ export interface QueryResultMap {
   map: MapLogic[];
   agent: AgentDetail | null;
   building: BuildingDetail | null;
+  animal: AnimalDetail | null;
   economy: EconomySummary;
   timeline: Timeline | null;
 }

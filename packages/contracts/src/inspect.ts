@@ -49,6 +49,27 @@ export interface AgentDetail {
   position: { x: number; y: number; z: number };
 }
 
+/** Inspector de un animal (ADR-0029). Solo lectura. */
+export interface AnimalDetail {
+  id: number;
+  kind: 'dog' | 'sheep' | 'hen';
+  /** Años. */
+  age: number;
+  /** Perros: hogar dueño (el adulto de más edad) y su casa. */
+  owner: { name: string; agentId: number; home: string } | null;
+  /** Ganado: huerta a la que pertenece. */
+  farm: string | null;
+  /** Quien lo pasea ahora (perros). */
+  walker: { agentId: number; name: string } | null;
+  /** En casa · paseando · esperando fuera de un local · recogido · fuera, junto a la nave. */
+  state: 'home' | 'walking' | 'waiting' | 'penned' | 'grazing';
+  /** Perros: minutos de paseo hoy y ayer. */
+  walked: { today: number; yesterday: number } | null;
+  /** Ganado: raciones diarias que da los días en que se trabaja la huerta. */
+  dailyFood: number;
+  position: { x: number; y: number; z: number };
+}
+
 export interface BuildingDetail {
   id: string;
   index: number;

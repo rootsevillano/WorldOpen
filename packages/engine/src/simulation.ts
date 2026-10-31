@@ -1,7 +1,7 @@
 import {
   ENGINE_VERSION,
   type AgentDetail,
-  type BuildingDetail,
+  type AnimalDetail, type BuildingDetail,
   type CatalogResult,
   type EconomySummary,
   type CommandEnvelope,
@@ -17,7 +17,7 @@ import { seedStocks } from './agents/economy';
 import { seedCash } from './agents/money';
 import { seedAnimals } from './agents/animals';
 import { populate } from './agents/population';
-import { agentDetail, buildingDetail, economySummary } from './inspect';
+import { agentDetail, animalDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
 import { CommandRegistry } from './commands/registry';
 import { CriteriaRegistry } from './criteria/registry';
@@ -185,6 +185,10 @@ export class Simulation {
 
   building(id: string): BuildingDetail | null {
     return buildingDetail(this.world, id);
+  }
+
+  animal(id: number): AnimalDetail | null {
+    return animalDetail(this.world, id);
   }
 
   economy(): EconomySummary {

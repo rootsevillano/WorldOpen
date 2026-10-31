@@ -1,4 +1,5 @@
-import type { AgentDetail, BuildingDetail, EconomySummary } from '@worldopen/contracts';
+import { AgentFlag, type AgentDetail, type AnimalDetail, type BuildingDetail, type EconomySummary } from '@worldopen/contracts';
+import { ticksPerDay } from './time/clock';
 import {
   ACTION_COUNT,
   ACTION_NAMES,
@@ -14,7 +15,7 @@ import {
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
 import { housePrice } from './agents/housing';
-import { Animal } from './world/animals';
+import { ANIMAL_NAMES, Animal } from './world/animals';
 import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
@@ -29,6 +30,42 @@ function countByKind(world: World): EconomySummary['animals'] {
     else out.hens++;
   }
   return out;
+}
+
+/** Vista del inspector de un animal (ADR-0029). Solo lectura. */
+export function animalDetail(world: World, id: number): AnimalDetail | null {
+  const an = world.animals;
+  let i = -1;
+  for (let k = 0; k < an.count; k++) if (an.ids[k] === id) i = k;
+  if (i < 0) return null;
+  const a = world.agents;
+  const b = world.map.buildings;
+  const kind = ANIMAL_NAMES[an.kind[i]!]!;
+  const day = Math.floor(world.tick / ticksPerDay(world.time));
+  const dog = an.kind[i] === Animal.Dog;
+  let owner: AnimalDetail['owner'] = null;
+  if (dog) {
+    let best = -1;
+    for (let j = 0; j < a.count; j++) if (a.household[j] === an.household[i] && (best < 0 || a.age[j]! > a.age[best]!)) best = j;
+    if (best >= 0) owner = { name: a.names[best]!, agentId: a.ids[best]!, home: b[a.home[best]!]!.id };
+  }
+  const w = an.walker[i] ? a.indexOf(an.walker[i]!) : -1;
+  const indoors = (an.flags[i]! & AgentFlag.Indoors) !== 0;
+  const state: AnimalDetail['state'] = dog
+    ? w < 0 ? 'home' : indoors ? 'waiting' : 'walking'
+    : indoors ? 'penned' : 'grazing';
+  return {
+    id,
+    kind,
+    age: Math.max(0, Math.floor((day - an.born[i]!) / 360)),
+    owner,
+    farm: an.farm[i]! >= 0 ? b[an.farm[i]!]!.id : null,
+    walker: w >= 0 ? { agentId: a.ids[w]!, name: a.names[w]! } : null,
+    state,
+    walked: dog ? { today: an.walkedToday[i]!, yesterday: an.walkedYesterday[i]! } : null,
+    dailyFood: dog ? 0 : an.kind[i] === Animal.Hen ? 0.5 : 1,
+    position: { x: an.positions[i * 3]!, y: an.positions[i * 3 + 1]!, z: an.positions[i * 3 + 2]! },
+  };
 }
 
 /** Hogares que pagan alquiler al hogar `household`. */

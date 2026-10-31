@@ -1,8 +1,14 @@
 # CURRENT PHASE
 
-**Fase actual:** Herencia y compraventa · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Inspector de animales · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
 
-## Herencia y compraventa — entregado (ADR-0028)
+## Inspector de animales — entregado (ADR-0029)
+- Los animales visibles se seleccionan en la vista; su ficha muestra tipo, edad, dueño o huerta, quién lo pasea,
+  estado, paseo y producción, con enlaces. Protocolo v6; motor 0.17.0. 151 tests; 15/15 en ambos mapas.
+
+## Herencia y compraventa (anterior) — completado
+
+### ADR-0028
 - Al morir el último adulto de un hogar, su familia de otro hogar hereda dinero, viviendas e inquilinos (o el Estado);
   las viviendas de sobra se alquilan antes que comprar otras y se venden entre particulares. Motor 0.16.0.
 - Behavior 15/15 en ambos mapas; 150 tests.
@@ -89,7 +95,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: inspector de animales, atascos/transporte público, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
+- Siguiente modelo: animales en las fichas de hogar y huerta, atascos/transporte público, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).
