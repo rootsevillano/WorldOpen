@@ -178,7 +178,7 @@ export function animalSystem(world: World): void {
     if (!homes.has(hh)) homes.set(hh, a.home[i]!);
     const loc = a.location[i]!;
     const outing = a.action[i] === Action.GoOut || (a.action[i] === Action.Stay && loc >= 0 && loc !== a.home[i] && loc !== a.workplace[i]);
-    if (outing && !a.driving[i] && a.age[i]! >= WALKER_AGE && loc !== a.home[i] && !onFoot.has(hh)) onFoot.set(hh, i);
+    if (outing && !a.transit[i] && !a.driving[i] && a.age[i]! >= WALKER_AGE && loc !== a.home[i] && !onFoot.has(hh)) onFoot.set(hh, i);
   }
   const night = nightFactor(world) > 0.5;
   for (let i = 0; i < an.count; i++) {

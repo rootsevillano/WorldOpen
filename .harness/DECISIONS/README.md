@@ -34,4 +34,5 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0027](0027-animals.md) | Animales: perros y ganado | Aceptada |
 | [0028](0028-inheritance-sales.md) | Herencia y compraventa de viviendas entre particulares | Aceptada |
 | [0029](0029-animal-inspector.md) | Inspector de animales | Aceptada |
-| [0030](0030-public-transport.md) | Transporte público (línea de autobús) | Aceptada |
+| [0030](0030-public-transport.md) | Transporte público (línea de autobús) | Sustituida por 0031 |
+| [0031](0031-intercity-transport.md) | Transporte público solo entre pueblos | Aceptada |

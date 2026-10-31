@@ -108,7 +108,13 @@ export const contemporary: Ruleset = {
     {
       key: 'society.transit',
       type: 'number', min: 0, max: 3, default: 1,
-      description: 'Frecuencia del autobús: 1 = uno cada 15 min de 07:00 a 22:00; 2 = el doble; 0 = sin servicio.',
+      description: 'Autobús a los pueblos vecinos: 1 = uno cada hora de 07:00 a 21:00; 2 = cada media hora; 0 = sin servicio.',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.commuting',
+      type: 'number', min: 0, max: 1, default: 0.5,
+      description: 'Trabajo en otros pueblos: parte de los parados que trabaja fuera al crear el mundo (y ritmo al que lo encuentran).',
       mutableBy: 'admin',
     },
     {

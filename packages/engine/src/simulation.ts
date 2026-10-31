@@ -16,7 +16,7 @@ import {
 import { seedStocks } from './agents/economy';
 import { seedCash } from './agents/money';
 import { seedAnimals } from './agents/animals';
-import { buildLine, busesNow } from './agents/transit';
+import { buildRoad, busesNow, seedCommuters } from './agents/transit';
 import { populate } from './agents/population';
 import { agentDetail, animalDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
@@ -95,13 +95,14 @@ export class Simulation {
       new NavMap(loadMaps(manifest, options.maps)),
     );
 
-    this.world.busLine = buildLine(this.world.map);
+    this.world.busRoad = buildRoad(this.world.map);
 
     if (!options.skipPopulation) {
       const initial = this.world.criteria['society.initialPopulation'];
       const n = typeof initial === 'number' ? Math.min(initial, this.world.agents.capacity) : 0;
       populate(this.world, n);
       seedStocks(this.world);
+      seedCommuters(this.world);
       seedCash(this.world);
       seedAnimals(this.world);
     }

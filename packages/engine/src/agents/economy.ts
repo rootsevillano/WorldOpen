@@ -351,6 +351,8 @@ export function unload(world: World, i: number): void {
 export function employed(world: World, i: number): boolean {
   const a = world.agents;
   const occ = a.occupation[i]!;
+  // Quien trabaja fuera del pueblo no tiene puesto aquí (ADR-0031).
+  if (occ === Occupation.Commuter) return true;
   return occ !== Occupation.Unemployed && occ !== Occupation.Retired && occ !== Occupation.Child && a.workplace[i]! >= 0 && usable(world, a.workplace[i]!);
 }
 

@@ -1,316 +1,326 @@
 import { AgentActivity, AgentFlag } from '@worldopen/contracts';
 import type { NavMap } from '../map/navigation';
 import { headingOf } from '../math/angles';
+import { ticksPerDay } from '../time/clock';
+import { Action, Occupation } from '../world/agents';
 import type { World } from '../world/world';
-import { minuteOfDay } from './environment';
-import { pathLength } from './vehicles';
+import { dayOfWeek, minuteOfDay } from './environment';
+import { fuelCost, pathLength, shouldDrive } from './vehicles';
 
 /**
- * Transporte público (ADR-0030): una línea circular de autobús generada del mapa (paradas repartidas entre tiendas y
- * servicios públicos, unidas por las calles). Los autobuses no tienen estado: su posición es función de la hora
- * (velocidad constante, desfase entre ellos), así que no van en el snapshot. Los viajeros sí: van andando a la parada,
- * esperan, suben (pagan el billete), viajan dentro del autobús, bajan en la parada más cercana a su destino y acaban
- * el camino andando.
+ * Transporte entre pueblos (ADR-0031). El mundo es un pueblo; los vecinos quedan fuera de la simulación. Un autobús
+ * interurbano entra por la carretera del borde del mapa hasta una parada en el centro, se detiene y se va. Dentro del
+ * pueblo no hay transporte público. Hay quien sale (trabaja fuera, pasa el día en otro pueblo), en coche hasta el borde
+ * o en autobús, y vuelve; mientras está fuera no se dibuja ni gasta necesidades. Cada autobús trae visitantes que gastan
+ * en la tienda del centro (sin simularlos como agentes). Los autobuses no tienen estado: su posición sale del horario.
  */
 
-/** Etapas del viaje de un agente (`transit`). */
-export const Transit = { None: 0, ToStop: 1, Waiting: 2, Riding: 3 } as const;
+/** Etapas de una salida del pueblo (`transit`). */
+export const Transit = { None: 0, ToStop: 1, Waiting: 2, Away: 3, ToEdge: 4 } as const;
+/** Motivo de la salida (`awayReason`). */
+export const AwayReason = { Work: 0, Trip: 1 } as const;
 
-/** Velocidad media del autobús (m/min, ≈ 24 km/h con paradas), frecuencia base (min) y capacidad. */
-export const BUS_SPEED = 400;
-const HEADWAY_MINUTES = 15;
-const BUS_CAPACITY = 60;
-/** Servicio de 07:00 a 22:00. */
-const SERVICE: [number, number] = [420, 1320];
-/** Billete (× `economy.priceLevel`), trayecto mínimo para plantearse el autobús (m) y espera máxima (min). */
-const FARE = 1.2;
-const RIDE_MIN_M = 1000;
-const MAX_WAIT_MINUTES = 40;
-/** El autobús se coge si el viaje esperado tarda menos del 80 % de ir andando. */
-const WORTH = 0.8;
-/** Paradas: una por cada 4 locales (tiendas y servicios públicos), entre 4 y 10. */
-const STOPS: [number, number] = [4, 10];
-const WALK_SPEED = 75;
-/** Un pueblo cuya línea saldría de menos de 2 km no tiene autobús (se va andando a todas partes). */
-export const MIN_LINE_M = 2000;
-/** Rodeo medio por las calles respecto a la línea recta. */
-const DETOUR = 1.3;
+/** Autobús: velocidad (m/min, ≈ 36 km/h por carretera), parada (min), primer y último autobús, frecuencia base (min). */
+const BUS_SPEED = 600;
+const DWELL = 3;
+export const FIRST_BUS = 420;
+export const LAST_BUS = 1260;
+const HEADWAY = 60;
+/** Billete de ida (× `economy.priceLevel`) y espera máxima en la parada (min). */
+const FARE = 2;
+const MAX_WAIT = 70;
+/** Vuelta del trabajo de fuera (15:00, más el trayecto) y de una excursión (19:00 + hasta 1 h). */
+const WORK_BACK = 15 * 60;
+const TRIP_BACK = 19 * 60;
+/** Excursiones: fines de semana, al salir de casa entre las 09:00 y las 13:00, el 8 % de las veces. */
+const TRIP_SHARE = 0.08;
+const TRIP_WINDOW: [number, number] = [540, 780];
+/** Gasto de quien pasa el día fuera (comida) y de cada visitante en la tienda del centro (× `economy.priceLevel`). */
+const AWAY_SPEND = 6;
+/** Recorrido fuera del pueblo hasta el pueblo vecino (m, cada sentido): cuenta para la gasolina. */
+const OUTSIDE_M = 10_000;
+const VISITOR_SPEND = 6;
+/** Visitantes por autobús: 1,5 por cada 1 000 habitantes (el doble en fin de semana). */
+const VISITORS_PER_PERSON = 0.0015;
 
-export interface BusLine {
-  /** Nodo de calle y local de referencia (para el nombre) de cada parada, en el orden de la línea. */
-  stopNode: number[];
-  stopBuilding: number[];
-  /** Recorrido (vértices) y longitud acumulada en cada vértice; `stopS` = posición de cada parada en el recorrido. */
+const hash = (a: number, b: number) => (Math.imul(Math.imul(a, 0x9e3779b1) ^ Math.imul(b + 1, 0x85ebca6b), 0xc2b2ae35) >>> 0) / 0x100000000;
+
+export interface Road {
+  /** Nodo del borde por el que se sale del pueblo y nodo de la parada (en el centro). */
+  edgeNode: number;
+  stopNode: number;
+  /** Local de referencia de la parada y tienda más cercana a ella (donde gastan los visitantes; −1 si no hay). */
+  stopBuilding: number;
+  shop: number;
   x: Float64Array;
   z: Float64Array;
   cum: Float64Array;
-  stopS: number[];
   length: number;
 }
 
-/** Genera la línea: paradas por muestreo del punto más lejano entre los locales y recorrido del vecino más cercano. */
-export function buildLine(map: NavMap, minLength = MIN_LINE_M): BusLine | null {
-  const venues = map.venues;
-  const k = Math.min(STOPS[1], Math.max(STOPS[0], Math.floor(venues.length / 4)));
-  if (venues.length < STOPS[0]) return null;
-  const c = (b: number) => map.buildings[b]!.centroid;
+/** Carretera del borde al centro: del nodo de calle más alejado del centro de las viviendas al local más céntrico. */
+export function buildRoad(map: NavMap): Road | null {
+  if (map.venues.length === 0 || map.homes.length === 0) return null;
   let cx = 0;
   let cz = 0;
-  for (const v of venues) {
-    cx += c(v).x / venues.length;
-    cz += c(v).z / venues.length;
+  for (const h of map.homes) {
+    cx += map.buildings[h]!.centroid.x / map.homes.length;
+    cz += map.buildings[h]!.centroid.z / map.homes.length;
   }
-  const sq = (v: number) => v * v;
-  const d2 = (b: number, x: number, z: number) => sq(c(b).x - x) + sq(c(b).z - z);
-  const chosen = [venues.reduce((best, v) => (d2(v, cx, cz) < d2(best, cx, cz) ? v : best))];
-  while (chosen.length < k) {
-    let far = -1;
-    let farD = -1;
-    for (const v of venues) {
-      if (chosen.includes(v)) continue;
-      const d = Math.min(...chosen.map((s) => d2(v, c(s).x, c(s).z)));
-      if (d > farD) {
-        farD = d;
-        far = v;
-      }
-    }
-    if (far < 0) break;
-    chosen.push(far);
-  }
-  // Orden del vecino más cercano desde la primera parada.
-  const tour = [chosen[0]!];
-  const left = new Set(chosen.slice(1));
-  while (left.size > 0) {
-    const last = c(tour[tour.length - 1]!);
-    let next = -1;
-    let nextD = Infinity;
-    for (const v of left) {
-      const d = d2(v, last.x, last.z);
-      if (d < nextD) {
-        nextD = d;
-        next = v;
-      }
-    }
-    tour.push(next);
-    left.delete(next);
-  }
-  const stopNode: number[] = [];
-  const stopBuilding: number[] = [];
-  for (const b of tour) {
-    const node = map.entranceNode[b]!;
-    if (!stopNode.includes(node)) {
-      stopNode.push(node);
-      stopBuilding.push(b);
-    }
-  }
-  if (stopNode.length < 2) return null;
-  const xs: number[] = [];
-  const zs: number[] = [];
-  const stopVertex: number[] = [];
-  for (let s = 0; s < stopNode.length; s++) {
-    const seg = map.nodePath(stopNode[s]!, stopNode[(s + 1) % stopNode.length]!);
-    if (!seg) return null;
-    stopVertex.push(xs.length);
-    for (let v = 0; v < seg.length - 1; v++) {
-      xs.push(map.nodeX[seg[v]!]!);
-      zs.push(map.nodeZ[seg[v]!]!);
-    }
-  }
-  xs.push(xs[0]!);
-  zs.push(zs[0]!);
-  const cum = new Float64Array(xs.length);
-  for (let v = 1; v < xs.length; v++) cum[v] = cum[v - 1]! + Math.sqrt(sq(xs[v]! - xs[v - 1]!) + sq(zs[v]! - zs[v - 1]!));
-  const length = cum[xs.length - 1]!;
-  if (length <= 0 || length < minLength) return null;
-  return { stopNode, stopBuilding, x: Float64Array.from(xs), z: Float64Array.from(zs), cum, stopS: stopVertex.map((v) => cum[v]!), length };
+  const d2 = (x: number, z: number, ox = cx, oz = cz) => (x - ox) * (x - ox) + (z - oz) * (z - oz);
+  const at = (b: number) => map.buildings[b]!.centroid;
+  let stopBuilding = map.venues[0]!;
+  for (const v of map.venues) if (d2(at(v).x, at(v).z) < d2(at(stopBuilding).x, at(stopBuilding).z)) stopBuilding = v;
+  const stopNode = map.entranceNode[stopBuilding]!;
+  let edgeNode = 0;
+  for (let n = 1; n < map.nodeCount; n++) if (d2(map.nodeX[n]!, map.nodeZ[n]!) > d2(map.nodeX[edgeNode]!, map.nodeZ[edgeNode]!)) edgeNode = n;
+  const nodes = map.nodePath(edgeNode, stopNode);
+  if (!nodes || nodes.length < 2) return null;
+  const x = Float64Array.from(nodes.map((n) => map.nodeX[n]!));
+  const z = Float64Array.from(nodes.map((n) => map.nodeZ[n]!));
+  const cum = new Float64Array(nodes.length);
+  for (let v = 1; v < nodes.length; v++) cum[v] = cum[v - 1]! + Math.sqrt(d2(x[v]!, z[v]!, x[v - 1]!, z[v - 1]!));
+  const s = at(stopBuilding);
+  let shop = -1;
+  for (const r of map.byUse.retail) if (shop < 0 || d2(at(r).x, at(r).z, s.x, s.z) < d2(at(shop).x, at(shop).z, s.x, s.z)) shop = r;
+  return { edgeNode, stopNode, stopBuilding, shop, x, z, cum, length: cum[nodes.length - 1]! };
 }
 
-/** Autobuses en servicio ahora según la frecuencia (`society.transit` la multiplica; 0 = sin servicio). */
-export function busCount(world: World): number {
-  const line = world.busLine;
-  const level = world.num('society.transit');
-  if (!line || level <= 0 || world.criteria['world.era'] === 'historical') return 0;
-  const m = minuteOfDay(world);
-  if (m < SERVICE[0] || m >= SERVICE[1]) return 0;
-  return Math.max(1, Math.round((line.length / (BUS_SPEED * HEADWAY_MINUTES)) * level));
+function serviceOn(world: World): boolean {
+  return world.busRoad !== null && world.num('society.transit') > 0 && world.criteria['world.era'] !== 'historical';
 }
 
-/** Posición en el recorrido (m) del autobús `k` de `n` en el minuto absoluto `minute`. */
-function busS(line: BusLine, k: number, n: number, minute: number): number {
-  return (((minute * BUS_SPEED + (k * line.length) / n) % line.length) + line.length) % line.length;
+/** Llegadas del día a la parada (minuto del día). */
+export function arrivals(world: World): number[] {
+  if (!serviceOn(world)) return [];
+  const out: number[] = [];
+  const headway = HEADWAY / world.num('society.transit');
+  for (let t = FIRST_BUS; t <= LAST_BUS; t += headway) out.push(Math.round(t));
+  return out;
 }
 
-/** Punto y rumbo del recorrido en la posición `s`. */
-export function linePoint(line: BusLine, s: number): [number, number, number] {
+/** Próxima llegada a partir del minuto `m` (o `null`). */
+export function nextArrival(world: World, m: number): number | null {
+  for (const t of arrivals(world)) if (t >= m) return t;
+  return null;
+}
+
+/** Punto y rumbo de la carretera a `s` metros del borde. */
+function roadPoint(road: Road, s: number): [number, number, number] {
   let lo = 0;
-  let hi = line.cum.length - 1;
+  let hi = road.cum.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
-    if (line.cum[mid]! <= s) lo = mid;
+    if (road.cum[mid]! <= s) lo = mid;
     else hi = mid;
   }
-  const seg = line.cum[hi]! - line.cum[lo]!;
-  const t = seg > 0 ? (s - line.cum[lo]!) / seg : 0;
-  const dx = line.x[hi]! - line.x[lo]!;
-  const dz = line.z[hi]! - line.z[lo]!;
-  return [line.x[lo]! + dx * t, line.z[lo]! + dz * t, headingOf(dx, dz)];
+  const seg = road.cum[hi]! - road.cum[lo]!;
+  const t = seg > 0 ? (s - road.cum[lo]!) / seg : 0;
+  const dx = road.x[hi]! - road.x[lo]!;
+  const dz = road.z[hi]! - road.z[lo]!;
+  return [road.x[lo]! + dx * t, road.z[lo]! + dz * t, headingOf(dx, dz)];
 }
 
-function absMinute(world: World): number {
-  return world.tick * world.time.minutesPerTick;
-}
-
-/** Autobuses ahora: posiciones (x, z) y rumbos, para el frame. */
+/** Autobuses en la carretera ahora (entrando, en la parada o saliendo), para el frame. */
 export function busesNow(world: World): { positions: Float32Array; headings: Float32Array } {
-  const line = world.busLine;
-  const n = busCount(world);
-  const positions = new Float32Array(n * 3);
-  const headings = new Float32Array(n);
-  if (!line) return { positions, headings };
-  for (let k = 0; k < n; k++) {
-    const [x, z, h] = linePoint(line, busS(line, k, n, absMinute(world)));
-    positions[k * 3] = x;
-    positions[k * 3 + 2] = z;
-    headings[k] = h;
-  }
-  return { positions, headings };
-}
-
-function nearestStop(line: BusLine, map: NavMap, x: number, z: number): [number, number] {
-  let best = 0;
-  let bestD = Infinity;
-  for (let s = 0; s < line.stopNode.length; s++) {
-    const n = line.stopNode[s]!;
-    const dx = map.nodeX[n]! - x;
-    const dz = map.nodeZ[n]! - z;
-    const d = dx * dx + dz * dz;
-    if (d < bestD) {
-      bestD = d;
-      best = s;
+  const road = world.busRoad;
+  const pos: number[] = [];
+  const head: number[] = [];
+  if (road) {
+    const m = minuteOfDay(world);
+    const drive = road.length / BUS_SPEED;
+    for (const ta of arrivals(world)) {
+      let s = -1;
+      let out = false;
+      if (m >= ta - drive && m < ta) s = road.length - (ta - m) * BUS_SPEED;
+      else if (m >= ta && m < ta + DWELL) s = road.length;
+      else if (m >= ta + DWELL && m < ta + DWELL + drive) {
+        s = road.length - (m - ta - DWELL) * BUS_SPEED;
+        out = true;
+      }
+      if (s < 0) continue;
+      const [x, z, h] = roadPoint(road, Math.min(road.length, Math.max(0, s)));
+      pos.push(x, 0, z);
+      // De vuelta, el rumbo es el contrario (se suma media vuelta sin trigonometría: el render solo lo usa para rotar).
+      head.push(out ? h + 3.141592653589793 : h);
     }
   }
-  return [best, Math.sqrt(bestD)];
+  return { positions: Float32Array.from(pos), headings: Float32Array.from(head) };
 }
 
 export function fare(world: World): number {
   return FARE * world.num('economy.priceLevel');
 }
 
-/**
- * ¿Coge el autobús para ir de (x, z) a `target` en lugar de seguir `path` andando? Si conviene, devuelve la ruta hasta
- * la parada de subida y las paradas de subida y bajada.
- */
-export function planRide(world: World, i: number, x: number, z: number, path: Float64Array, target: number): { path: Float64Array; board: number; alight: number } | null {
-  const line = world.busLine;
+function begin(world: World, i: number, stage: number, path: Float64Array, reason: number, back: number, byCar: number): void {
   const a = world.agents;
-  if (!line || a.age[i]! < 12 || a.money[i]! < fare(world)) return null;
-  const n = busCount(world);
-  const m = minuteOfDay(world);
-  if (n === 0 || m + MAX_WAIT_MINUTES > SERVICE[1]) return null;
-  const walk = pathLength(x, z, path);
-  if (walk < RIDE_MIN_M) return null;
-  const map = world.map;
-  const dest = map.buildings[target]!.centroid;
-  const [board, toStop] = nearestStop(line, map, x, z);
-  const [alight, fromStop] = nearestStop(line, map, dest.x, dest.z);
-  if (board === alight) return null;
-  const ride = (((line.stopS[alight]! - line.stopS[board]!) % line.length) + line.length) % line.length;
-  const headway = line.length / (n * BUS_SPEED);
-  const byBus = ((toStop + fromStop) * DETOUR) / WALK_SPEED + headway / 2 + ride / BUS_SPEED;
-  if (byBus >= WORTH * (walk / WALK_SPEED)) return null;
-  const toStopPath = map.routeToNode(x, z, a.location[i]!, line.stopNode[board]!);
-  return toStopPath ? { path: toStopPath, board, alight } : null;
-}
-
-/** Baja del autobús (o desiste de esperarlo) y sigue andando hasta su destino. */
-function walkOn(world: World, i: number): void {
-  const a = world.agents;
-  const target = a.finalTarget[i]!;
-  a.transit[i] = Transit.None;
-  a.flags[i] = 0;
-  a.location[i] = -1;
-  const path = target >= 0 ? world.map.route(a.positions[i * 3]!, a.positions[i * 3 + 2]!, -1, target) : null;
+  a.transit[i] = stage;
+  a.awayReason[i] = reason;
+  a.awayUntil[i] = back;
+  a.awayByCar[i] = byCar;
   a.paths[i] = path;
   a.pathPos[i] = 0;
-  a.target[i] = path ? target : -1;
+  a.target[i] = -1;
+  a.location[i] = -1;
+  a.flags[i] = byCar ? AgentFlag.Driving : 0;
   a.activities[i] = AgentActivity.Moving;
 }
 
 /**
- * Tras el movimiento: cada autobús pasa por las paradas que recorre en este tick (en orden): bajan quienes llegan y suben
- * quienes esperan (hasta la capacidad). Quienes viajan van con su autobús; quien espera demasiado (o se acaba el
- * servicio) sigue andando.
+ * Sale del pueblo (`reason`), de vuelta hacia `back` (min del día): en coche hasta el borde si puede llevárselo, o
+ * andando a la parada a esperar el autobús. Devuelve `false` si no puede (ni coche ni autobús que le sirva).
+ */
+export function leaveTown(world: World, i: number, reason: number, back: number): boolean {
+  const road = world.busRoad;
+  if (!road) return false;
+  const a = world.agents;
+  const map = world.map;
+  const x = a.positions[i * 3]!;
+  const z = a.positions[i * 3 + 2]!;
+  const from = a.location[i]!;
+  const toEdge = map.routeToNode(x, z, from, road.edgeNode);
+  const drive = toEdge ? pathLength(x, z, toEdge) + OUTSIDE_M : 0;
+  if (toEdge && from === a.home[i] && shouldDrive(world, i, drive, world.carsBusy)) {
+    a.driving[i] = 1;
+    world.carsBusy.add(a.household[i]!);
+    // La gasolina de fuera del pueblo (ida y vuelta) se paga al salir; la de dentro, al circular.
+    a.money[i] = Math.max(0, a.money[i]! - fuelCost(world, 2 * OUTSIDE_M));
+    begin(world, i, Transit.ToEdge, toEdge, reason, back, 1);
+    return true;
+  }
+  const m = minuteOfDay(world);
+  const next = nextArrival(world, m);
+  const toStop = map.routeToNode(x, z, from, road.stopNode);
+  if (!toStop || next === null || next - m > MAX_WAIT || a.money[i]! < 2 * fare(world) || nextArrival(world, back) === null) return false;
+  begin(world, i, Transit.ToStop, toStop, reason, back, 0);
+  return true;
+}
+
+/** Trabajo fuera: sale a la jornada y vuelve a las 15:00 (más el trayecto). */
+export function commute(world: World, i: number): boolean {
+  return leaveTown(world, i, AwayReason.Work, WORK_BACK);
+}
+
+/** ¿Una excursión de fin de semana en lugar de salir por el pueblo? (hash del agente y el día; sin PRNG) */
+export function dayTrip(world: World, i: number): boolean {
+  const a = world.agents;
+  const m = minuteOfDay(world);
+  if (dayOfWeek(world) < 5 || m < TRIP_WINDOW[0] || m > TRIP_WINDOW[1] || a.age[i]! < 18 || a.location[i] !== a.home[i]) return false;
+  const day = Math.floor(world.tick / ticksPerDay(world.time));
+  if (hash(a.ids[i]!, day) >= TRIP_SHARE) return false;
+  return leaveTown(world, i, AwayReason.Trip, TRIP_BACK + Math.floor(hash(a.ids[i]!, day + 1) * 60));
+}
+
+/** Fin de la ruta hacia el borde (en coche: se va) o hacia la parada (a esperar). Lo llama el movimiento. */
+export function reachedRoadEnd(world: World, i: number): void {
+  const a = world.agents;
+  a.paths[i] = null;
+  if (a.transit[i] === Transit.ToEdge) depart(world, i);
+  else {
+    a.transit[i] = Transit.Waiting;
+    a.transitSince[i] = world.tick * world.time.minutesPerTick;
+    a.activities[i] = AgentActivity.Idle;
+  }
+}
+
+function depart(world: World, i: number): void {
+  const a = world.agents;
+  a.transit[i] = Transit.Away;
+  a.flags[i] = AgentFlag.Indoors;
+  a.location[i] = -1;
+  a.money[i] = Math.max(0, a.money[i]! - AWAY_SPEND * world.num('economy.priceLevel'));
+}
+
+/** Vuelve: aparece en (x, z) — el borde en coche o la parada — y se va a casa. */
+function comeBack(world: World, i: number, x: number, z: number): void {
+  const a = world.agents;
+  a.transit[i] = Transit.None;
+  a.positions[i * 3] = x;
+  a.positions[i * 3 + 2] = z;
+  a.location[i] = -1;
+  a.action[i] = Action.GoHome;
+  a.flags[i] = a.driving[i] ? AgentFlag.Driving : 0;
+  const path = world.map.route(x, z, -1, a.home[i]!);
+  a.paths[i] = path;
+  a.pathPos[i] = 0;
+  a.target[i] = path ? a.home[i]! : -1;
+  a.activities[i] = AgentActivity.Moving;
+}
+
+/** Al crear el mundo: parte de los parados en edad de trabajar (`society.commuting`) trabaja fuera del pueblo. */
+export function seedCommuters(world: World): void {
+  const a = world.agents;
+  const share = world.num('society.commuting');
+  for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] === Occupation.Unemployed && a.age[i]! >= 18 && a.age[i]! < 67 && hash(a.ids[i]!, 31) < share) {
+      a.occupation[i] = Occupation.Commuter;
+      a.workplace[i] = -1;
+    }
+  }
+}
+
+/** Lunes: parte de quienes siguen en paro encuentra trabajo fuera (10 % × `society.commuting` por semana). */
+export function outsideJobs(world: World, jobless: number[]): void {
+  const a = world.agents;
+  const week = Math.floor(world.tick / (7 * ticksPerDay(world.time)));
+  const p = 0.1 * world.num('society.commuting');
+  for (const i of jobless) {
+    if (a.occupation[i] !== Occupation.Unemployed || hash(a.ids[i]!, week) >= p) continue;
+    a.occupation[i] = Occupation.Commuter;
+    a.workplace[i] = -1;
+    world.emit('job.outside', { agentId: a.ids[i], name: a.names[i] });
+  }
+}
+
+/**
+ * Tras el movimiento: en cada llegada del autobús suben quienes esperan y bajan quienes vuelven; llegan visitantes. Quien
+ * fue en coche vuelve por el borde a su hora. Quien espera demasiado, o pierde el último autobús, se vuelve a casa.
  */
 export function transitSystem(world: World): void {
+  const road = world.busRoad;
+  if (!road) return;
   const a = world.agents;
-  const line = world.busLine;
-  if (!line) return;
-  const n = busCount(world);
   const dt = world.time.minutesPerTick;
-  const now = absMinute(world);
-  if (n === 0) {
-    for (let i = 0; i < a.count; i++) if (a.transit[i] === Transit.Waiting || a.transit[i] === Transit.Riding) walkOn(world, i);
-    return;
+  const m = minuteOfDay(world);
+  const now = world.tick * dt;
+  const day = Math.floor(world.tick / ticksPerDay(world.time));
+  if (world.visitorsDay !== day) {
+    world.visitorsDay = day;
+    world.visitorsToday = 0;
   }
-  const waiting = new Map<number, number[]>();
-  const riding = new Map<number, number[]>();
-  for (let i = 0; i < a.count; i++) {
-    if (a.transit[i] === Transit.Waiting) {
-      if (now - a.transitSince[i]! > MAX_WAIT_MINUTES) {
-        walkOn(world, i);
-        continue;
-      }
-      const list = waiting.get(a.boardStop[i]!) ?? [];
-      list.push(i);
-      waiting.set(a.boardStop[i]!, list);
-    } else if (a.transit[i] === Transit.Riding) {
-      const k = Math.min(a.bus[i]!, n - 1);
-      const list = riding.get(k) ?? [];
-      list.push(i);
-      riding.set(k, list);
-    }
-  }
-  const advance = Math.min(line.length - 1e-6, dt * BUS_SPEED);
+  // Llegadas del autobús en este tick (minuto del día en (m − dt, m]).
+  const due = arrivals(world).filter((t) => t > m - dt && t <= m);
+  const stopX = world.map.nodeX[road.stopNode]!;
+  const stopZ = world.map.nodeZ[road.stopNode]!;
+  const edgeX = world.map.nodeX[road.edgeNode]!;
+  const edgeZ = world.map.nodeZ[road.edgeNode]!;
   const price = fare(world);
-  for (let k = 0; k < n; k++) {
-    const s1 = busS(line, k, n, now);
-    const s0 = s1 - advance;
-    const onBoard = riding.get(k) ?? [];
-    // Paradas que cruza en este tick, en orden de paso.
-    const crossed = line.stopS
-      .map((s, stop) => [stop, (((s - s0) % line.length) + line.length) % line.length] as const)
-      .filter(([, d]) => d > 0 && d <= advance)
-      .sort((p, q) => p[1] - q[1] || p[0] - q[0]);
-    for (const [stop] of crossed) {
-      const node = line.stopNode[stop]!;
-      for (let r = onBoard.length - 1; r >= 0; r--) {
-        const i = onBoard[r]!;
-        if (a.alightStop[i] !== stop) continue;
-        onBoard.splice(r, 1);
-        a.positions[i * 3] = world.map.nodeX[node]!;
-        a.positions[i * 3 + 2] = world.map.nodeZ[node]!;
-        walkOn(world, i);
+  for (let i = 0; i < a.count; i++) {
+    const stage = a.transit[i]!;
+    if (stage === Transit.Away) {
+      if (a.awayReason[i] === AwayReason.Work) a.workedToday[i] = Math.min(1440, a.workedToday[i]! + dt);
+      if (a.awayByCar[i]) {
+        if (m >= a.awayUntil[i]! || m < FIRST_BUS) comeBack(world, i, edgeX, edgeZ);
+      } else if ((due.length > 0 && due[due.length - 1]! >= a.awayUntil[i]!) || m >= LAST_BUS + DWELL || !serviceOn(world)) {
+        a.money[i] = Math.max(0, a.money[i]! - price);
+        comeBack(world, i, stopX, stopZ);
       }
-      const queue = waiting.get(stop) ?? [];
-      while (queue.length > 0 && onBoard.length < BUS_CAPACITY) {
-        const i = queue.shift()!;
-        if (a.money[i]! < price) {
-          walkOn(world, i);
-          continue;
-        }
+    } else if (stage === Transit.Waiting) {
+      if (due.length > 0 && a.money[i]! >= price) {
         a.money[i]! -= price;
-        a.transit[i] = Transit.Riding;
-        a.bus[i] = k;
-        a.flags[i] = AgentFlag.Indoors;
-        onBoard.push(i);
+        depart(world, i);
+      } else if (now - a.transitSince[i]! > MAX_WAIT || !serviceOn(world)) {
+        comeBack(world, i, a.positions[i * 3]!, a.positions[i * 3 + 2]!);
       }
     }
-    // Quienes van dentro, con el autobús.
-    const [x, z, h] = linePoint(line, s1);
-    for (const i of onBoard) {
-      a.positions[i * 3] = x;
-      a.positions[i * 3 + 2] = z;
-      a.headings[i] = h;
+  }
+  if (due.length > 0) {
+    const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
+    const visitors = Math.floor(a.count * VISITORS_PER_PERSON * weekend * due.length + hash(day, m));
+    if (visitors > 0 && road.shop >= 0) {
+      world.buildings.cash[road.shop]! += visitors * VISITOR_SPEND * world.num('economy.priceLevel');
+      world.visitorsToday += visitors;
     }
+    world.emit('bus.arrived', { visitors, stop: world.map.buildings[road.stopBuilding]!.id });
   }
 }

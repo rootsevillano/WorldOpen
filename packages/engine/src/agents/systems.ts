@@ -25,7 +25,7 @@ import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { canAfford, payHarvest, spendLeisure } from './money';
 import { dogsToWalk } from './animals';
 import { remember } from './social';
-import { Transit, planRide } from './transit';
+import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
 import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
 
 /**
@@ -81,6 +81,11 @@ export function needsSystem(world: World): void {
   const school = inSchool(world);
   const map = world.map;
   for (let i = 0; i < a.count; i++) {
+    // Fuera del pueblo, las necesidades quedan en pausa (come fuera); el trabajo de fuera cuenta (ADR-0031).
+    if (a.transit[i] === Transit.Away) {
+      if (a.awayReason[i] === AwayReason.Work) a.work[i] = clamp01(a.work[i]! + dt * WORK_DONE);
+      continue;
+    }
     const loc = a.location[i]!;
     const home = a.home[i]!;
     const sleeping = a.action[i] === Action.Sleep && loc >= 0;
@@ -260,6 +265,12 @@ export function decisionSystem(world: World): void {
 }
 
 export function startAction(world: World, i: number, action: Action, home: number): void {
+  // Salidas del pueblo (ADR-0031): quien trabaja fuera sale a su jornada; en fin de semana, alguna excursión.
+  if (action === Action.Work && world.agents.occupation[i] === Occupation.Commuter) {
+    world.agents.action[i] = commute(world, i) ? Action.Work : Action.Stay;
+    return;
+  }
+  if (action === Action.GoOut && dayTrip(world, i)) return;
   const a = world.agents;
   const map = world.map;
   a.action[i] = action;
@@ -302,7 +313,7 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   }
   const x = a.positions[i * 3]!;
   const z = a.positions[i * 3 + 2]!;
-  let path = map.route(x, z, a.location[i]!, target);
+  const path = map.route(x, z, a.location[i]!, target);
   if (!path) {
     a.action[i] = Action.Stay;
     return;
@@ -311,17 +322,6 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   if (!a.driving[i] && a.location[i] === a.home[i] && shouldDrive(world, i, pathLength(x, z, path), world.carsBusy)) {
     a.driving[i] = 1;
     world.carsBusy.add(a.household[i]!);
-  }
-  // Sin coche, un trayecto largo puede hacerse en autobús: primero, a pie hasta la parada (ADR-0030).
-  if (!a.driving[i]) {
-    const ride = planRide(world, i, x, z, path, target);
-    if (ride) {
-      path = ride.path;
-      a.transit[i] = Transit.ToStop;
-      a.boardStop[i] = ride.board;
-      a.alightStop[i] = ride.alight;
-      a.finalTarget[i] = target;
-    }
   }
   a.paths[i] = path;
   a.pathPos[i] = 0;
@@ -427,12 +427,9 @@ export function movementSystem(world: World): void {
     a.positions[i * 3 + 2] = z;
     a.pathPos[i] = k;
     if (driving) a.money[i] = Math.max(0, a.money[i]! - fuelCost(world, start - budget));
-    if (k * 2 >= path.length && a.transit[i] === Transit.ToStop) {
-      // En la parada: espera el autobús (el sistema de transporte lo sube).
-      a.paths[i] = null;
-      a.transit[i] = Transit.Waiting;
-      a.transitSince[i] = world.tick * world.time.minutesPerTick;
-      a.activities[i] = AgentActivity.Idle;
+    if (k * 2 >= path.length && (a.transit[i] === Transit.ToStop || a.transit[i] === Transit.ToEdge)) {
+      // En la parada (a esperar el autobús) o en el borde del pueblo (se va en coche) (ADR-0031).
+      reachedRoadEnd(world, i);
       continue;
     }
     if (k * 2 >= path.length) {

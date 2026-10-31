@@ -1,0 +1,51 @@
+{
+  "name": "commute",
+  "description": "ADR-0031: el autobús une el pueblo con los vecinos (no hay transporte público dentro). Un día laborable, quien trabaja en otro pueblo sale por la mañana (en coche o autobús) y vuelve por la tarde; a medianoche todos están en casa; llegan 15 autobuses al día.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 2,
+  "manifest": {
+    "criteria": {
+      "society.initialPopulation": 300
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.commuterRatio",
+      "op": ">=",
+      "value": 0.02
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.awayRatio",
+      "op": ">=",
+      "value": 0.02,
+      "at": {
+        "day": 0,
+        "hour": 11
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.awayRatio",
+      "op": "==",
+      "value": 0,
+      "at": {
+        "day": 1,
+        "hour": 0
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "events.bus.arrived",
+      "op": ">=",
+      "value": 30
+    }
+  ]
+}

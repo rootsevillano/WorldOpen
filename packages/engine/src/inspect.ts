@@ -14,7 +14,8 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
-import { Transit, busCount } from './agents/transit';
+import { AwayReason, Transit, nextArrival } from './agents/transit';
+import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
 import { ANIMAL_NAMES, Animal } from './world/animals';
 import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
@@ -22,16 +23,20 @@ import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
 
+const STAGES: Record<number, 'toStop' | 'waiting' | 'away' | 'toEdge'> = {
+  [Transit.ToStop]: 'toStop', [Transit.Waiting]: 'waiting', [Transit.Away]: 'away', [Transit.ToEdge]: 'toEdge',
+};
+
 function busSummary(world: World): EconomySummary['bus'] {
-  if (!world.busLine) return null;
+  if (!world.busRoad) return null;
   const a = world.agents;
-  let riding = 0;
+  let away = 0;
   let waiting = 0;
   for (let i = 0; i < a.count; i++) {
-    if (a.transit[i] === Transit.Riding) riding++;
+    if (a.transit[i] === Transit.Away) away++;
     else if (a.transit[i] === Transit.Waiting) waiting++;
   }
-  return { buses: busCount(world), riding, waiting };
+  return { away, waiting, visitorsToday: world.visitorsToday, nextBus: nextArrival(world, minuteOfDay(world)) };
 }
 
 function countByKind(world: World): EconomySummary['animals'] {
@@ -154,7 +159,14 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
       tenants: tenantsOf(world, a.household[i]!),
     },
     car: { household: householdHasCar(world, a.household[i]!), driving: a.driving[i] === 1 },
-    bus: (['toStop', 'waiting', 'riding'] as const)[a.transit[i]! - 1] ?? null,
+    away: a.transit[i]
+      ? {
+          stage: STAGES[a.transit[i]!]!,
+          reason: a.awayReason[i] === AwayReason.Work ? 'work' : 'trip',
+          back: a.awayUntil[i]!,
+          byCar: a.awayByCar[i] === 1,
+        }
+      : null,
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,
     lastScores: scores,
     memory,

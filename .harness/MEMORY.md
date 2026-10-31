@@ -132,3 +132,7 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   parentesco entre hogares iba al Estado en el 80 % de los casos): mirar la proporción de cada desenlace en la sonda.
 - (2026-10-31) Entidades cuya posición es función pura del tiempo (autobuses en línea fija) no necesitan estado ni
   snapshot: simplifican el determinismo. Ojo con el operador `**` en el motor: el test de pureza lo prohíbe.
+- (2026-10-31) Decisión del usuario: el transporte público solo une pueblos (los vecinos, fuera del mapa); dentro del
+  pueblo, a pie o en coche. Mantener el mundo de un solo pueblo salvo que pida simular varios.
+- (2026-10-31) Visual Gate: los contadores del render (`visibleBuses`, …) solo cambian cuando el navegador pinta; con
+  el panel oculto se quedan viejos. Comparar con `frame` o poner velocidad baja antes de medir.

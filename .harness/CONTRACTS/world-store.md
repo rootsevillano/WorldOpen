@@ -4,7 +4,8 @@ Código: `packages/contracts/src/store.ts`, `manifest.ts`, `snapshot.ts`. Decisi
 
 - **Mundo = manifiesto + log de comandos + snapshots.** El manifiesto es inmutable; el log, append-only.
 - El snapshot guarda los agentes por columnas (`agents.columns`, en el orden fijo de `AgentStore`; `nextId` y
-  `nextHousehold`; con `money` y `workedToday` desde 0.10, `renting` y `arrears` desde 0.12, `driving` desde 0.13, `landlord` y `mortgage` desde 0.14; desde 0.15 el snapshot incluye `animals`; `spare` desde 0.16; columnas de viaje en autobús desde 0.18; la línea se reconstruye del mapa), nombres y rutas en
+  `nextHousehold`; con `money` y `workedToday` desde 0.10, `renting` y `arrears` desde 0.12, `driving` desde 0.13, `landlord` y `mortgage` desde 0.14; desde 0.15 el snapshot incluye `animals`; `spare` desde 0.16; columnas de salida del pueblo desde 0.19 — `transit`, `transitSince`, `awayReason`, `awayUntil`, `awayByCar` —; la
+  carretera del autobús se reconstruye del mapa), nombres y rutas en
   curso, más los comandos aceptados aún pendientes. El mapa no va en el snapshot: se reconstruye del manifiesto.
 - Snapshot cada `1440 / minutesPerTick` ticks (un día de juego) y al pausar/cerrar.
 - Reproducir el tick T: `getSnapshot(worldId, T)` → `Simulation.restore` → aplicar `readCommands(worldId, snapshot.tick)`

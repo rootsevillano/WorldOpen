@@ -4,6 +4,7 @@ import { dayOfWeek, minuteOfDay } from './environment';
 import { WORKPLACE_USE } from './population';
 import { DOG_FOOD_COST, dogOwners } from './animals';
 import { housingDaily } from './housing';
+import { outsideJobs } from './transit';
 import { remember } from './social';
 
 /**
@@ -29,6 +30,8 @@ const EXPORT_ABOVE = 0.2;
 /** Jornal bruto por ocupación (se cobra entero con 5 h trabajadas en el día, proporcional si menos) e IRPF. */
 const DAILY_WAGE: Partial<Record<number, number>> = {
   [Occupation.Shopkeeper]: 80, [Occupation.Farmer]: 60, [Occupation.Sawyer]: 66, [Occupation.CivilServant]: 85,
+  // Trabajo en otro pueblo: lo paga el Exterior (ADR-0031).
+  [Occupation.Commuter]: 75,
 };
 const FULL_DAY_MINUTES = 300;
 const INCOME_TAX = 0.15;
@@ -235,9 +238,10 @@ function payWages(world: World): void {
     a.workedToday[i] = 0;
     const w = a.workplace[i]!;
     const wage = DAILY_WAGE[a.occupation[i]!];
-    if (worked === 0 || w < 0 || wage === undefined) continue;
+    const outside = a.occupation[i] === Occupation.Commuter;
+    if (worked === 0 || (w < 0 && !outside) || wage === undefined) continue;
     let paid = wage * level * Math.min(1, worked / FULL_DAY_MINUTES);
-    if (a.occupation[i] !== Occupation.CivilServant) {
+    if (a.occupation[i] !== Occupation.CivilServant && !outside) {
       paid *= bs.wage[w]!;
       paid = Math.min(bs.cash[w]!, paid);
       bs.cash[w]! -= paid;
@@ -420,6 +424,8 @@ export function weeklyJobs(world: World): void {
     employees.set(b, staff);
     world.emit('job.hired', { agentId: a.ids[i], name: a.names[i], building: map.buildings[b]!.id });
   }
+  // Quien sigue en paro puede encontrar trabajo en otro pueblo (ADR-0031).
+  outsideJobs(world, jobless);
 }
 
 /** Caja inicial de cada negocio: un mes de nóminas de su plantilla más un fondo. */

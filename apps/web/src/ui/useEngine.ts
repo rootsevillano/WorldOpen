@@ -352,6 +352,8 @@ function describeEvent(e: SimEvent): string {
     case 'estate.toState': return `Sin herederos: lo de ${String(d.name)} pasa al Estado`;
     case 'home.sold': return `🏷 ${String(d.seller)} vende una vivienda por ${String(d.price)} ${d.buyer ? `a ${String(d.buyer)}` : 'a un comprador de fuera'}`;
     case 'home.let': return 'Un hogar del pueblo alquila una vivienda que tenía vacía';
+    case 'bus.arrived': return `🚌 Llega el autobús de los pueblos vecinos${Number(d.visitors) > 0 ? `: ${String(d.visitors)} visitante(s)` : ''}`;
+    case 'job.outside': return `💼 ${String(d.name)} encuentra trabajo en otro pueblo`;
     case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;

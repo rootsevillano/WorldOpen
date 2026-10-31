@@ -12,14 +12,16 @@ const ACTIONS_ES: Record<string, string> = {
 };
 const OCCUPATIONS_ES: Record<string, string> = {
   unemployed: 'en paro', retired: 'jubilado/a', shopkeeper: 'comercio', farmer: 'campo', sawyer: 'aserradero',
-  civilServant: 'servicio público', student: 'estudiante', child: 'niño/a en casa',
+  civilServant: 'servicio público', student: 'estudiante', child: 'niño/a en casa', commuter: 'trabaja en otro pueblo',
 };
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',
   newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
   newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa', broke: 'no pudo pagar',
 };
-const BUS_ES: Record<string, string> = { toStop: 'va a la parada del autobús', waiting: 'espera el autobús', riding: 'en el autobús' };
+const AWAY_ES: Record<string, string> = {
+  toStop: 'va a la parada del autobús', waiting: 'espera el autobús', away: 'fuera del pueblo', toEdge: 'sale del pueblo en coche',
+};
 const TENURE_ES: Record<string, string> = { owner: 'vivienda propia', mortgaged: 'vivienda con hipoteca', renter: 'de alquiler' };
 const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad', partner: 'pareja' };
 const USES_ES: Record<string, string> = {
@@ -95,7 +97,7 @@ export function Inspector(props: {
           <div className="small">
             Ahora: <strong>{ACTIONS_ES[agent.action]}</strong> {agent.location ? `en ${agent.location}` : 'por la calle'}
             {agent.carrying && ` · lleva ${agent.carrying.amount.toFixed(0)} de ${agent.carrying.resource}`}
-            {agent.bus && ` · ${BUS_ES[agent.bus]}`}
+            {agent.away && ` · ${AWAY_ES[agent.away.stage]} (${agent.away.reason === 'work' ? 'trabaja fuera' : 'pasa el día fuera'}, vuelve hacia las ${String(Math.floor(agent.away.back / 60)).padStart(2, '0')}:${String(agent.away.back % 60).padStart(2, '0')})`}
           </div>
           <div className="small muted">
             Dinero: {agent.money.toFixed(2)} · {TENURE_ES[agent.housing.tenure]}

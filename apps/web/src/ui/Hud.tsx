@@ -34,7 +34,9 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
               Comida {economy.foodPrice.toFixed(2)} · Leña {economy.woodPrice.toFixed(2)} · Paro {(economy.unemploymentRate * 100).toFixed(0)} % · Salarios {economy.wageIndex.toFixed(2)}× · Alquiler {economy.rent.toFixed(1)}/día · Vivienda {economy.housePrice.toFixed(0)}
               <br />
               Perros {economy.animals.dogs} · Ovejas {economy.animals.sheep} · Gallinas {economy.animals.hens}
-              {economy.bus && ` · Autobuses ${economy.bus.buses} (${economy.bus.riding} viajando, ${economy.bus.waiting} esperando)`} · Ahorros {economy.householdMoney.toFixed(0)} · Cajas {economy.businessCash.toFixed(0)}
+              {economy.bus &&
+                ` · Fuera del pueblo ${economy.bus.away} · En la parada ${economy.bus.waiting} · Visitantes hoy ${economy.bus.visitorsToday}` +
+                  (economy.bus.nextBus !== null ? ` · Próximo autobús ${clock(economy.bus.nextBus)}` : '')} · Ahorros {economy.householdMoney.toFixed(0)} · Cajas {economy.businessCash.toFixed(0)}
             </div>
           )}
           <div className="muted small">
@@ -46,4 +48,9 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
       )}
     </section>
   );
+}
+
+/** Minuto del día → "hh:mm". */
+function clock(minute: number): string {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
 }

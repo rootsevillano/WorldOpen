@@ -6,7 +6,7 @@ import { Animal } from './world/animals';
 import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
-import { Transit, busCount } from './agents/transit';
+import { Transit, busesNow } from './agents/transit';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
@@ -139,14 +139,15 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       for (const hh of households) if (householdHasCar(sim.world, hh)) cars++;
       return households.size === 0 ? 0 : cars / households.size;
     }
-    // Autobús (ADR-0030): viajando, esperando en la parada; autobuses en servicio; paradas de la línea.
-    case 'agents.ridingRatio': return ratio((i) => a.transit[i] === Transit.Riding);
+    // Salidas del pueblo (ADR-0031): fuera, esperando el autobús, trabajando fuera; autobuses en la carretera.
+    case 'agents.awayRatio': return ratio((i) => a.transit[i] === Transit.Away);
     case 'agents.waitingBusRatio': return ratio((i) => a.transit[i] === Transit.Waiting);
-    case 'transit.buses': return busCount(sim.world);
-    case 'transit.stops': return sim.world.busLine?.stopNode.length ?? 0;
-    case 'agents.outdoorsRatio': return ratio((i) => a.location[i]! < 0);
+    case 'agents.commuterRatio': return ratio((i) => a.occupation[i] === Occupation.Commuter);
+    case 'transit.buses': return busesNow(sim.world).headings.length;
+    case 'agents.outdoorsRatio': return ratio((i) => a.location[i]! < 0 && a.transit[i] !== Transit.Away);
     case 'agents.sleepingRatio': return ratio((i) => a.action[i] === Action.Sleep && a.location[i]! >= 0);
-    case 'agents.workingRatio': return ratio((i) => a.action[i] === Action.Work && a.location[i] === a.workplace[i]);
+    // Trabajando en su puesto, o fuera del pueblo por trabajo (ADR-0031).
+    case 'agents.workingRatio': return ratio((i) => (a.action[i] === Action.Work && a.location[i] === a.workplace[i]) || (a.transit[i] === Transit.Away && a.awayReason[i] === 0));
     case 'agents.queueingRatio': return ratio((i) => a.busyLeft[i]! > 0 && a.location[i] !== a.home[i]);
     // En la calle buscando refugio (quien ya llegó a un refugio no cuenta).
     case 'agents.seekingShelterRatio': return ratio((i) => a.action[i] === Action.SeekShelter && a.location[i]! < 0);
