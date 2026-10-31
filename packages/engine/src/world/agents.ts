@@ -131,6 +131,8 @@ export class AgentStore {
   /** Casero (id de hogar; 0 = fondo de fuera) y deuda hipotecaria pendiente (ADR-0026). */
   readonly landlord: Uint32Array;
   readonly mortgage: Float64Array;
+  /** Viviendas del hogar además de la suya (heredadas o compradas para alquilar) (ADR-0028). */
+  readonly spare: Uint8Array;
   /** Dinero propio (ADR-0022). Float64: se acumula durante años sin perder céntimos. */
   readonly money: Float64Array;
   /** Puntuaciones de la última decisión (stride `ACTION_COUNT`). */
@@ -192,6 +194,7 @@ export class AgentStore {
     this.arrears = new Uint16Array(c);
     this.landlord = new Uint32Array(c);
     this.mortgage = new Float64Array(c);
+    this.spare = new Uint8Array(c);
     this.scores = new Float32Array(c * ACTION_COUNT);
     this.memTick = new Uint32Array(c * MEMORY_SLOTS);
     this.memKind = new Uint8Array(c * MEMORY_SLOTS);
@@ -210,7 +213,7 @@ export class AgentStore {
       ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
       ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
-      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['renting', this.renting, 1], ['driving', this.driving, 1], ['arrears', this.arrears, 1], ['landlord', this.landlord, 1], ['mortgage', this.mortgage, 1], ['scores', this.scores, ACTION_COUNT],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['renting', this.renting, 1], ['driving', this.driving, 1], ['arrears', this.arrears, 1], ['landlord', this.landlord, 1], ['mortgage', this.mortgage, 1], ['spare', this.spare, 1], ['scores', this.scores, ACTION_COUNT],
       ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
       ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
       ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],

@@ -31,6 +31,14 @@ function countByKind(world: World): EconomySummary['animals'] {
   return out;
 }
 
+/** Hogares que pagan alquiler al hogar `household`. */
+function tenantsOf(world: World, household: number): number {
+  const a = world.agents;
+  const seen = new Set<number>();
+  for (let j = 0; j < a.count; j++) if (a.renting[j] && a.landlord[j] === household) seen.add(a.household[j]!);
+  return seen.size;
+}
+
 /** Nombre del adulto de más edad del hogar casero (o `null`: fondo de fuera o casero ya ido). */
 function landlordName(world: World, household: number): string | null {
   if (household === 0) return null;
@@ -92,6 +100,8 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
       arrears: a.arrears[i]!,
       landlord: landlordName(world, a.renting[i] ? a.landlord[i]! : 0),
       mortgage: round(a.mortgage[i]!),
+      spare: a.spare[i]!,
+      tenants: tenantsOf(world, a.household[i]!),
     },
     car: { household: householdHasCar(world, a.household[i]!), driving: a.driving[i] === 1 },
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,

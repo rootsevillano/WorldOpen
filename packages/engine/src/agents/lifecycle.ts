@@ -4,7 +4,7 @@ import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
 import { bedtimeFor, hasFather, pickOccupation, removeAgent, spawnAgent } from './population';
 import { fertilityAt } from './fertility';
-import { MONEY_AGE } from './money';
+import { bequeath } from './estate';
 import { remember } from './social';
 
 /**
@@ -57,18 +57,6 @@ export function forgetAgent(world: World, deadId: number, grieve = true): void {
   }
 }
 
-/** El dinero de quien muere pasa a su hogar (si queda alguien que pueda administrarlo). */
-function inherit(world: World, i: number): void {
-  const a = world.agents;
-  for (let j = 0; j < a.count; j++) {
-    if (j !== i && a.household[j] === a.household[i] && a.age[j]! >= MONEY_AGE) {
-      a.money[j]! += a.money[i]!;
-      a.money[i] = 0;
-      return;
-    }
-  }
-}
-
 export function lifecycleSystem(world: World): void {
   const dt = world.time.minutesPerTick;
   const m = minuteOfDay(world);
@@ -103,8 +91,9 @@ export function lifecycleSystem(world: World): void {
     if (rng.nextFloat() >= p) continue;
     const id = a.ids[i]!;
     const cause = starving ? 'starvation' : 'age';
+    // Herencia antes de olvidar sus relaciones: el heredero se busca entre su familia (ADR-0028).
+    bequeath(world, i);
     forgetAgent(world, id);
-    inherit(world, i);
     removeAgent(world, id, 'agent.died', { age: a.age[i], cause });
   }
 

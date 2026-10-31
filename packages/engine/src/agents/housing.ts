@@ -1,5 +1,6 @@
 import { ticksPerDay } from '../time/clock';
 import type { World } from '../world/world';
+import { letSpareHome, sellSpareHomes } from './estate';
 import { MONEY_AGE, RENT_PER_DAY, rentIndex, rentNow } from './money';
 
 /**
@@ -64,6 +65,12 @@ export function seedLandlords(world: World): void {
  */
 export function assignLandlord(world: World, household: number): void {
   const a = world.agents;
+  // Antes que comprar otra, se alquila una vivienda vacía de un hogar del pueblo (heredada o comprada) (ADR-0028).
+  const owner = letSpareHome(world, household);
+  if (owner !== 0) {
+    for (let i = 0; i < a.count; i++) if (a.household[i] === household) a.landlord[i] = owner;
+    return;
+  }
   const price = housePrice(world);
   const wealth = new Map<number, number>();
   const tenants = new Set<number>();
@@ -130,8 +137,12 @@ export function housingDaily(world: World, pool: Map<number, [number, number]>):
       payments.set(hh, paid);
     }
   }
+  // Compraventa de viviendas de sobra entre particulares (ADR-0028).
+  const spareChange = sellSpareHomes(world, pool, price, day, first);
   for (let i = 0; i < a.count; i++) {
     const hh = a.household[i]!;
+    const sc = spareChange.get(hh);
+    if (sc) a.spare[i] = Math.max(0, Math.min(255, a.spare[i]! + sc));
     if (a.renting[i] && a.landlord[i] !== 0 && !pool.has(a.landlord[i]!)) a.landlord[i] = 0;
     const debt = purchases.get(hh);
     if (debt !== undefined) {

@@ -34,6 +34,9 @@ export interface AgentDetail {
     /** Quien cobra el alquiler (un vecino del hogar casero) o `null` si es un fondo de fuera (ADR-0026). */
     landlord: string | null;
     mortgage: number;
+    /** Viviendas del hogar además de la suya y hogares que le pagan alquiler (ADR-0028). */
+    spare: number;
+    tenants: number;
   };
   /** Coche del hogar y si lo lleva ahora (ADR-0025). */
   car: { household: boolean; driving: boolean };

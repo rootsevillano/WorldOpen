@@ -203,6 +203,17 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       return renters === 0 ? 0 : local / renters;
     }
     case 'economy.housePrice': return housePrice(sim.world);
+    // Viviendas de sobra de los hogares del pueblo (heredadas o compradas) (ADR-0028).
+    case 'households.spareHomes': {
+      const seen = new Set<number>();
+      let total = 0;
+      for (let i = 0; i < a.count; i++) {
+        if (seen.has(a.household[i]!)) continue;
+        seen.add(a.household[i]!);
+        total += a.spare[i]!;
+      }
+      return total;
+    }
     // Animales (ADR-0027): cuántos hay y qué parte de los perros salió ayer al menos 20 min.
     case 'animals.dogs': return countAnimals(sim, Animal.Dog);
     case 'animals.sheep': return countAnimals(sim, Animal.Sheep);

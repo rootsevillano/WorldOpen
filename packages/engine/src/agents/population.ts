@@ -125,6 +125,7 @@ export function spawnAgent(world: World, home = -1, age?: number, household = 0,
       a.arrears[i] = a.arrears[j]!;
       a.landlord[i] = a.landlord[j]!;
       a.mortgage[i] = a.mortgage[j]!;
+      a.spare[i] = a.spare[j]!;
       bond(world, i, a.ids[j]!, 0.6, RelationKind.Family);
       bond(world, j, id, 0.6, RelationKind.Family);
     }

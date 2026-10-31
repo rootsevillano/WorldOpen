@@ -139,12 +139,14 @@ class Census {
     a.arrears[i] = 0;
     a.landlord[i] = 0;
     a.mortgage[i] = 0;
+    a.spare[i] = 0;
     for (let j = 0; j < a.count; j++) {
       if (j !== i && a.household[j] === household) {
         a.renting[i] = a.renting[j]!;
         a.arrears[i] = a.arrears[j]!;
         a.landlord[i] = a.landlord[j]!;
         a.mortgage[i] = a.mortgage[j]!;
+        a.spare[i] = a.spare[j]!;
         break;
       }
     }

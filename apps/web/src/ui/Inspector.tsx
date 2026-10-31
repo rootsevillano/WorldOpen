@@ -86,6 +86,8 @@ export function Inspector(props: {
             Dinero: {agent.money.toFixed(2)} · {TENURE_ES[agent.housing.tenure]}
             {agent.housing.tenure === 'renter' && ` (paga a ${agent.housing.landlord ?? 'un fondo de fuera'})`}
             {agent.housing.mortgage > 0 && ` (le quedan ${agent.housing.mortgage.toFixed(0)})`}
+            {agent.housing.spare > 0 && ` · ${agent.housing.spare} vivienda(s) más`}
+            {agent.housing.tenants > 0 && ` · ${agent.housing.tenants} inquilino(s)`}
             {agent.housing.arrears > 0 && ` · ${agent.housing.arrears} días sin pagar el alquiler`}
             {agent.car.household && (agent.car.driving ? ' · lleva el coche' : ' · hay coche en casa')}
           </div>
