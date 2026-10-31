@@ -126,3 +126,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-10-31) Toda acumulación necesita un sumidero: los ahorros sin gasto discrecional crecían sin límite y
   distorsionaban cualquier mecanismo que dependa de ellos (compra de vivienda casi inmediata). Sondear los stocks
   monetarios a 2 años, no solo los flujos.
+- (2026-10-31) Con ticks de 10 min un trayecto corto empieza y termina dentro de un tick (los coches y los paseos
+  "no se ven"): medir actividades por su intención (acción, local) y no por la posición al final del tick.

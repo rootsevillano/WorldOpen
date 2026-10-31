@@ -3,6 +3,7 @@ import type { CriteriaRegistry } from '../criteria/registry';
 import type { NavMap } from '../map/navigation';
 import type { Rng } from '../math/rng';
 import { AgentStore } from './agents';
+import { AnimalStore } from './animals';
 import { BuildingStore } from './buildings';
 
 /** Estado mutable del mundo. Solo lo tocan los sistemas y los comandos, dentro de un tick. */
@@ -11,6 +12,8 @@ export class World {
   criteria: CriteriaValues;
   readonly agents: AgentStore;
   readonly buildings: BuildingStore;
+  /** Perros y ganado (ADR-0027). */
+  readonly animals = new AnimalStore(20_000);
   private pendingEvents: SimEvent[] = [];
   /** Hogares con el coche fuera; transitorio, se recalcula al empezar cada decisión (ADR-0025). */
   carsBusy = new Set<number>();

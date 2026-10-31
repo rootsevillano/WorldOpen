@@ -46,7 +46,8 @@ describe('Dinero y empleo (ADR-0022)', () => {
   });
 
   it('el hogar reparte su dinero entre los mayores de 14; pensiones y ayuda de emergencia', () => {
-    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 300 } }));
+    // Sin perros: su comida no entra en la cuenta del jubilado (ADR-0027).
+    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 300, 'society.petOwnership': 0 } }));
     const a = sim.world.agents;
     for (const i of indices(sim)) a.workedToday[i] = 0;
     const retiree = indices(sim).find((i) => a.occupation[i] === Occupation.Retired && indices(sim).filter((k) => a.household[k] === a.household[i]).length === 1)!;

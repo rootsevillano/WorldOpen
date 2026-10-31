@@ -1,3 +1,4 @@
+import { animalSystem } from '../agents/animals';
 import { disasterSystem } from '../agents/disasters';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
@@ -62,6 +63,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'economy.livestock',
+      type: 'number', min: 0, max: 3, default: 1,
+      description: 'Ganado de las huertas: 1 = una gallina por cada 20 m² y una oveja por cada 100 m² de nave; 0 = ninguno.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'economy.priceLevel',
       type: 'number', min: 0.25, max: 4, default: 1,
       description: 'Nivel de precios: venta al público, mayorista, exportación y gastos fijos de los hogares (1 = normal).',
@@ -92,6 +99,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.petOwnership',
+      type: 'number', min: 0, max: 1, default: 0.3,
+      description: 'Proporción de hogares con perro (≈ 0,3 en España). Los perros piden paseo y comida.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.emigration',
       type: 'number', min: 0, max: 5, default: 1,
       description: 'Multiplicador de la marcha de jóvenes solteros (más si no hay vivienda libre).',
@@ -119,6 +132,7 @@ export const contemporary: Ruleset = {
     { name: 'movement', run: movementSystem },
     { name: 'service', run: serviceSystem },
     { name: 'social', run: socialSystem },
+    { name: 'animals', run: animalSystem },
     { name: 'lifecycle', run: lifecycleSystem },
     { name: 'households', run: householdsSystem },
     { name: 'money', run: moneySystem },

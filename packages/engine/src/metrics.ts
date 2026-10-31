@@ -1,6 +1,8 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
 import { housePrice } from './agents/housing';
+import { DOG_WALK_MINUTES } from './agents/animals';
+import { Animal } from './world/animals';
 import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
@@ -201,6 +203,28 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       return renters === 0 ? 0 : local / renters;
     }
     case 'economy.housePrice': return housePrice(sim.world);
+    // Animales (ADR-0027): cuántos hay y qué parte de los perros salió ayer al menos 20 min.
+    case 'animals.dogs': return countAnimals(sim, Animal.Dog);
+    case 'animals.sheep': return countAnimals(sim, Animal.Sheep);
+    case 'animals.hens': return countAnimals(sim, Animal.Hen);
+    case 'animals.dogsWalkedRatio': {
+      const an = sim.world.animals;
+      let dogs = 0;
+      let walked = 0;
+      for (let i = 0; i < an.count; i++) {
+        if (an.kind[i] !== Animal.Dog) continue;
+        dogs++;
+        if (an.walkedYesterday[i]! >= DOG_WALK_MINUTES) walked++;
+      }
+      return dogs === 0 ? 0 : walked / dogs;
+    }
+    // Perros en la calle (con su paseante) y ganado fuera del corral.
+    case 'animals.outdoorsRatio': {
+      const an = sim.world.animals;
+      let out = 0;
+      for (let i = 0; i < an.count; i++) if (!(an.flags[i]! & 1)) out++;
+      return an.count === 0 ? 0 : out / an.count;
+    }
     case 'economy.businessCash': {
       let total = 0;
       for (let b = 0; b < uses.length; b++) if (isBusiness(sim.world, b)) total += bs.cash[b]!;
@@ -218,6 +242,13 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'economy.pantryWood': return e!.pantryWood;
     default: return undefined;
   }
+}
+
+function countAnimals(sim: Simulation, kind: number): number {
+  const an = sim.world.animals;
+  let n = 0;
+  for (let i = 0; i < an.count; i++) if (an.kind[i] === kind) n++;
+  return n;
 }
 
 export const REPORT_METRICS = [

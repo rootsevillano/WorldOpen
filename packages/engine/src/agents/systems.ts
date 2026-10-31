@@ -23,6 +23,7 @@ import {
 import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { canAfford, payHarvest, spendLeisure } from './money';
+import { dogsToWalk } from './animals';
 import { remember } from './social';
 import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
 
@@ -135,6 +136,7 @@ function provisionScore(world: World, i: number, r: number, night: number, outdo
 export function decisionSystem(world: World): void {
   const a = world.agents;
   world.carsBusy = carsInUse(world);
+  const walkDog = dogsToWalk(world);
   const rng = world.rng;
   const every = Math.max(1, Math.round(DECISION_MINUTES / world.time.minutesPerTick));
   const night = nightFactor(world);
@@ -226,7 +228,9 @@ export function decisionSystem(world: World): void {
     }
     if (!carrying && !minor) {
       if (night < 0.5 && map.venues.length > 0 && !sleepTime) {
-        consider(Action.GoOut, (1 - social) * (0.4 + 0.8 * a.sociability[i]!) * (1 - night) * outdoorAppeal - (atVenue ? 0.2 : 0));
+        // Un perro sin pasear hoy anima a salir a quien está en casa (ADR-0027).
+        const dog = atHome && age >= 10 && walkDog.has(a.household[i]!) ? 0.35 : 0;
+        consider(Action.GoOut, ((1 - social) * (0.4 + 0.8 * a.sociability[i]!) + dog) * (1 - night) * outdoorAppeal - (atVenue ? 0.2 : 0));
       }
       let bestR: number = Resource.None;
       let bestP = -Infinity;

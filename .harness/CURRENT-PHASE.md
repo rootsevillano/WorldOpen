@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Propietarios y vivienda · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Animales · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
 
-## Propietarios y vivienda — entregado (ADR-0026)
+## Animales — entregado (ADR-0027)
+- Perros de los hogares que salen con quien va de paseo (piden paseo y comida, envejecen, se adoptan) y ganado de las
+  huertas (gallinas y ovejas que deambulan de día, se recogen de noche y dan comida). Protocolo v5; motor 0.15.0.
+- Behavior 15/15 en ambos mapas; 146 tests; Visual Gate superado.
+
+## Propietarios y vivienda (anterior) — completado
+
+### ADR-0026
 - Los alquileres los cobran hogares del pueblo o fondos de fuera; los inquilinos con ahorros compran con hipoteca;
   impago de hipoteca = ejecución; los hogares ricos invierten en viviendas de alquiler; gasto discrecional que estabiliza
   los ahorros. Criterio `economy.creditAccess`. Motor 0.14.0.
@@ -75,7 +82,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: animales, atascos/transporte público, herencia y compraventa entre particulares; LOD si se pasa de 6 000.
+- Siguiente modelo: herencia y compraventa entre particulares, atascos/transporte público, fauna salvaje; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

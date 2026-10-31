@@ -31,3 +31,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0024](0024-wages-rents.md) | Salarios de mercado y alquileres | Aceptada |
 | [0025](0025-vehicles.md) | Vehículos (coche por hogar) | Aceptada |
 | [0026](0026-landlords-housing.md) | Propietarios locales y compra de vivienda | Aceptada |
+| [0027](0027-animals.md) | Animales: perros y ganado | Aceptada |

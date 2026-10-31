@@ -30,6 +30,7 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | `climate.baseTemperatureC` | number | −10 … 50 | 18 | both |
 | `economy.creditAccess` | number | 0 … 2 | 1 | admin |
 | `economy.foodAbundance` | number | 0 … 1 | 0.7 | admin |
+| `economy.livestock` | number | 0 … 3 | 1 | admin |
 | `economy.priceLevel` | number | 0.25 … 4 | 1 | admin |
 | `economy.rentLevel` | number | 0 … 10 | 1 | admin |
 | `economy.wageLevel` | number | 0.25 … 4 | 1 | admin |
@@ -37,6 +38,7 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | `economy.welfare` | number | 0 … 3 | 1 | admin |
 | `society.carOwnership` | number | 0 … 1 | 0.75 | admin |
 | `society.emigration` | number | 0 … 5 | 1 | admin |
+| `society.petOwnership` | number | 0 … 1 | 0.3 | admin |
 | `society.fertility` | number | 0 … 5 | 1 | admin |
 | `society.immigration` | number | 0 … 5 | 1 | admin |
 | `society.mortality` | number | 0 … 5 | 1 | admin |

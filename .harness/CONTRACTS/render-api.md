@@ -8,6 +8,9 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
 - Agentes en estructura de arrays: `agentIds` (u32), `agentPositions` (f32 × 3), `agentHeadings` (f32, radianes, 0 = +X,
   positivo hacia −Z = Norte), `agentActivities` (u8, `AgentActivity`), `agentFlags` (u8, `AgentFlag`; `Indoors` = dentro
   de un edificio: el render no lo dibuja; `Driving` = va en coche: el render dibuja un coche, ADR-0025).
+- Animales (protocolo v5, ADR-0027): `animalCount`, `animalIds` (u32), `animalPositions` (f32 × 3), `animalHeadings`,
+  `animalKinds` (u8, `AnimalKind`: perro, oveja, gallina) y `animalFlags` (`Indoors` = recogido: no se dibuja). El
+  render los interpola desde su posición del frame anterior.
 - Mapa: el render pide `query {map}` (lista de `MapLogic`) al recibir `ready`. Sin GLB, dibuja edificios como volúmenes
   (lado = √superficie, altura = plantas × 3 m, color por uso) y calles como franjas por tramo.
 - Los buffers se **transfieren** (no se copian): el motor crea arrays nuevos por frame y deja de usarlos al enviarlos.

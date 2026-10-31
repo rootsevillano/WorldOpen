@@ -2,6 +2,7 @@ import { Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import { dayOfWeek, minuteOfDay } from './environment';
 import { WORKPLACE_USE } from './population';
+import { DOG_FOOD_COST, dogOwners } from './animals';
 import { housingDaily } from './housing';
 import { remember } from './social';
 
@@ -287,6 +288,11 @@ export function dailyMoney(world: World): void {
     p[0] += delta + (age >= MONEY_AGE ? a.money[i]! : 0);
     if (age >= MONEY_AGE) p[1]++;
     pool.set(hh, p);
+  }
+  // Comida del perro (ADR-0027).
+  for (const hh of dogOwners(world)) {
+    const p = pool.get(hh);
+    if (p) p[0] -= DOG_FOOD_COST * priceLevel;
   }
   // Alquiler e hipoteca (ADR-0024, ADR-0026): quien no llega paga lo que tiene y acumula un día de impago.
   const unpaid = housingDaily(world, pool);

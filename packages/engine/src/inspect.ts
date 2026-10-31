@@ -14,10 +14,22 @@ import {
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
 import { housePrice } from './agents/housing';
+import { Animal } from './world/animals';
 import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
+
+function countByKind(world: World): EconomySummary['animals'] {
+  const an = world.animals;
+  const out = { dogs: 0, sheep: 0, hens: 0 };
+  for (let i = 0; i < an.count; i++) {
+    if (an.kind[i] === Animal.Dog) out.dogs++;
+    else if (an.kind[i] === Animal.Sheep) out.sheep++;
+    else out.hens++;
+  }
+  return out;
+}
 
 /** Nombre del adulto de más edad del hogar casero (o `null`: fondo de fuera o casero ya ido). */
 function landlordName(world: World, household: number): string | null {
@@ -165,5 +177,6 @@ export function economySummary(world: World): EconomySummary {
     rent: round(rentNow(world)),
     wageIndex: round(wageIndex(world)),
     housePrice: round(housePrice(world)),
+    animals: countByKind(world),
   };
 }

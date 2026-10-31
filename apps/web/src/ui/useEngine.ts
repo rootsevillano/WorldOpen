@@ -346,6 +346,8 @@ function describeEvent(e: SimEvent): string {
     case 'home.bought': return `🏠 ${String(d.name)} compra su vivienda en ${String(d.home)} por ${String(d.price)}${Number(d.mortgage) > 0 ? ` (hipoteca de ${String(d.mortgage)})` : ''}`;
     case 'mortgage.paidOff': return `${String(d.name)} termina de pagar la hipoteca de ${String(d.home)}`;
     case 'home.investment': return `Un hogar del pueblo compra una vivienda para alquilarla por ${String(d.price)}`;
+    case 'dog.adopted': return `🐕 Un hogar de ${String(d.home)} adopta un perro`;
+    case 'dog.died': return `Muere un perro de ${String(d.age)} años`;
     case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;

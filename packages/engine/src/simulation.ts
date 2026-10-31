@@ -15,6 +15,7 @@ import {
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
 import { seedCash } from './agents/money';
+import { seedAnimals } from './agents/animals';
 import { populate } from './agents/population';
 import { agentDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
@@ -99,6 +100,7 @@ export class Simulation {
       populate(this.world, n);
       seedStocks(this.world);
       seedCash(this.world);
+      seedAnimals(this.world);
     }
   }
 
@@ -114,6 +116,7 @@ export class Simulation {
     w.criteria = { ...snapshot.criteria };
     w.agents.restore(snapshot.agents);
     w.buildings.restore(snapshot.buildings);
+    w.animals.restore(snapshot.animals);
     for (const entry of snapshot.pendingCommands) sim.enqueueLogged(entry);
     if (sim.hash() !== snapshot.hash) throw new Error('El snapshot restaurado no coincide con su hash');
     // Los comandos del log ya pendientes en el snapshot no se duplican.
@@ -195,6 +198,7 @@ export class Simulation {
   /** Frame para el render con buffers nuevos (transferibles). */
   frame(): RenderFrame {
     const a = this.world.agents;
+    const an = this.world.animals;
     const n = a.count;
     return {
       tick: this.world.tick,
@@ -206,6 +210,12 @@ export class Simulation {
       agentActivities: a.activities.slice(0, n),
       agentFlags: a.flags.slice(0, n),
       buildingStates: this.world.buildings.state.slice(),
+      animalCount: an.count,
+      animalIds: an.ids.slice(0, an.count),
+      animalPositions: an.positions.slice(0, an.count * 3),
+      animalHeadings: an.headings.slice(0, an.count),
+      animalKinds: an.kind.slice(0, an.count),
+      animalFlags: an.flags.slice(0, an.count),
     };
   }
 
@@ -234,6 +244,12 @@ export class Simulation {
       h.str(name);
       for (let k = 0; k < bs.count; k++) h.f64(col[k]!);
     }
+    const an = w.animals;
+    h.u32(an.count).u32(an.nextId);
+    for (const [name, col, stride] of an.eachColumn()) {
+      h.str(name);
+      for (let k = 0; k < an.count * stride; k++) h.f64(col[k]!);
+    }
     for (let i = 0; i < a.count; i++) {
       h.str(a.names[i]!);
       const p = a.paths[i];
@@ -255,6 +271,7 @@ export class Simulation {
       criteria: { ...w.criteria },
       agents: w.agents.serialize(),
       buildings: w.buildings.serialize(),
+      animals: w.animals.serialize(),
       pendingCommands: this.queue.map(({ appliedAtTick, envelope }) => ({ appliedAtTick, envelope })),
       hash: this.hash(),
     };

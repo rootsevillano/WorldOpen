@@ -83,4 +83,6 @@ export interface EconomySummary {
   wageIndex: number;
   /** Precio de una vivienda (ADR-0026). */
   housePrice: number;
+  /** Animales (ADR-0027). */
+  animals: { dogs: number; sheep: number; hens: number };
 }

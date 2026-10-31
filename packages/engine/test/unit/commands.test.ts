@@ -63,7 +63,7 @@ describe('Comandos y criterios', () => {
     const cat = new Simulation(manifest()).catalog();
     expect(cat.commands.map((c) => c.type)).toEqual(['agent.remove', 'agent.spawn', 'criteria.set', 'disaster.fire']);
     expect(cat.criteria.map((c) => c.key)).toEqual([
-      'climate.baseTemperatureC', 'economy.creditAccess', 'economy.foodAbundance', 'economy.priceLevel', 'economy.rentLevel', 'economy.wageLevel', 'economy.waterSupply', 'economy.welfare', 'society.carOwnership', 'society.emigration', 'society.fertility', 'society.immigration', 'society.initialPopulation', 'society.mortality', 'society.sociability', 'world.era',
+      'climate.baseTemperatureC', 'economy.creditAccess', 'economy.foodAbundance', 'economy.livestock', 'economy.priceLevel', 'economy.rentLevel', 'economy.wageLevel', 'economy.waterSupply', 'economy.welfare', 'society.carOwnership', 'society.emigration', 'society.fertility', 'society.immigration', 'society.initialPopulation', 'society.mortality', 'society.petOwnership', 'society.sociability', 'world.era',
     ]);
     expect(cat.values['climate.baseTemperatureC']).toBe(18);
   });

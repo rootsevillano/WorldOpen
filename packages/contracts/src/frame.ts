@@ -20,7 +20,17 @@ export interface RenderFrame {
   agentFlags: Uint8Array;
   /** Estado por edificio, en el orden de `MapLogic.buildings` concatenado por región (ver `BuildingState`). */
   buildingStates: Uint8Array;
+  /** Animales (ADR-0027): ids, posiciones (stride 3), rumbos, tipo (`AnimalKind`) y banderas (`AgentFlag.Indoors`). */
+  animalCount: number;
+  animalIds: Uint32Array;
+  animalPositions: Float32Array;
+  animalHeadings: Float32Array;
+  animalKinds: Uint8Array;
+  animalFlags: Uint8Array;
 }
+
+export const AnimalKind = { Dog: 0, Sheep: 1, Hen: 2 } as const;
+export type AnimalKind = (typeof AnimalKind)[keyof typeof AnimalKind];
 
 export const AgentFlag = {
   /** Dentro de un edificio: el render no lo dibuja en la calle. */
@@ -51,5 +61,10 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.agentActivities.buffer,
     frame.agentFlags.buffer,
     frame.buildingStates.buffer,
+    frame.animalIds.buffer,
+    frame.animalPositions.buffer,
+    frame.animalHeadings.buffer,
+    frame.animalKinds.buffer,
+    frame.animalFlags.buffer,
   ] as ArrayBuffer[];
 }

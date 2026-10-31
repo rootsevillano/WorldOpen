@@ -1,6 +1,6 @@
 {
   "name": "daily-cycle",
-  "description": "V4 (1): en un día laborable la mayoría trabaja, parte de la población sale por ocio, todos vuelven a casa y duermen de noche; con la economía normal nadie pasa hambre.",
+  "description": "V4 (1): en un día laborable la mayoría trabaja, parte de la población sale por ocio, todos vuelven a casa y duermen de noche; con la economía normal nadie pasa hambre. Los animales salen de día y se recogen de noche, y la mayoría de los perros sale a pasear (ADR-0027).",
   "seeds": [
     1,
     2,
@@ -83,6 +83,36 @@
       "metric": "agents.avgHealth",
       "op": ">=",
       "value": 0.95
+    },
+    {
+      "kind": "metric",
+      "metric": "animals.outdoorsRatio",
+      "op": ">=",
+      "value": 0.5,
+      "at": {
+        "day": 0,
+        "hour": 12
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "animals.outdoorsRatio",
+      "op": "<=",
+      "value": 0.05,
+      "at": {
+        "day": 1,
+        "hour": 0
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "animals.dogsWalkedRatio",
+      "op": ">=",
+      "value": 0.4,
+      "at": {
+        "day": 1,
+        "hour": 12
+      }
     }
   ]
 }

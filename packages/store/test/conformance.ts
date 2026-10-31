@@ -11,6 +11,7 @@ export function worldStoreConformance(name: string, make: () => Promise<WorldSto
   const snapshot = (tick: number): Snapshot => ({
     engineVersion: 'test', tick, rngState: [1, 2, 3, 4], criteria: { k: tick },
     agents: { nextId: 1, nextHousehold: 1, count: 0, columns: {}, names: [], paths: [] },
+    animals: { nextId: 1, count: 0, columns: {} },
     buildings: { columns: {} }, pendingCommands: [], hash: tick,
   });
   const cmd = (tick: number, id: string) => ({

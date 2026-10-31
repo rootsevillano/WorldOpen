@@ -6,6 +6,7 @@ import { Heights, buildFootprints, buildTrees, loadGlb, type FootprintMesh } fro
 /** Latitud del mapa base, solo para la altura del sol (no se muestra en ningún sitio). */
 const LATITUDE_DEG = 37.3;
 const MAX_AGENTS = 10_000;
+const MAX_ANIMALS = 20_000;
 
 /** Colores de coche (por id del conductor: estable entre frames). */
 const CAR_COLORS = [0xb03a2e, 0x1f618d, 0xd4ac0d, 0xeeeeee, 0x2c3e50, 0x7f8c8d, 0x117a65].map((c) => new THREE.Color(c));
@@ -83,6 +84,9 @@ export class WorldRenderer {
   /** Coches en marcha (agentes con `AgentFlag.Driving`), ADR-0025. */
   private readonly cars: THREE.InstancedMesh;
   private carAtInstance: number[] = [];
+  /** Animales por tipo (`AnimalKind`), ADR-0027. */
+  private readonly animalMeshes: THREE.InstancedMesh[];
+  private readonly prevAnimalPos = new Map<number, [number, number, number]>();
   private readonly mapGroup = new THREE.Group();
   private buildingMesh: THREE.InstancedMesh | null = null;
   private footprints: FootprintMesh | null = null;
@@ -153,6 +157,28 @@ export class WorldRenderer {
     this.cars.frustumCulled = false;
     this.cars.name = 'CARS';
     this.scene.add(this.cars);
+
+    // Perro (marrón), oveja (blanca, lanuda) y gallina (pequeña): cuerpo y cabeza en +X (rumbo 0).
+    const animal = (body: [number, number, number], head: [number, number, number], color: number) =>
+      new THREE.InstancedMesh(
+        mergeBoxes(
+          new THREE.BoxGeometry(...body).translate(0, body[1] / 2 + 0.15, 0),
+          new THREE.BoxGeometry(...head).translate(body[0] / 2 + head[0] / 2 - 0.05, body[1] + 0.1, 0),
+        ),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.9 }),
+        MAX_ANIMALS,
+      );
+    this.animalMeshes = [
+      animal([0.8, 0.4, 0.3], [0.3, 0.3, 0.25], 0x8b5a2b),
+      animal([1.0, 0.65, 0.6], [0.3, 0.35, 0.3], 0xf2efe6),
+      animal([0.32, 0.28, 0.22], [0.12, 0.14, 0.1], 0xe8e2d0),
+    ];
+    for (const [k, m] of this.animalMeshes.entries()) {
+      m.count = 0;
+      m.frustumCulled = false;
+      m.name = `ANIMALS_${k}`;
+      this.scene.add(m);
+    }
 
     this.marker = new THREE.Mesh(
       new THREE.RingGeometry(1.2, 1.6, 32).rotateX(-Math.PI / 2),
@@ -332,6 +358,12 @@ export class WorldRenderer {
       const shown = new Map<number, [number, number, number]>();
       for (let i = 0; i < prev.agentCount; i++) shown.set(prev.agentIds[i]!, this.interpolated(prev, i, now));
       this.prevPos = shown;
+      // Animales: se interpola desde su posición del frame anterior (si estaban fuera).
+      this.prevAnimalPos.clear();
+      for (let i = 0; i < prev.animalCount; i++) {
+        if (prev.animalFlags[i]! & AgentFlag.Indoors) continue;
+        this.prevAnimalPos.set(prev.animalIds[i]!, [prev.animalPositions[i * 3]!, 0, prev.animalPositions[i * 3 + 2]!]);
+      }
       this.tickDuration = THREE.MathUtils.clamp(now - this.tickArrivedAt, 16, 1000);
       this.tickArrivedAt = now;
     } else if (!prev) {
@@ -436,6 +468,38 @@ export class WorldRenderer {
     this.cars.count = c;
     this.cars.instanceMatrix.needsUpdate = true;
     if (this.cars.instanceColor) this.cars.instanceColor.needsUpdate = true;
+    this.updateAnimals(f, now, scale);
+  }
+
+  private updateAnimals(f: RenderFrame, now: number, scale: number): void {
+    const counts = this.animalMeshes.map(() => 0);
+    const t = THREE.MathUtils.clamp((now - this.tickArrivedAt) / this.tickDuration, 0, 1);
+    for (let i = 0; i < f.animalCount; i++) {
+      if (f.animalFlags[i]! & AgentFlag.Indoors) continue;
+      const mesh = this.animalMeshes[f.animalKinds[i]!];
+      if (!mesh) continue;
+      let x = f.animalPositions[i * 3]!;
+      let z = f.animalPositions[i * 3 + 2]!;
+      const from = this.prevAnimalPos.get(f.animalIds[i]!);
+      if (from) {
+        x = from[0] + (x - from[0]) * t;
+        z = from[2] + (z - from[2]) * t;
+      }
+      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
+      this.tmp.rotation.set(0, f.animalHeadings[i]!, 0);
+      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.updateMatrix();
+      mesh.setMatrixAt(counts[f.animalKinds[i]!]!++, this.tmp.matrix);
+    }
+    for (const [k, m] of this.animalMeshes.entries()) {
+      m.count = counts[k]!;
+      m.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  /** Animales visibles fuera de casa o del corral (para el Visual Gate). */
+  get visibleAnimals(): number {
+    return this.animalMeshes.reduce((s, m) => s + m.count, 0);
   }
 
   /** Desplaza el foco de la cámara (y la cámara con él) hacia (x, z) con suavizado. */
