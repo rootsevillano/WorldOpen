@@ -25,6 +25,7 @@ import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { canAfford, payHarvest, spendLeisure } from './money';
 import { dogsToWalk } from './animals';
 import { remember } from './social';
+import { Transit, planRide } from './transit';
 import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
 
 /**
@@ -157,7 +158,8 @@ export function decisionSystem(world: World): void {
 
   for (let i = 0; i < a.count; i++) {
     // Abasteciéndose (cola o servicio en curso) o comiendo: no se interrumpe.
-    if (a.busyLeft[i]! > 0) continue;
+    // Abasteciéndose, comiendo o en un viaje en autobús (ADR-0030): no se interrumpe.
+    if (a.busyLeft[i]! > 0 || a.transit[i]) continue;
     const moving = a.paths[i] !== null;
     const due = (world.tick + a.ids[i]!) % every === 0;
     const stranded =
@@ -300,7 +302,7 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   }
   const x = a.positions[i * 3]!;
   const z = a.positions[i * 3 + 2]!;
-  const path = map.route(x, z, a.location[i]!, target);
+  let path = map.route(x, z, a.location[i]!, target);
   if (!path) {
     a.action[i] = Action.Stay;
     return;
@@ -309,6 +311,17 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   if (!a.driving[i] && a.location[i] === a.home[i] && shouldDrive(world, i, pathLength(x, z, path), world.carsBusy)) {
     a.driving[i] = 1;
     world.carsBusy.add(a.household[i]!);
+  }
+  // Sin coche, un trayecto largo puede hacerse en autobús: primero, a pie hasta la parada (ADR-0030).
+  if (!a.driving[i]) {
+    const ride = planRide(world, i, x, z, path, target);
+    if (ride) {
+      path = ride.path;
+      a.transit[i] = Transit.ToStop;
+      a.boardStop[i] = ride.board;
+      a.alightStop[i] = ride.alight;
+      a.finalTarget[i] = target;
+    }
   }
   a.paths[i] = path;
   a.pathPos[i] = 0;
@@ -414,6 +427,14 @@ export function movementSystem(world: World): void {
     a.positions[i * 3 + 2] = z;
     a.pathPos[i] = k;
     if (driving) a.money[i] = Math.max(0, a.money[i]! - fuelCost(world, start - budget));
+    if (k * 2 >= path.length && a.transit[i] === Transit.ToStop) {
+      // En la parada: espera el autobús (el sistema de transporte lo sube).
+      a.paths[i] = null;
+      a.transit[i] = Transit.Waiting;
+      a.transitSince[i] = world.tick * world.time.minutesPerTick;
+      a.activities[i] = AgentActivity.Idle;
+      continue;
+    }
     if (k * 2 >= path.length) {
       const target = a.target[i]!;
       a.paths[i] = null;

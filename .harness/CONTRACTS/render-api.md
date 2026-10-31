@@ -12,6 +12,8 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
   `animalKinds` (u8, `AnimalKind`: perro, oveja, gallina) y `animalFlags` (`Indoors` = recogido: no se dibuja). El
   render los interpola desde su posición del frame anterior. `pick` devuelve `{ kind: 'animal', id }` para un animal
   visible (ADR-0029).
+- Autobuses (protocolo v7, ADR-0030): `busCount`, `busPositions` (f32 × 3), `busHeadings`; el render los dibuja (los
+  viajeros van ocultos, `Indoors`, con su autobús).
 - Mapa: el render pide `query {map}` (lista de `MapLogic`) al recibir `ready`. Sin GLB, dibuja edificios como volúmenes
   (lado = √superficie, altura = plantas × 3 m, color por uso) y calles como franjas por tramo.
 - Los buffers se **transfieren** (no se copian): el motor crea arrays nuevos por frame y deja de usarlos al enviarlos.

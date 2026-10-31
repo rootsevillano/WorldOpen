@@ -126,6 +126,23 @@ export class NavMap {
     return path.reverse();
   }
 
+  /** Waypoints desde (x, z) — o el interior de `fromBuilding` — hasta el nodo de calle `node` (una parada). */
+  routeToNode(x: number, z: number, fromBuilding: number, node: number): Float64Array | null {
+    const pts: number[] = [];
+    let startNode: number;
+    if (fromBuilding >= 0) {
+      const e = this.buildings[fromBuilding]!.entrances[0];
+      if (e) pts.push(e.x, e.z);
+      startNode = this.entranceNode[fromBuilding]!;
+    } else {
+      startNode = this.nearestNode(x, z);
+    }
+    const path = this.nodePath(startNode, node);
+    if (!path) return null;
+    for (const i of path) pts.push(this.nodeX[i]!, this.nodeZ[i]!);
+    return Float64Array.from(pts);
+  }
+
   /**
    * Waypoints (pares x, z) para ir del punto (x, z) — o del interior de `fromBuilding` — al interior de `toBuilding`.
    */

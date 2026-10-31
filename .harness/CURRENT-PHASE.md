@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Inspector de animales · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Transporte público · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
 
-## Inspector de animales — entregado (ADR-0029)
+## Transporte público — entregado (ADR-0030)
+- Línea circular de autobús generada del mapa (solo en pueblos con recorrido ≥ 2 km); autobuses según la hora;
+  quien no tiene coche lo coge para trayectos largos si compensa. Protocolo v7; motor 0.18.0.
+- 156 tests; 15/15 en ambos mapas; Visual Gate superado.
+
+## Inspector de animales (anterior) — completado
+
+### ADR-0029
 - Los animales visibles se seleccionan en la vista; su ficha muestra tipo, edad, dueño o huerta, quién lo pasea,
   estado, paseo y producción, con enlaces. Protocolo v6; motor 0.17.0. 151 tests; 15/15 en ambos mapas.
 
@@ -95,7 +102,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: animales en las fichas de hogar y huerta, atascos/transporte público, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
+- Siguiente modelo: animales en las fichas de hogar y huerta, paradas visibles y varias líneas, atascos, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

@@ -2,6 +2,7 @@ import type { CriteriaValues, SimEvent, TimeConfig } from '@worldopen/contracts'
 import type { CriteriaRegistry } from '../criteria/registry';
 import type { NavMap } from '../map/navigation';
 import type { Rng } from '../math/rng';
+import type { BusLine } from '../agents/transit';
 import { AgentStore } from './agents';
 import { AnimalStore } from './animals';
 import { BuildingStore } from './buildings';
@@ -17,6 +18,8 @@ export class World {
   private pendingEvents: SimEvent[] = [];
   /** Hogares con el coche fuera; transitorio, se recalcula al empezar cada decisión (ADR-0025). */
   carsBusy = new Set<number>();
+  /** Línea de autobús generada del mapa (ADR-0030); no va en el snapshot: se reconstruye igual. */
+  busLine: BusLine | null = null;
 
   constructor(
     readonly time: TimeConfig,

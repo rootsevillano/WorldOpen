@@ -1,4 +1,5 @@
 import { animalSystem } from '../agents/animals';
+import { transitSystem } from '../agents/transit';
 import { disasterSystem } from '../agents/disasters';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
@@ -105,6 +106,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.transit',
+      type: 'number', min: 0, max: 3, default: 1,
+      description: 'Frecuencia del autobús: 1 = uno cada 15 min de 07:00 a 22:00; 2 = el doble; 0 = sin servicio.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.emigration',
       type: 'number', min: 0, max: 5, default: 1,
       description: 'Multiplicador de la marcha de jóvenes solteros (más si no hay vivienda libre).',
@@ -130,6 +137,7 @@ export const contemporary: Ruleset = {
     { name: 'needs', run: needsSystem },
     { name: 'decision', run: decisionSystem },
     { name: 'movement', run: movementSystem },
+    { name: 'transit', run: transitSystem },
     { name: 'service', run: serviceSystem },
     { name: 'social', run: socialSystem },
     { name: 'animals', run: animalSystem },

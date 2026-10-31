@@ -16,6 +16,7 @@ import {
 import { seedStocks } from './agents/economy';
 import { seedCash } from './agents/money';
 import { seedAnimals } from './agents/animals';
+import { buildLine, busesNow } from './agents/transit';
 import { populate } from './agents/population';
 import { agentDetail, animalDetail, buildingDetail, economySummary } from './inspect';
 import { registerBuiltinCommands } from './commands/builtin';
@@ -93,6 +94,8 @@ export class Simulation {
       options.agentCapacity ?? 10_000,
       new NavMap(loadMaps(manifest, options.maps)),
     );
+
+    this.world.busLine = buildLine(this.world.map);
 
     if (!options.skipPopulation) {
       const initial = this.world.criteria['society.initialPopulation'];
@@ -203,6 +206,7 @@ export class Simulation {
   frame(): RenderFrame {
     const a = this.world.agents;
     const an = this.world.animals;
+    const buses = busesNow(this.world);
     const n = a.count;
     return {
       tick: this.world.tick,
@@ -220,6 +224,9 @@ export class Simulation {
       animalHeadings: an.headings.slice(0, an.count),
       animalKinds: an.kind.slice(0, an.count),
       animalFlags: an.flags.slice(0, an.count),
+      busCount: buses.headings.length,
+      busPositions: buses.positions,
+      busHeadings: buses.headings,
     };
   }
 

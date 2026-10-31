@@ -19,6 +19,7 @@ const MEMORY_ES: Record<string, string> = {
   newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
   newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa', broke: 'no pudo pagar',
 };
+const BUS_ES: Record<string, string> = { toStop: 'va a la parada del autobús', waiting: 'espera el autobús', riding: 'en el autobús' };
 const TENURE_ES: Record<string, string> = { owner: 'vivienda propia', mortgaged: 'vivienda con hipoteca', renter: 'de alquiler' };
 const RELATIONS_ES: Record<string, string> = { family: 'familia', acquaintance: 'conocido', friend: 'amistad', partner: 'pareja' };
 const USES_ES: Record<string, string> = {
@@ -94,6 +95,7 @@ export function Inspector(props: {
           <div className="small">
             Ahora: <strong>{ACTIONS_ES[agent.action]}</strong> {agent.location ? `en ${agent.location}` : 'por la calle'}
             {agent.carrying && ` · lleva ${agent.carrying.amount.toFixed(0)} de ${agent.carrying.resource}`}
+            {agent.bus && ` · ${BUS_ES[agent.bus]}`}
           </div>
           <div className="small muted">
             Dinero: {agent.money.toFixed(2)} · {TENURE_ES[agent.housing.tenure]}

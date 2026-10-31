@@ -130,3 +130,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   "no se ven"): medir actividades por su intención (acción, local) y no por la posición al final del tick.
 - (2026-10-31) Un mecanismo nuevo puede quedar casi inerte por un supuesto de la población inicial (la herencia sin
   parentesco entre hogares iba al Estado en el 80 % de los casos): mirar la proporción de cada desenlace en la sonda.
+- (2026-10-31) Entidades cuya posición es función pura del tiempo (autobuses en línea fija) no necesitan estado ni
+  snapshot: simplifican el determinismo. Ojo con el operador `**` en el motor: el test de pureza lo prohíbe.

@@ -14,12 +14,25 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
+import { Transit, busCount } from './agents/transit';
 import { housePrice } from './agents/housing';
 import { ANIMAL_NAMES, Animal } from './world/animals';
 import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
+
+function busSummary(world: World): EconomySummary['bus'] {
+  if (!world.busLine) return null;
+  const a = world.agents;
+  let riding = 0;
+  let waiting = 0;
+  for (let i = 0; i < a.count; i++) {
+    if (a.transit[i] === Transit.Riding) riding++;
+    else if (a.transit[i] === Transit.Waiting) waiting++;
+  }
+  return { buses: busCount(world), riding, waiting };
+}
 
 function countByKind(world: World): EconomySummary['animals'] {
   const an = world.animals;
@@ -141,6 +154,7 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
       tenants: tenantsOf(world, a.household[i]!),
     },
     car: { household: householdHasCar(world, a.household[i]!), driving: a.driving[i] === 1 },
+    bus: (['toStop', 'waiting', 'riding'] as const)[a.transit[i]! - 1] ?? null,
     carrying: a.carryKind[i] ? { resource: RESOURCE_NAMES[a.carryKind[i]!] as 'food' | 'water' | 'wood', amount: round(a.carryAmount[i]!) } : null,
     lastScores: scores,
     memory,
@@ -225,5 +239,6 @@ export function economySummary(world: World): EconomySummary {
     wageIndex: round(wageIndex(world)),
     housePrice: round(housePrice(world)),
     animals: countByKind(world),
+    bus: busSummary(world),
   };
 }

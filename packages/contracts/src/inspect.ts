@@ -38,6 +38,8 @@ export interface AgentDetail {
     spare: number;
     tenants: number;
   };
+  /** Viaje en autobús (ADR-0030): yendo a la parada, esperando o viajando; `null` si no. */
+  bus: 'toStop' | 'waiting' | 'riding' | null;
   /** Coche del hogar y si lo lleva ahora (ADR-0025). */
   car: { household: boolean; driving: boolean };
   carrying: { resource: ResourceKind; amount: number } | null;
@@ -109,4 +111,6 @@ export interface EconomySummary {
   housePrice: number;
   /** Animales (ADR-0027). */
   animals: { dogs: number; sheep: number; hens: number };
+  /** Autobús (ADR-0030): en servicio, viajeros y esperando; `null` si el pueblo no tiene línea. */
+  bus: { buses: number; riding: number; waiting: number } | null;
 }

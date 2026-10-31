@@ -27,6 +27,10 @@ export interface RenderFrame {
   animalHeadings: Float32Array;
   animalKinds: Uint8Array;
   animalFlags: Uint8Array;
+  /** Autobuses en servicio (ADR-0030): posiciones (stride 3) y rumbos. */
+  busCount: number;
+  busPositions: Float32Array;
+  busHeadings: Float32Array;
 }
 
 export const AnimalKind = { Dog: 0, Sheep: 1, Hen: 2 } as const;
@@ -66,5 +70,7 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.animalHeadings.buffer,
     frame.animalKinds.buffer,
     frame.animalFlags.buffer,
+    frame.busPositions.buffer,
+    frame.busHeadings.buffer,
   ] as ArrayBuffer[];
 }

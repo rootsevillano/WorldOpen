@@ -89,6 +89,8 @@ export class WorldRenderer {
   private readonly prevAnimalPos = new Map<number, [number, number, number]>();
   /** Id del animal dibujado en cada instancia, por tipo (para seleccionarlo). */
   private readonly animalAtInstance: number[][] = [[], [], []];
+  /** Autobuses (ADR-0030). */
+  private readonly buses: THREE.InstancedMesh;
   private readonly mapGroup = new THREE.Group();
   private buildingMesh: THREE.InstancedMesh | null = null;
   private footprints: FootprintMesh | null = null;
@@ -175,6 +177,16 @@ export class WorldRenderer {
       animal([1.0, 0.65, 0.6], [0.3, 0.35, 0.3], 0xf2efe6),
       animal([0.32, 0.28, 0.22], [0.12, 0.14, 0.1], 0xe8e2d0),
     ];
+    // Autobús: caja alargada en X (rumbo 0) con franja de ventanas.
+    this.buses = new THREE.InstancedMesh(
+      mergeBoxes(new THREE.BoxGeometry(10, 2.4, 2.5).translate(0, 1.6, 0), new THREE.BoxGeometry(9.4, 0.7, 2.6).translate(0, 2.1, 0)),
+      new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.6 }),
+      64,
+    );
+    this.buses.count = 0;
+    this.buses.frustumCulled = false;
+    this.buses.name = 'BUSES';
+    this.scene.add(this.buses);
     for (const [k, m] of this.animalMeshes.entries()) {
       m.count = 0;
       m.frustumCulled = false;
@@ -477,6 +489,7 @@ export class WorldRenderer {
     this.cars.instanceMatrix.needsUpdate = true;
     if (this.cars.instanceColor) this.cars.instanceColor.needsUpdate = true;
     this.updateAnimals(f, now, scale);
+    this.updateBuses(f, scale);
   }
 
   private updateAnimals(f: RenderFrame, now: number, scale: number): void {
@@ -510,6 +523,26 @@ export class WorldRenderer {
       m.count = counts[k]!;
       m.instanceMatrix.needsUpdate = true;
     }
+  }
+
+  private updateBuses(f: RenderFrame, scale: number): void {
+    const n = Math.min(f.busCount, 64);
+    for (let k = 0; k < n; k++) {
+      const x = f.busPositions[k * 3]!;
+      const z = f.busPositions[k * 3 + 2]!;
+      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
+      this.tmp.rotation.set(0, f.busHeadings[k]!, 0);
+      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.updateMatrix();
+      this.buses.setMatrixAt(k, this.tmp.matrix);
+    }
+    this.buses.count = n;
+    this.buses.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Autobuses dibujados (para el Visual Gate). */
+  get visibleBuses(): number {
+    return this.buses.count;
   }
 
   /** Animales visibles fuera de casa o del corral (para el Visual Gate). */
