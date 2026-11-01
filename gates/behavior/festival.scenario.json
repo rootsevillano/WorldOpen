@@ -1,0 +1,65 @@
+{
+  "name": "festival",
+  "description": "ADR-0034: en fiestas (15–18 de agosto) la verbena reúne de noche a buena parte del pueblo en los locales de la plaza; el 16 es festivo (nadie trabaja ni va a la escuela).",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 2,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 5,
+      "start": {
+        "year": 1,
+        "month": 8,
+        "day": 15,
+        "hour": 6,
+        "minute": 0
+      }
+    },
+    "criteria": {
+      "society.initialPopulation": 300
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "festival.verbena",
+      "op": "==",
+      "value": 1,
+      "at": {
+        "day": 0,
+        "hour": 23
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.atFestivalRatio",
+      "op": ">=",
+      "value": 0.12,
+      "at": {
+        "day": 0,
+        "hour": 23
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.workingRatio",
+      "op": "<=",
+      "value": 0.05,
+      "at": {
+        "day": 1,
+        "hour": 12
+      }
+    },
+    {
+      "kind": "metric",
+      "metric": "events.festival.day",
+      "op": ">=",
+      "value": 1
+    }
+  ]
+}

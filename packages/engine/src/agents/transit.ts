@@ -7,6 +7,7 @@ import type { World } from '../world/world';
 import { dayOfWeek, minuteOfDay } from './environment';
 import { personName } from '../content/names';
 import { Rng } from '../math/rng';
+import { festivalDay, festivities } from './festival';
 import { forgetAgent } from './lifecycle';
 import { removeAgent } from './population';
 import { fuelCost, pathLength, shouldDrive } from './vehicles';
@@ -336,7 +337,9 @@ export function transitSystem(world: World): void {
   visitorsSystem(world, road, m, now);
   if (due.length > 0) {
     const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
-    const expected = residents(world) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism');
+    // En fiestas vienen muchos más de los pueblos vecinos (ADR-0034).
+    const fiesta = festivalDay(world) > 0 ? 1 + 2 * festivities(world) : 1;
+    const expected = residents(world) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism') * fiesta;
     let visitors = 0;
     for (let v = 0; v < Math.floor(expected + hash(day, m)); v++) if (spawnVisitor(world, road, m, day * 10_000 + m * 10 + v)) visitors++;
     world.visitorsToday += visitors;

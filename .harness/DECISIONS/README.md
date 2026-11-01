@@ -38,3 +38,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0031](0031-intercity-transport.md) | Transporte público solo entre pueblos | Aceptada |
 | [0032](0032-visitor-agents.md) | Visitantes como agentes | Aceptada |
 | [0033](0033-hostal-tourism.md) | Hostal y turismo | Aceptada |
+| [0034](0034-town-festival.md) | Fiestas del pueblo | Aceptada |

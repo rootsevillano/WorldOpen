@@ -21,6 +21,9 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
           </div>
           {population && (
             <div className="small" data-testid="population">
+              {economy?.festival && (
+                <strong>🎉 Fiestas del pueblo · día {economy.festival.day}/{economy.festival.days}{economy.festival.verbena ? ' · ¡verbena!' : ''} · </strong>
+              )}
               {population.total - (economy?.bus?.visitorsNow ?? 0)} habitantes
               {(economy?.bus?.visitorsNow ?? 0) > 0 && ` · ${economy!.bus!.visitorsNow} de visita`} · {population.walking} en la calle · {population.working} trabajando · {population.sleeping} durmiendo
               {population.queueing > 0 && ` · ${population.queueing} en cola`}

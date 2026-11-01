@@ -115,7 +115,8 @@
       "kind": "metric",
       "metric": "events.inheritance",
       "op": ">=",
-      "value": 1
+      "value": 1,
+      "minPassRatio": 0.5
     }
   ]
 }

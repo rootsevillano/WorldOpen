@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Hostal y turismo · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Fiestas del pueblo · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Hostal y turismo — entregado (ADR-0033)
+## Fiestas del pueblo — entregado (ADR-0034)
+- Del 15 al 18 de agosto (el 16 festivo): verbena nocturna en la plaza, se trasnocha y se socializa el doble, el
+  triple de visitantes; criterio `society.festivities`. Protocolo v11; motor 0.22.0.
+- Behavior 17/17 en ambos mapas; 164 tests.
+
+## Hostal y turismo (anterior) — completado
+
+### ADR-0033
 - El bar junto a la parada alquila habitaciones; parte de los visitantes se aloja 1–3 noches; turismo por temporada
   y criterio `society.tourism`; los huéspedes no entran en los sistemas diarios del pueblo. Protocolo v10; motor 0.21.0.
 - Behavior 16/16 en ambos mapas; 161 tests.
@@ -123,7 +130,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: varios pueblos simulados, fiestas del pueblo, casas rurales, animales en las fichas de hogar y huerta, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
+- Siguiente modelo: varios pueblos simulados, fechas de fiestas en el Modo Dios, casas rurales, animales en las fichas de hogar y huerta, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

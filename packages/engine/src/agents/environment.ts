@@ -1,5 +1,6 @@
 import { MINUTES_PER_DAY } from '../time/clock';
 import type { World } from '../world/world';
+import { festivalHoliday } from './festival';
 
 /**
  * Magnitudes del entorno derivadas del tiempo y los criterios (no son estado: se recalculan).
@@ -21,16 +22,16 @@ export function dayOfWeek(world: World): number {
   return Math.floor(totalMinutes(world) / MINUTES_PER_DAY) % 7;
 }
 
-/** Jornada laboral: días 0–4, de 08:00 a 15:00. */
+/** Jornada laboral: días 0–4, de 08:00 a 15:00 (salvo el día festivo de las fiestas, ADR-0034). */
 export function inShift(world: World): boolean {
   const m = minuteOfDay(world);
-  return dayOfWeek(world) < 5 && m >= 480 && m < 900;
+  return dayOfWeek(world) < 5 && m >= 480 && m < 900 && !festivalHoliday(world);
 }
 
-/** Horario escolar: días 0–4, de 09:00 a 14:00. */
+/** Horario escolar: días 0–4, de 09:00 a 14:00 (salvo el festivo de las fiestas). */
 export function inSchool(world: World): boolean {
   const m = minuteOfDay(world);
-  return dayOfWeek(world) < 5 && m >= 540 && m < 840;
+  return dayOfWeek(world) < 5 && m >= 540 && m < 840 && !festivalHoliday(world);
 }
 
 /** Comercios abiertos de 08:00 a 21:00. */

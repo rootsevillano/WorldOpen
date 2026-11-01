@@ -116,6 +116,8 @@ export interface EconomySummary {
   /** Autobús a otros pueblos (ADR-0031): vecinos fuera, esperando en la parada, visitantes de hoy y próxima llegada
    * (min del día; `null` si no quedan). `null` si no hay carretera. */
   bus: { away: number; waiting: number; visitorsToday: number; visitorsNow: number; nextBus: number | null } | null;
+  /** Fiestas del pueblo (ADR-0034): día (1–4), total y si hay verbena; `null` fuera de fiestas. */
+  festival: { day: number; days: number; verbena: boolean } | null;
   /** Hostal (ADR-0033): huéspedes, habitaciones, precio de la noche y edificio; `null` si no hay. */
   hostal: { guests: number; rooms: number; price: number; building: string } | null;
 }

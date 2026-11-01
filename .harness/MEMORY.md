@@ -139,3 +139,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-01) Agentes de paso en el mismo `AgentStore`: decidir a qué sistemas no deben llegar (decisión, necesidades,
   despensas, dinero del hogar) y filtrar las métricas de población; que se vayan antes de medianoche simplifica los
   sistemas diarios. Sembrar su PRNG por hash para no mover el del mundo.
+- (2026-11-01) Tests que agotan los 5 s por defecto de vitest sin cambios de código: comprobar con la versión anterior
+  (git stash) antes de buscar un fallo; la vista previa del navegador pintando 3D en segundo plano también carga la
+  máquina. `testTimeout` ya es 30 s.

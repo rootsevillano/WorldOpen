@@ -1,6 +1,7 @@
 import { animalSystem } from '../agents/animals';
 import { transitSystem } from '../agents/transit';
 import { disasterSystem } from '../agents/disasters';
+import { festivalSystem } from '../agents/festival';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
 import { moneySystem } from '../agents/money';
@@ -37,6 +38,12 @@ export const contemporary: Ruleset = {
       key: 'society.sociability',
       type: 'number', min: 0, max: 1, default: 0.5,
       description: 'Tendencia general de la población a relacionarse.',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.festivities',
+      type: 'number', min: 0, max: 3, default: 1,
+      description: 'Fiestas del pueblo (15–18 de agosto, el 16 festivo): intensidad de la verbena y de los visitantes; 0 = sin fiestas.',
       mutableBy: 'admin',
     },
     {
@@ -144,6 +151,7 @@ export const contemporary: Ruleset = {
   ],
   commands: [agentSpawnV1, agentRemoveV1, disasterFireV1],
   systems: [
+    { name: 'festival', run: festivalSystem },
     { name: 'disasters', run: disasterSystem },
     { name: 'economy', run: economySystem },
     { name: 'needs', run: needsSystem },

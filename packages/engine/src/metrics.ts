@@ -1,5 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
+import { festivalDay, festivalVenues, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
@@ -102,6 +103,13 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.count': return residents(sim.world);
     case 'agents.visitors': return visitorsNow(sim.world);
     // Hostal (ADR-0033): huéspedes y ocupación.
+    // Fiestas (ADR-0034): día de fiestas, verbena en curso y vecinos en los locales de la verbena.
+    case 'festival.day': return festivalDay(sim.world);
+    case 'festival.verbena': return verbena(sim.world) ? 1 : 0;
+    case 'agents.atFestivalRatio': {
+      const venues = new Set(festivalVenues(sim.world));
+      return ratio((i) => venues.has(a.location[i]!));
+    }
     case 'tourism.guests': return hostalGuests(sim.world);
     // Visitantes de paso en el día (sin los huéspedes del hostal): a medianoche no queda ninguno.
     case 'agents.dayVisitors': return visitorsNow(sim.world) - hostalGuests(sim.world);

@@ -24,6 +24,7 @@ import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFacto
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { canAfford, payHarvest, spendLeisure } from './money';
 import { dogsToWalk } from './animals';
+import { festivalDay, festivalVenues, festivities, verbena } from './festival';
 import { remember } from './social';
 import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
 import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
@@ -80,6 +81,7 @@ export function needsSystem(world: World): void {
   const shift = inShift(world);
   const school = inSchool(world);
   const map = world.map;
+  const party = new Set(verbena(world) ? festivalVenues(world) : []);
   for (let i = 0; i < a.count; i++) {
     // Los visitantes están de paso: su programa de visita no depende de necesidades (ADR-0032).
     if (a.occupation[i] === Occupation.Visitor) continue;
@@ -102,7 +104,8 @@ export function needsSystem(world: World): void {
     a.shelter[i] = clamp01(a.shelter[i]! + dt * shelterRate);
 
     if (loc >= 0 && loc !== home && map.buildings[loc]!.use !== 'residential') {
-      a.social[i] = clamp01(a.social[i]! + dt * SOCIAL_AT_VENUE);
+      // En la verbena se socializa el doble (ADR-0034).
+      a.social[i] = clamp01(a.social[i]! + dt * SOCIAL_AT_VENUE * (party.has(loc) ? 2 : 1));
     } else if (loc === home && !sleeping) {
       a.social[i] = clamp01(a.social[i]! - dt * SOCIAL_AT_HOME);
     }
@@ -145,6 +148,9 @@ export function decisionSystem(world: World): void {
   const a = world.agents;
   world.carsBusy = carsInUse(world);
   const walkDog = dogsToWalk(world);
+  // Fiestas (ADR-0034): la verbena atrae a todos (también de noche) y se trasnocha.
+  const party = verbena(world) ? 0.7 * festivities(world) : 0;
+  const fiesta = festivalDay(world) > 0;
   const rng = world.rng;
   const every = Math.max(1, Math.round(DECISION_MINUTES / world.time.minutesPerTick));
   const night = nightFactor(world);
@@ -204,7 +210,7 @@ export function decisionSystem(world: World): void {
     const carrying = a.carryKind[i] !== Resource.None;
 
     const age = a.age[i]!;
-    const bedtime = a.bedtime[i]!;
+    const bedtime = fiesta && age >= 12 ? (a.bedtime[i]! + 150) % 1440 : a.bedtime[i]!;
     const sleepTime = inSleepWindow(minute, bedtime, age);
     // Antes de acostarse se vuelve a casa (en la última hora, cada vez con más ganas).
     const toBed = minutesToBed(minute, bedtime);
@@ -236,10 +242,10 @@ export function decisionSystem(world: World): void {
       }
     }
     if (!carrying && !minor) {
-      if (night < 0.5 && map.venues.length > 0 && !sleepTime) {
+      if ((night < 0.5 || party > 0) && map.venues.length > 0 && !sleepTime) {
         // Un perro sin pasear hoy anima a salir a quien está en casa (ADR-0027).
         const dog = atHome && age >= 10 && walkDog.has(a.household[i]!) ? 0.35 : 0;
-        consider(Action.GoOut, ((1 - social) * (0.4 + 0.8 * a.sociability[i]!) + dog) * (1 - night) * outdoorAppeal - (atVenue ? 0.2 : 0));
+        consider(Action.GoOut, ((1 - social) * (0.4 + 0.8 * a.sociability[i]!) + dog) * (1 - night) * outdoorAppeal + (age >= 12 ? party : 0) - (atVenue ? 0.2 : 0));
       }
       let bestR: number = Resource.None;
       let bestP = -Infinity;
@@ -281,7 +287,8 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   else if (action === Action.Work) target = a.workplace[i]!;
   else if (action === Action.GoOut) {
     // Un local cercano (y distinto del actual), con preferencia por la cercanía.
-    target = pickNearby(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!, map.venues, LEISURE_SCALE_M, (v) => usable(world, v) && v !== a.location[i]);
+    const venues = verbena(world) ? festivalVenues(world) : map.venues;
+    target = pickNearby(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!, venues, LEISURE_SCALE_M, (v) => usable(world, v) && v !== a.location[i]);
   } else if (action === Action.Provision) {
     target = chooseSource(world, i, a.seeking[i]!);
     if (target < 0) {
