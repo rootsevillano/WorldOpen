@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Fechas de fiestas en el Modo Dios · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Varios pueblos · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Fechas de fiestas — entregado (ADR-0035)
+## Varios pueblos — entregado (ADR-0036)
+- Mundos de 1–3 pueblos: el mapa elegido y vecinos sintéticos al este, unidos por la carretera comarcal. Autobús,
+  hostal, plaza, colegio y ocio por pueblo; trabajo en otro pueblo. Protocolo v13; motor 0.24.0. 18/18 en ambos
+  mapas; 169 tests.
+
+## Fechas de fiestas (anterior) — completado (ADR-0035)
 - Mes, día de inicio, duración y día festivo de las fiestas como criterios enteros del Modo Dios; fecha de inicio
   del mundo al crearlo. Protocolo v12; motor 0.23.0. 17/17 en ambos mapas; 166 tests.
 

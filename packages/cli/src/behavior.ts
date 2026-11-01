@@ -16,6 +16,8 @@ export interface Scenario {
   /** Duración en días de juego (se convierte a ticks según `minutesPerTick`). */
   days: number;
   manifest?: Partial<WorldManifest>;
+  /** Pueblos del mundo (ADR-0036); 1 por defecto. */
+  towns?: number;
   commands?: (Omit<CommandEnvelope, 'id' | 'issuer'> & { atHour?: number })[];
   assertions: Assertion[];
 }
@@ -88,7 +90,7 @@ export function runScenario(file: string, scenario: Scenario, mapPack?: string):
   const t0 = performance.now();
   const rejected: string[] = [];
   const runOnce = (seed: number) => {
-    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time }, ...(mapPack ? { mapPack } : {}) });
+    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time }, ...(mapPack ? { mapPack } : {}), ...(scenario.towns ? { towns: scenario.towns } : {}) });
     for (const c of commands(seed)) {
       const res = sim.submit({ ...c, payload: resolvePayload(sim, c.payload) });
       if (!res.ok) rejected.push(res.message);

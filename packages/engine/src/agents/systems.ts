@@ -24,7 +24,7 @@ import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFacto
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { canAfford, payHarvest, spendLeisure } from './money';
 import { dogsToWalk } from './animals';
-import { festivalDay, festivalVenues, festivities, verbena } from './festival';
+import { allFestivalVenues, festivalDay, festivalVenues, festivities, verbena } from './festival';
 import { remember } from './social';
 import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
 import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
@@ -81,7 +81,7 @@ export function needsSystem(world: World): void {
   const shift = inShift(world);
   const school = inSchool(world);
   const map = world.map;
-  const party = new Set(verbena(world) ? festivalVenues(world) : []);
+  const party = new Set(verbena(world) ? allFestivalVenues(world) : []);
   for (let i = 0; i < a.count; i++) {
     // Los visitantes están de paso: su programa de visita no depende de necesidades (ADR-0032).
     if (a.occupation[i] === Occupation.Visitor) continue;
@@ -287,7 +287,9 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   else if (action === Action.Work) target = a.workplace[i]!;
   else if (action === Action.GoOut) {
     // Un local cercano (y distinto del actual), con preferencia por la cercanía.
-    const venues = verbena(world) ? festivalVenues(world) : map.venues;
+    // En su pueblo (ADR-0036): la verbena de su plaza o un local cercano.
+    const town = map.townOfBuilding[a.home[i]!]!;
+    const venues = verbena(world) ? festivalVenues(world, town) : map.towns[town]!.venues;
     target = pickNearby(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!, venues, LEISURE_SCALE_M, (v) => usable(world, v) && v !== a.location[i]);
   } else if (action === Action.Provision) {
     target = chooseSource(world, i, a.seeking[i]!);

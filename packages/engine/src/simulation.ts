@@ -95,7 +95,8 @@ export class Simulation {
       new NavMap(loadMaps(manifest, options.maps)),
     );
 
-    this.world.busRoad = buildRoad(this.world.map);
+    this.world.busRoads = this.world.map.towns.map((_, t) => buildRoad(this.world.map, t));
+    this.world.townNames = manifest.regions.map((r) => r.displayName);
 
     if (!options.skipPopulation) {
       const initial = this.world.criteria['society.initialPopulation'];
@@ -199,8 +200,10 @@ export class Simulation {
     return economySummary(this.world);
   }
 
+  /** Mapas de los pueblos y, si hay varios, la carretera comarcal que los une (ADR-0036). */
   mapLogic(): MapLogic[] {
-    return this.world.map.logic;
+    const link = this.world.map.linkLogic();
+    return link ? [...this.world.map.logic, link] : this.world.map.logic;
   }
 
   /** Frame para el render con buffers nuevos (transferibles). */

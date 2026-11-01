@@ -10,7 +10,7 @@ import {
   type WorldManifest,
   type WorldSummary,
 } from '@worldopen/contracts';
-import { createManifest } from '@worldopen/engine';
+import { createManifest, SYNTHETIC_REGION, neighbourTowns, syntheticEastEdge } from '@worldopen/engine';
 import { WorldRenderer, type Pick, type RenderPack } from '@worldopen/render';
 import type { MapPackManifest, RegionRef } from '@worldopen/contracts';
 import { IndexedDbWorldStore } from '@worldopen/store';
@@ -61,6 +61,8 @@ export interface NewWorldOptions {
   mapPack?: string;
   /** Fecha de inicio (mes 1–12, día 1–30); sin ella, la de siempre (21 de marzo) (ADR-0035). */
   start?: { month: number; day: number };
+  /** Pueblos del mundo (1–3): el primero es el mapa elegido; los demás, sintéticos a su lado (ADR-0036). */
+  towns?: number;
 }
 
 export interface EngineState {
@@ -306,13 +308,19 @@ function newManifest(o: NewWorldOptions, pack?: MapPackManifest): WorldManifest 
   const regions: RegionRef[] | undefined = pack
     ? [{ id: 'r1', displayName: pack.displayName, mapPack: { id: pack.id, version: pack.version }, offset: { x: 0, z: 0 } }]
     : undefined;
+  // Pueblos vecinos al este del primero (ADR-0036).
+  const first = regions?.[0] ?? SYNTHETIC_REGION;
+  const extra = Math.max(0, (o.towns ?? 1) - 1);
+  const eastOf = pack ? pack.bounds.maxX : syntheticEastEdge(first);
+  const centerZ = pack ? (pack.bounds.minZ + pack.bounds.maxZ) / 2 : first.offset.z;
+  const all = extra > 0 ? [first, ...neighbourTowns(o.seed, extra, eastOf, centerZ)] : regions;
   const m = createManifest({
     worldId: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     seed: o.seed,
     name: o.name,
     criteria: { 'society.initialPopulation': o.population },
-    ...(regions ? { regions } : {}),
+    ...(all ? { regions: all } : {}),
   });
   return o.start ? { ...m, time: { ...m.time, start: { ...m.time.start, month: o.start.month, day: o.start.day } } } : m;
 }

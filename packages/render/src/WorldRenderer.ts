@@ -275,9 +275,31 @@ export class WorldRenderer {
       this.buildingBase = buildings.map((b) => new THREE.Color(USE_COLORS[b.use]));
       this.mapGroup.add(this.footprints.mesh);
       for (const pack of packs) void this.loadPack(pack, seq);
+      // Pueblos sintéticos junto al real (ADR-0036): volúmenes y calles a partir del mapa lógico.
+      const plain = maps.filter((m) => !m.buildings.some((b) => b.footprint?.length));
+      if (plain.length > 0) {
+        this.addBoxes(buildings, (b) => !b.footprint?.length);
+        this.addStreets(plain);
+      }
       this.frameCamera(buildings, true);
       return;
     }
+    this.addBoxes(buildings, () => true);
+    this.addStreets(maps);
+
+    const bounds = maps.reduce(
+      (acc, m) => ({
+        minX: Math.min(acc.minX, m.bounds.minX), minZ: Math.min(acc.minZ, m.bounds.minZ),
+        maxX: Math.max(acc.maxX, m.bounds.maxX), maxZ: Math.max(acc.maxZ, m.bounds.maxZ),
+      }),
+      { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity },
+    );
+    if (Number.isFinite(bounds.minX)) this.controls.target.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
+  }
+
+
+  /** Volúmenes simples (lado = √superficie) de los edificios que cumplen `include`; los demás, con escala 0. */
+  private addBoxes(buildings: MapLogic['buildings'], include: (b: MapLogic['buildings'][number]) => boolean): void {
     const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
     const mesh = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ roughness: 0.9 }), buildings.length);
     mesh.name = 'BUILDINGS';
@@ -287,7 +309,7 @@ export class WorldRenderer {
     this.buildingStates = new Uint8Array(buildings.length);
     const color = new THREE.Color();
     buildings.forEach((b, i) => {
-      const side = Math.sqrt(b.footprintAreaM2);
+      const side = include(b) ? Math.sqrt(b.footprintAreaM2) : 0;
       this.tmp.position.set(b.centroid.x, 0, b.centroid.z);
       this.tmp.rotation.set(0, 0, 0);
       this.tmp.scale.set(side, Math.max(1, b.floorsAboveGround) * FLOOR_HEIGHT, side);
@@ -296,7 +318,10 @@ export class WorldRenderer {
       mesh.setColorAt(i, color.setHex(USE_COLORS[b.use]));
     });
     this.mapGroup.add(mesh);
+  }
 
+  /** Calles como franjas por tramo. */
+  private addStreets(maps: MapLogic[]): void {
     const streetMat = new THREE.MeshStandardMaterial({ color: 0x55585c, roughness: 1 });
     const geoms: THREE.BufferGeometry[] = [];
     for (const m of maps) {
@@ -315,14 +340,6 @@ export class WorldRenderer {
     }
     for (const g of geoms) this.mapGroup.add(new THREE.Mesh(g, streetMat));
 
-    const bounds = maps.reduce(
-      (acc, m) => ({
-        minX: Math.min(acc.minX, m.bounds.minX), minZ: Math.min(acc.minZ, m.bounds.minZ),
-        maxX: Math.max(acc.maxX, m.bounds.maxX), maxZ: Math.max(acc.maxZ, m.bounds.maxZ),
-      }),
-      { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity },
-    );
-    if (Number.isFinite(bounds.minX)) this.controls.target.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
   }
 
   /** Centra la cámara en el núcleo (mediana de los edificios), no en el centro del término. */
@@ -395,21 +412,24 @@ export class WorldRenderer {
   }
 
   private updateBuildingStates(states: Uint8Array): void {
+    if (states.length !== this.buildingStates.length) return;
+    // Volúmenes (mapa sintético, o pueblos sintéticos junto al real): se recolorean antes de anotar el estado.
+    const mesh = this.buildingMesh;
+    if (mesh) {
+      let changed = false;
+      for (let b = 0; b < states.length; b++) {
+        if (states[b] === this.buildingStates[b]) continue;
+        const s = states[b]!;
+        mesh.setColorAt(b, s === BuildingState.Burning ? BURNING : s === BuildingState.Damaged ? DAMAGED : this.buildingBase[b]!);
+        changed = true;
+      }
+      if (changed && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
     if (this.footprints) {
       this.updateFootprintStates(states);
       return;
     }
-    const mesh = this.buildingMesh;
-    if (!mesh || states.length !== this.buildingStates.length) return;
-    let changed = false;
-    for (let b = 0; b < states.length; b++) {
-      if (states[b] === this.buildingStates[b]) continue;
-      const s = states[b]!;
-      mesh.setColorAt(b, s === BuildingState.Burning ? BURNING : s === BuildingState.Damaged ? DAMAGED : this.buildingBase[b]!);
-      this.buildingStates[b] = s;
-      changed = true;
-    }
-    if (changed && mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    this.buildingStates.set(states);
   }
 
   private updateFootprintStates(states: Uint8Array): void {

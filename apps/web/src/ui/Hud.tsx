@@ -29,6 +29,9 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
               {population.queueing > 0 && ` · ${population.queueing} en cola`}
             </div>
           )}
+          {economy && economy.towns.length > 1 && (
+            <div className="small">{economy.towns.map((t) => `${t.name} ${t.population}`).join(' · ')}</div>
+          )}
           {economy && (
             <div className="small muted" data-testid="economy">
               Tiendas {economy.shopFood.toFixed(0)} comida · Fuentes {economy.fountainWater.toFixed(0)} agua · Aserradero {economy.sawmillWood.toFixed(0)} leña

@@ -62,6 +62,8 @@ const VISITORS_PER_PERSON = 0.0015;
 const hash = (a: number, b: number) => (Math.imul(Math.imul(a, 0x9e3779b1) ^ Math.imul(b + 1, 0x85ebca6b), 0xc2b2ae35) >>> 0) / 0x100000000;
 
 export interface Road {
+  /** Pueblo (índice de región) al que sirve (ADR-0036). */
+  town: number;
   /** Nodo del borde por el que se sale del pueblo y nodo de la parada (en el centro). */
   edgeNode: number;
   stopNode: number;
@@ -74,22 +76,26 @@ export interface Road {
   length: number;
 }
 
-/** Carretera del borde al centro: del nodo de calle más alejado del centro de las viviendas al local más céntrico. */
-export function buildRoad(map: NavMap): Road | null {
-  if (map.venues.length === 0 || map.homes.length === 0) return null;
+/**
+ * Carretera del borde al centro de un pueblo (`town`): del nodo de calle del pueblo más alejado del centro de sus
+ * viviendas a su local más céntrico. Cada pueblo tiene la suya (ADR-0036).
+ */
+export function buildRoad(map: NavMap, town = 0): Road | null {
+  const t = map.towns[town];
+  if (!t || t.venues.length === 0 || t.homes.length === 0) return null;
   let cx = 0;
   let cz = 0;
-  for (const h of map.homes) {
-    cx += map.buildings[h]!.centroid.x / map.homes.length;
-    cz += map.buildings[h]!.centroid.z / map.homes.length;
+  for (const h of t.homes) {
+    cx += map.buildings[h]!.centroid.x / t.homes.length;
+    cz += map.buildings[h]!.centroid.z / t.homes.length;
   }
   const d2 = (x: number, z: number, ox = cx, oz = cz) => (x - ox) * (x - ox) + (z - oz) * (z - oz);
   const at = (b: number) => map.buildings[b]!.centroid;
-  let stopBuilding = map.venues[0]!;
-  for (const v of map.venues) if (d2(at(v).x, at(v).z) < d2(at(stopBuilding).x, at(stopBuilding).z)) stopBuilding = v;
+  let stopBuilding = t.venues[0]!;
+  for (const v of t.venues) if (d2(at(v).x, at(v).z) < d2(at(stopBuilding).x, at(stopBuilding).z)) stopBuilding = v;
   const stopNode = map.entranceNode[stopBuilding]!;
-  let edgeNode = 0;
-  for (let n = 1; n < map.nodeCount; n++) if (d2(map.nodeX[n]!, map.nodeZ[n]!) > d2(map.nodeX[edgeNode]!, map.nodeZ[edgeNode]!)) edgeNode = n;
+  let edgeNode = t.nodes[0]!;
+  for (const n of t.nodes) if (d2(map.nodeX[n]!, map.nodeZ[n]!) > d2(map.nodeX[edgeNode]!, map.nodeZ[edgeNode]!)) edgeNode = n;
   const nodes = map.nodePath(edgeNode, stopNode);
   if (!nodes || nodes.length < 2) return null;
   const x = Float64Array.from(nodes.map((n) => map.nodeX[n]!));
@@ -98,12 +104,17 @@ export function buildRoad(map: NavMap): Road | null {
   for (let v = 1; v < nodes.length; v++) cum[v] = cum[v - 1]! + Math.sqrt(d2(x[v]!, z[v]!, x[v - 1]!, z[v - 1]!));
   const s = at(stopBuilding);
   let shop = -1;
-  for (const r of map.byUse.retail) if (shop < 0 || d2(at(r).x, at(r).z, s.x, s.z) < d2(at(shop).x, at(shop).z, s.x, s.z)) shop = r;
-  return { edgeNode, stopNode, stopBuilding, shop, x, z, cum, length: cum[nodes.length - 1]! };
+  for (const r of t.retail) if (shop < 0 || d2(at(r).x, at(r).z, s.x, s.z) < d2(at(shop).x, at(shop).z, s.x, s.z)) shop = r;
+  return { town, edgeNode, stopNode, stopBuilding, shop, x, z, cum, length: cum[nodes.length - 1]! };
 }
 
 function serviceOn(world: World): boolean {
-  return world.busRoad !== null && world.num('society.transit') > 0 && world.criteria['world.era'] !== 'historical';
+  return world.busRoads.some((r) => r !== null) && world.num('society.transit') > 0 && world.criteria['world.era'] !== 'historical';
+}
+
+/** Carretera (y parada, hostal…) del pueblo del edificio `b` (ADR-0036). */
+export function roadOf(world: World, b: number): Road | null {
+  return b < 0 ? null : (world.busRoads[world.map.townOfBuilding[b]!] ?? null);
 }
 
 /** Llegadas del día a la parada (minuto del día). */
@@ -139,10 +150,10 @@ function roadPoint(road: Road, s: number): [number, number, number] {
 
 /** Autobuses en la carretera ahora (entrando, en la parada o saliendo), para el frame. */
 export function busesNow(world: World): { positions: Float32Array; headings: Float32Array } {
-  const road = world.busRoad;
   const pos: number[] = [];
   const head: number[] = [];
-  if (road) {
+  for (const road of world.busRoads) {
+    if (!road) continue;
     const m = minuteOfDay(world);
     const drive = road.length / BUS_SPEED;
     for (const ta of arrivals(world)) {
@@ -187,9 +198,9 @@ function begin(world: World, i: number, stage: number, path: Float64Array, reaso
  * andando a la parada a esperar el autobús. Devuelve `false` si no puede (ni coche ni autobús que le sirva).
  */
 export function leaveTown(world: World, i: number, reason: number, back: number): boolean {
-  const road = world.busRoad;
-  if (!road) return false;
   const a = world.agents;
+  const road = roadOf(world, a.home[i]!);
+  if (!road) return false;
   const map = world.map;
   const x = a.positions[i * 3]!;
   const z = a.positions[i * 3 + 2]!;
@@ -293,8 +304,7 @@ export function outsideJobs(world: World, jobless: number[]): void {
  * fue en coche vuelve por el borde a su hora. Quien espera demasiado, o pierde el último autobús, se vuelve a casa.
  */
 export function transitSystem(world: World): void {
-  const road = world.busRoad;
-  if (!road) return;
+  if (!world.busRoads.some((r) => r !== null)) return;
   const a = world.agents;
   const dt = world.time.minutesPerTick;
   const m = minuteOfDay(world);
@@ -306,14 +316,18 @@ export function transitSystem(world: World): void {
   }
   // Llegadas del autobús en este tick (minuto del día en (m − dt, m]).
   const due = arrivals(world).filter((t) => t > m - dt && t <= m);
-  const stopX = world.map.nodeX[road.stopNode]!;
-  const stopZ = world.map.nodeZ[road.stopNode]!;
-  const edgeX = world.map.nodeX[road.edgeNode]!;
-  const edgeZ = world.map.nodeZ[road.edgeNode]!;
   const price = fare(world);
   const leavers: number[] = [];
   for (let i = 0; i < a.count; i++) {
     const stage = a.transit[i]!;
+    if (stage === Transit.None || stage === Transit.ToStop || stage === Transit.ToEdge) continue;
+    // Parada y borde del pueblo de cada cual (ADR-0036).
+    const road = roadOf(world, a.home[i]!);
+    if (!road) continue;
+    const stopX = world.map.nodeX[road.stopNode]!;
+    const stopZ = world.map.nodeZ[road.stopNode]!;
+    const edgeX = world.map.nodeX[road.edgeNode]!;
+    const edgeZ = world.map.nodeZ[road.edgeNode]!;
     if (stage === Transit.Away) {
       if (a.awayReason[i] === AwayReason.Work) a.workedToday[i] = Math.min(1440, a.workedToday[i]! + dt);
       if (a.awayByCar[i]) {
@@ -334,16 +348,22 @@ export function transitSystem(world: World): void {
     }
   }
   for (const id of leavers) leave(world, id);
-  visitorsSystem(world, road, m, now);
+  visitorsSystem(world, m, now);
   if (due.length > 0) {
     const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
     // En fiestas vienen muchos más de los pueblos vecinos (ADR-0034).
     const fiesta = festivalDay(world) > 0 ? 1 + 2 * festivities(world) : 1;
-    const expected = residents(world) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism') * fiesta;
-    let visitors = 0;
-    for (let v = 0; v < Math.floor(expected + hash(day, m)); v++) if (spawnVisitor(world, road, m, day * 10_000 + m * 10 + v)) visitors++;
-    world.visitorsToday += visitors;
-    world.emit('bus.arrived', { visitors, stop: world.map.buildings[road.stopBuilding]!.id });
+    // Cada pueblo recibe visitantes según sus vecinos (ADR-0036).
+    for (const road of world.busRoads) {
+      if (!road) continue;
+      const expected = residents(world, road.town) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism') * fiesta;
+      let visitors = 0;
+      for (let v = 0; v < Math.floor(expected + hash(day + road.town * 7919, m)); v++) {
+        if (spawnVisitor(world, road, m, day * 10_000 + m * 10 + v + road.town * 100_000_000)) visitors++;
+      }
+      world.visitorsToday += visitors;
+      world.emit('bus.arrived', { visitors, stop: world.map.buildings[road.stopBuilding]!.id });
+    }
   }
 }
 
@@ -355,21 +375,25 @@ export function season(world: World): number {
   return month >= 6 && month <= 8 ? 2 : month === 12 || month <= 2 ? 0.5 : 1;
 }
 
-/** El bar-hostal (la tienda junto a la parada) o −1. */
-export function hostal(world: World): number {
-  return world.busRoad?.shop ?? -1;
+/** El bar-hostal del pueblo `town` (la tienda junto a su parada) o −1. */
+export function hostal(world: World, town = 0): number {
+  return world.busRoads[town]?.shop ?? -1;
 }
 
-export function hostalRooms(world: World): number {
-  const h = hostal(world);
+/** Habitaciones del hostal de `town` (sin pueblo: de todos). */
+export function hostalRooms(world: World, town?: number): number {
+  if (town === undefined) return world.busRoads.reduce((s, r) => s + (r ? hostalRooms(world, r.town) : 0), 0);
+  const h = hostal(world, town);
   return h < 0 ? 0 : Math.max(MIN_ROOMS, Math.floor(world.map.buildings[h]!.grossFloorAreaM2 / ROOM_M2));
 }
 
-/** Huéspedes del hostal ahora (visitantes con noches por delante). */
-export function hostalGuests(world: World): number {
+/** Huéspedes del hostal ahora (visitantes con noches por delante), de `town` o de todos los pueblos. */
+export function hostalGuests(world: World, town?: number): number {
   const a = world.agents;
   let n = 0;
-  for (let i = 0; i < a.count; i++) if (a.stayNights[i]! > 0) n++;
+  for (let i = 0; i < a.count; i++) {
+    if (a.stayNights[i]! > 0 && (town === undefined || world.map.townOfBuilding[a.home[i]!] === town)) n++;
+  }
   return n;
 }
 
@@ -377,11 +401,13 @@ export function nightPrice(world: World): number {
   return NIGHT_PRICE * world.num('economy.priceLevel');
 }
 
-/** Vecinos (sin los visitantes). */
-export function residents(world: World): number {
+/** Vecinos (sin los visitantes), de `town` o de todos los pueblos. */
+export function residents(world: World, town?: number): number {
   const a = world.agents;
   let n = 0;
-  for (let i = 0; i < a.count; i++) if (a.occupation[i] !== Occupation.Visitor) n++;
+  for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] !== Occupation.Visitor && (town === undefined || world.map.townOfBuilding[a.home[i]!] === town)) n++;
+  }
   return n;
 }
 
@@ -426,7 +452,7 @@ function spawnVisitor(world: World, road: Road, m: number, key: number): boolean
   a.stayNights[i] = 0;
   a.awayUntil[i] = Math.min(LAST_BUS - 10, m + 60 + rng.int(0, 180));
   // …o se aloja en el hostal 1–3 noches si quedan habitaciones (ADR-0033).
-  if (hostal(world) >= 0 && rng.nextFloat() < OVERNIGHT_SHARE * Math.min(1, world.num('society.tourism')) && hostalGuests(world) < hostalRooms(world)) {
+  if (hostal(world, road.town) >= 0 && rng.nextFloat() < OVERNIGHT_SHARE * Math.min(1, world.num('society.tourism')) && hostalGuests(world, road.town) < hostalRooms(world, road.town)) {
     a.stayNights[i] = rng.int(1, 3);
     a.money[i] = rng.int(150, 350);
     a.awayUntil[i] = CHECK_IN;
@@ -459,12 +485,18 @@ function goToVenue(world: World, i: number, road: Road, key: number): void {
  * Visitantes en el pueblo: pasan un rato (unos 45 min) en cada local, cambian de local, y a su hora vuelven a la parada
  * para irse en el próximo autobús. Al subir, dejan el pueblo. Quien siga aquí tras el último autobús se va igualmente.
  */
-function visitorsSystem(world: World, road: Road, m: number, now: number): void {
+function visitorsSystem(world: World, m: number, now: number): void {
   const a = world.agents;
   const gone: number[] = [];
-  const inn = hostal(world);
   for (let i = 0; i < a.count; i++) {
     if (a.occupation[i] !== Occupation.Visitor) continue;
+    // Su pueblo es el de la parada en la que bajó (su "casa").
+    const road = roadOf(world, a.home[i]!);
+    if (!road) {
+      gone.push(a.ids[i]!);
+      continue;
+    }
+    const inn = road.shop;
     const guest = a.stayNights[i]! > 0;
     // De paso en el día: tras el último autobús ya no queda nadie. Los huéspedes pasan la noche en el hostal.
     if (!guest && (m >= LAST_BUS + DWELL + 10 || m < FIRST_BUS)) {

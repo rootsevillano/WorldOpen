@@ -84,7 +84,7 @@ export function parseMapPack(
 }
 
 /** `r1` → 0, `r2` → 1 000 000…: espacio de ids de nodo por región. */
-function regionNodeBase(regionId: string): number {
+export function regionNodeBase(regionId: string): number {
   const n = Number(/(\d+)$/.exec(regionId)?.[1] ?? 1);
   return (n - 1) * 1_000_000;
 }

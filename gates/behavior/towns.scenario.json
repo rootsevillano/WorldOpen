@@ -1,0 +1,53 @@
+{
+  "name": "towns",
+  "description": "ADR-0036: un mundo con tres pueblos unidos por la carretera comarcal: cada uno tiene vecinos y su propio autobús; parte de la gente trabaja en otro pueblo y va y viene.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 1,
+  "towns": 3,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 5
+    },
+    "criteria": {
+      "society.initialPopulation": 600
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "towns.count",
+      "op": "==",
+      "value": 3
+    },
+    {
+      "kind": "metric",
+      "metric": "town.r2.population",
+      "op": ">=",
+      "value": 5
+    },
+    {
+      "kind": "metric",
+      "metric": "town.r3.population",
+      "op": ">=",
+      "value": 5
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.workInOtherTownRatio",
+      "op": ">",
+      "value": 0
+    },
+    {
+      "kind": "metric",
+      "metric": "events.bus.arrived",
+      "op": ">=",
+      "value": 45
+    }
+  ]
+}

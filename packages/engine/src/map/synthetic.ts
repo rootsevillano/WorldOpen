@@ -1,6 +1,7 @@
 import type { BuildingRecord, BuildingUse, MapLogic, RegionRef, StreetGraph } from '@worldopen/contracts';
 import { streetName } from '../content/names';
 import { Rng } from '../math/rng';
+import { regionNodeBase } from './mappack';
 
 /**
  * Mapa sintético (ADR-0007) mientras no exista el primer map-pack: un pueblo ficticio en cuadrícula, generado
@@ -32,7 +33,9 @@ export function syntheticMap(seed: number, region: RegionRef, options: Synthetic
   const half = (n * PITCH) / 2;
   const ox = region.offset.x - half;
   const oz = region.offset.z - half;
-  const nodeId = (i: number, j: number) => j * (n + 1) + i;
+  // Ids de nodo en el espacio de la región: varios pueblos sintéticos no chocan (ADR-0036).
+  const base = regionNodeBase(region.id);
+  const nodeId = (i: number, j: number) => base + j * (n + 1) + i;
 
   const streets: StreetGraph = { nodes: [], edges: [] };
   for (let j = 0; j <= n; j++) {
@@ -96,4 +99,9 @@ function pickUse(rng: Rng, bi: number, bj: number, center: number, n: number): B
   if (r < 0.1) return 'retail';
   if (r < 0.14) return 'publicServices';
   return 'residential';
+}
+
+/** Lado (m) de un pueblo sintético de `blocks` manzanas. */
+export function syntheticSize(blocks = 5): number {
+  return blocks * PITCH;
 }

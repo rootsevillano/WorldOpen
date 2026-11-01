@@ -39,7 +39,9 @@ export function pickOccupation(world: World, age: number, home: number): [number
   const c = world.map.buildings[home]!.centroid;
   if (age < 6) return [Occupation.Child, -1];
   if (age < 18) {
-    const school = pickNearby(world, c.x, c.z, world.map.byUse.publicServices, SCHOOL_SCALE_M);
+    // La escuela, en su pueblo (ADR-0036).
+    const town = world.map.townOfBuilding[home]!;
+    const school = pickNearby(world, c.x, c.z, world.map.byUse.publicServices, SCHOOL_SCALE_M, (b) => world.map.townOfBuilding[b] === town);
     return school >= 0 ? [Occupation.Student, school] : [Occupation.Child, -1];
   }
   if (age >= 67) return [Occupation.Retired, -1];

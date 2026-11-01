@@ -142,3 +142,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-01) Tests que agotan los 5 s por defecto de vitest sin cambios de código: comprobar con la versión anterior
   (git stash) antes de buscar un fallo; la vista previa del navegador pintando 3D en segundo plano también carga la
   máquina. `testTimeout` ya es 30 s.
+- (2026-11-01) Al pasar de un recurso global ("la plaza", "la carretera") a uno por pueblo, conservar el getter
+  antiguo como alias del pueblo 0 (`busRoad` → `busRoads[0]`): el resto del código y los escenarios siguen igual y
+  los cambios se limitan a donde importa el pueblo. Los ids de nodo deben vivir en el espacio de su región.

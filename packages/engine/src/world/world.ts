@@ -18,8 +18,15 @@ export class World {
   private pendingEvents: SimEvent[] = [];
   /** Hogares con el coche fuera; transitorio, se recalcula al empezar cada decisión (ADR-0025). */
   carsBusy = new Set<number>();
-  /** Carretera del borde a la parada del autobús interurbano (ADR-0031); se reconstruye del mapa (no va en el snapshot). */
-  busRoad: Road | null = null;
+  /** Carretera del borde a la parada del autobús de cada pueblo (ADR-0031, ADR-0036); se reconstruye del mapa. */
+  busRoads: (Road | null)[] = [];
+  /** Nombres de los pueblos (de las regiones del manifiesto). */
+  townNames: string[] = [];
+
+  /** Carretera del primer pueblo (o `null`). */
+  get busRoad(): Road | null {
+    return this.busRoads[0] ?? null;
+  }
   /** Visitantes llegados hoy en autobús (transitorio, solo para el HUD). */
   visitorsToday = 0;
   visitorsDay = -1;

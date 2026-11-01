@@ -53,16 +53,21 @@ export function festivities(world: World): number {
   return world.num('society.festivities');
 }
 
-/** Locales de la verbena: el más céntrico (la parada del autobús) y los 2 más cercanos a él. */
-export function festivalVenues(world: World): number[] {
-  const plaza = world.busRoad?.stopBuilding ?? world.map.venues[0];
+/** Locales de la verbena de un pueblo: el más céntrico (su parada del autobús) y los 2 más cercanos a él. */
+export function festivalVenues(world: World, town = 0): number[] {
+  const plaza = world.busRoads[town]?.stopBuilding ?? world.map.towns[town]?.venues[0];
   if (plaza === undefined) return [];
   const p = world.map.buildings[plaza]!.centroid;
   const d = (b: number) => {
     const c = world.map.buildings[b]!.centroid;
     return (c.x - p.x) * (c.x - p.x) + (c.z - p.z) * (c.z - p.z);
   };
-  return [...world.map.venues].sort((x, y) => d(x) - d(y) || x - y).slice(0, VENUES);
+  return [...world.map.towns[town]!.venues].sort((x, y) => d(x) - d(y) || x - y).slice(0, VENUES);
+}
+
+/** Locales de la verbena de todos los pueblos. */
+export function allFestivalVenues(world: World): number[] {
+  return world.map.towns.flatMap((_, t) => festivalVenues(world, t));
 }
 
 /** Avisos de inicio y fin de las fiestas (por cambio de día de fiestas entre este tick y el anterior). */

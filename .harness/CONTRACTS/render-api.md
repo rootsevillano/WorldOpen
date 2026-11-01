@@ -16,6 +16,9 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
   autobús entra por la carretera del borde, para en el centro y se va. Quien está fuera del pueblo va `Indoors`.
 - Mapa: el render pide `query {map}` (lista de `MapLogic`) al recibir `ready`. Sin GLB, dibuja edificios como volúmenes
   (lado = √superficie, altura = plantas × 3 m, color por uso) y calles como franjas por tramo.
+- Varios pueblos (ADR-0036): `query {map}` añade un `MapLogic` `comarcal` sin edificios (la carretera entre pueblos,
+  ids de nodo negativos). Con un mapa real, los pueblos sin huellas (sintéticos) y la carretera se dibujan como
+  volúmenes y franjas junto a la geometría real (render mixto).
 - Los buffers se **transfieren** (no se copian): el motor crea arrays nuevos por frame y deja de usarlos al enviarlos.
 - El render interpola entre los dos últimos frames emparejando por `agentId` (los índices pueden cambiar al borrar agentes).
 - La iluminación usa `frame.date.minuteOfDay` y la estación (sol de la latitud real del mapa).

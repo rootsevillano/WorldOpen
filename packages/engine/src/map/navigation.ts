@@ -28,6 +28,13 @@ export class NavMap {
   };
   /** Nodo de calle de la entrada principal de cada edificio. */
   readonly entranceNode: Int32Array;
+  /** Pueblo (índice de región) de cada edificio y de cada nodo (ADR-0036). */
+  readonly townOfBuilding: Int32Array;
+  readonly townOfNode: Int32Array;
+  /** Por pueblo: viviendas, locales, tiendas y nodos, en orden. */
+  readonly towns: { regionId: string; homes: number[]; venues: number[]; retail: number[]; nodes: number[] }[];
+  /** Carretera comarcal: pares de nodos (de un pueblo al siguiente) unidos en línea recta. */
+  readonly links: [number, number][] = [];
 
   constructor(readonly logic: MapLogic[]) {
     this.buildings = logic.flatMap((m) => m.buildings);
@@ -47,20 +54,87 @@ export class NavMap {
       this.adjacency[a]!.push({ node: b, cost: e.lengthM });
       if (!e.oneway) this.adjacency[b]!.push({ node: a, cost: e.lengthM });
     }
+    // Pueblos: cada región es un pueblo; la carretera comarcal une cada uno con el siguiente por sus nodos más
+    // cercanos (ADR-0036).
+    this.townOfNode = new Int32Array(nodes.length);
+    this.towns = logic.map((m) => ({ regionId: m.regionId, homes: [], venues: [], retail: [], nodes: [] }));
+    let k = 0;
+    logic.forEach((m, t) => {
+      for (let j = 0; j < m.streets.nodes.length; j++, k++) {
+        this.townOfNode[k] = t;
+        this.towns[t]!.nodes.push(k);
+      }
+    });
+    for (let t = 1; t < this.towns.length; t++) {
+      let best: [number, number] | null = null;
+      let bestD = Infinity;
+      for (const a of this.towns[t - 1]!.nodes) {
+        for (const b of this.towns[t]!.nodes) {
+          const dx = this.nodeX[a]! - this.nodeX[b]!;
+          const dz = this.nodeZ[a]! - this.nodeZ[b]!;
+          const d = dx * dx + dz * dz;
+          if (d < bestD) {
+            bestD = d;
+            best = [a, b];
+          }
+        }
+      }
+      if (!best) continue;
+      const cost = Math.sqrt(bestD);
+      this.adjacency[best[0]]!.push({ node: best[1], cost });
+      this.adjacency[best[1]]!.push({ node: best[0], cost });
+      this.links.push(best);
+    }
     for (const list of this.adjacency) list.sort((p, q) => p.node - q.node);
 
     this.homes = [];
     this.venues = [];
     this.entranceNode = new Int32Array(this.buildings.length);
+    this.townOfBuilding = new Int32Array(this.buildings.length);
+    let first = 0;
+    logic.forEach((m, t) => {
+      this.townOfBuilding.fill(t, first, first + m.buildings.length);
+      first += m.buildings.length;
+    });
     this.buildings.forEach((b, i) => {
-      if (b.use === 'residential' && b.dwellings > 0) this.homes.push(i);
-      if (VENUE_USES.includes(b.use)) this.venues.push(i);
+      const town = this.towns[this.townOfBuilding[i]!]!;
+      if (b.use === 'residential' && b.dwellings > 0) {
+        this.homes.push(i);
+        town.homes.push(i);
+      }
+      if (VENUE_USES.includes(b.use)) {
+        this.venues.push(i);
+        town.venues.push(i);
+      }
+      if (b.use === 'retail') town.retail.push(i);
       this.byUse[b.use].push(i);
       const entrance = b.entrances[0];
       this.entranceNode[i] =
         entrance?.streetNodeId != null ? this.indexOfNode(entrance.streetNodeId) : this.nearestNode(b.centroid.x, b.centroid.z);
     });
     if (this.homes.length === 0) throw new Error('El mapa no tiene viviendas');
+  }
+
+  /** La carretera comarcal como un mapa lógico sin edificios (para dibujarla). */
+  linkLogic(): MapLogic | null {
+    if (this.links.length === 0) return null;
+    const nodes = this.links.flat().map((n) => ({ id: -1 - n, x: this.nodeX[n]!, z: this.nodeZ[n]!, y: 0 }));
+    const edges = this.links.map(([a, b], id) => {
+      const dx = this.nodeX[a]! - this.nodeX[b]!;
+      const dz = this.nodeZ[a]! - this.nodeZ[b]!;
+      return { id, from: -1 - a, to: -1 - b, lengthM: Math.sqrt(dx * dx + dz * dz), kind: 'carriageway' as const, oneway: false, name: 'Carretera comarcal' };
+    });
+    let minX = Infinity;
+    let minZ = Infinity;
+    let maxX = -Infinity;
+    let maxZ = -Infinity;
+    for (const n of nodes) {
+      minX = Math.min(minX, n.x);
+      minZ = Math.min(minZ, n.z);
+      maxX = Math.max(maxX, n.x);
+      maxZ = Math.max(maxZ, n.z);
+    }
+    return { regionId: 'comarcal', bounds: { minX, minZ, maxX, maxZ }, buildings: [], streets: { nodes, edges } };
   }
 
   get nodeCount(): number {

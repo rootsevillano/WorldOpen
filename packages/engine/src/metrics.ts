@@ -1,6 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
-import { festivalDay, festivalVenues, verbena } from './agents/festival';
+import { allFestivalVenues, festivalDay, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
@@ -73,6 +73,12 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     return n === 0 ? 0 : s / n;
   };
 
+  const town = /^town\.(\w+)\.population$/.exec(name);
+  if (town) {
+    const t = sim.world.map.towns.findIndex((x) => x.regionId === town[1]);
+    return t < 0 ? undefined : residents(sim.world, t);
+  }
+
   const b = /^building\.(@\w+\[\d+\])\.(\w+)$/.exec(name);
   if (b) {
     const idx = resolveBuilding(sim, b[1]!);
@@ -102,12 +108,27 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'env.temperatureC': return temperature(sim.world);
     case 'agents.count': return residents(sim.world);
     case 'agents.visitors': return visitorsNow(sim.world);
+    // Pueblos (ADR-0036): cuántos hay y vecinos de cada uno (`town.<región>.population`).
+    case 'towns.count': return sim.world.map.towns.length;
+    // Quien trabaja en un pueblo distinto del suyo (entre los que tienen puesto en el mundo).
+    case 'agents.workInOtherTownRatio': {
+      const map = sim.world.map;
+      let n = 0;
+      let other = 0;
+      for (let i = 0; i < a.count; i++) {
+        const w = a.workplace[i]!;
+        if (w < 0 || a.occupation[i] === Occupation.Student || !resident(i)) continue;
+        n++;
+        if (map.townOfBuilding[w] !== map.townOfBuilding[a.home[i]!]) other++;
+      }
+      return n === 0 ? 0 : other / n;
+    }
     // Hostal (ADR-0033): huéspedes y ocupación.
     // Fiestas (ADR-0034): día de fiestas, verbena en curso y vecinos en los locales de la verbena.
     case 'festival.day': return festivalDay(sim.world);
     case 'festival.verbena': return verbena(sim.world) ? 1 : 0;
     case 'agents.atFestivalRatio': {
-      const venues = new Set(festivalVenues(sim.world));
+      const venues = new Set(allFestivalVenues(sim.world));
       return ratio((i) => venues.has(a.location[i]!));
     }
     case 'tourism.guests': return hostalGuests(sim.world);

@@ -10,6 +10,7 @@ const FIRST_END_F = ['a', 'ia', 'ena', 'ira', 'ela', 'una'];
 const FIRST_END_M = ['o', 'en', 'ar', 'iel', 'on', 'us'];
 const LAST_END = ['ández', 'ell', 'ora', 'añez', 'ín', 'ero', 'aldo', 'uela', 'ón'];
 const STREET_KIND = ['Calle', 'Calle', 'Calle', 'Avenida', 'Paseo', 'Callejón'];
+const TOWN_END = ['ar', 'illa', 'ejo', 'al', 'ares', 'uela', 'era', 'ino'];
 
 function pick<T>(rng: Rng, list: readonly T[]): T {
   return list[rng.int(0, list.length - 1)]!;
@@ -34,4 +35,9 @@ export function personName(rng: Rng, sex: number): string {
 
 export function streetName(rng: Rng): string {
   return `${pick(rng, STREET_KIND)} ${capitalize(stem(rng, rng.int(2, 3)))}`;
+}
+
+/** Nombre de pueblo inventado (ADR-0036). */
+export function townName(rng: Rng): string {
+  return capitalize(stem(rng, 2) + pick(rng, TOWN_END));
 }

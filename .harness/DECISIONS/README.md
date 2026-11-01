@@ -40,3 +40,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0033](0033-hostal-tourism.md) | Hostal y turismo | Aceptada |
 | [0034](0034-town-festival.md) | Fiestas del pueblo | Aceptada |
 | [0035](0035-festival-dates.md) | Fechas de fiestas en el Modo Dios y fecha de inicio del mundo | Aceptada |
+| [0036](0036-multiple-towns.md) | Varios pueblos en un mundo | Aceptada |

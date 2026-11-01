@@ -18,3 +18,8 @@ Código: `packages/contracts/src/store.ts`, `manifest.ts`, `snapshot.ts`. Decisi
   (existencias, estado, residentes).
 - `listSnapshots(worldId)` devuelve ticks y hashes (línea de tiempo y verificación del visor).
 - `worldopen verify <worldId>` reproduce el mundo desde el snapshot del tick 0 y compara cada snapshot diario.
+
+## Varios pueblos (ADR-0036)
+- `manifest.regions` puede tener hasta 3 regiones: la primera es el mapa elegido; las demás, pueblos sintéticos con
+  nombre inventado, desplazados 1,5 km al este. Cada región es un pueblo; la carretera comarcal, las líneas de autobús,
+  el hostal y la plaza de cada pueblo se derivan del mapa: no se guardan en el snapshot.

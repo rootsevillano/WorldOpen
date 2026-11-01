@@ -24,6 +24,7 @@ export function WorldsPanel(props: {
   const [mapPack, setMapPack] = useState('');
   const [month, setMonth] = useState(3);
   const [day, setDay] = useState(21);
+  const [towns, setTowns] = useState(1);
   const current = props.status?.worldId;
 
   return (
@@ -47,7 +48,7 @@ export function WorldsPanel(props: {
               className="new-world"
               onSubmit={(e) => {
                 e.preventDefault();
-                props.onNew({ name, seed, population, start: { month, day }, ...(mapPack ? { mapPack } : {}) });
+                props.onNew({ name, seed, population, start: { month, day }, towns, ...(mapPack ? { mapPack } : {}) });
               }}
             >
               <input aria-label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
@@ -70,6 +71,10 @@ export function WorldsPanel(props: {
                     <option key={n} value={k + 1}>{n}</option>
                   ))}
                 </select>
+              </label>
+              <label className="small">
+                Pueblos{' '}
+                <input aria-label="Pueblos" type="number" min={1} max={3} value={towns} onChange={(e) => setTowns(Math.min(3, Math.max(1, e.target.valueAsNumber || 1)))} />
               </label>
               <button type="submit">Crear</button>
             </form>
