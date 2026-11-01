@@ -1,8 +1,14 @@
 # CURRENT PHASE
 
-**Fase actual:** Fiestas del pueblo · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Fechas de fiestas en el Modo Dios · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Fiestas del pueblo — entregado (ADR-0034)
+## Fechas de fiestas — entregado (ADR-0035)
+- Mes, día de inicio, duración y día festivo de las fiestas como criterios enteros del Modo Dios; fecha de inicio
+  del mundo al crearlo. Protocolo v12; motor 0.23.0. 17/17 en ambos mapas; 166 tests.
+
+## Fiestas del pueblo (anterior) — completado
+
+### ADR-0034
 - Del 15 al 18 de agosto (el 16 festivo): verbena nocturna en la plaza, se trasnocha y se socializa el doble, el
   triple de visitantes; criterio `society.festivities`. Protocolo v11; motor 0.22.0.
 - Behavior 17/17 en ambos mapas; 164 tests.
@@ -130,7 +136,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: varios pueblos simulados, fechas de fiestas en el Modo Dios, casas rurales, animales en las fichas de hogar y huerta, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
+- Siguiente modelo: varios pueblos simulados, otras fiestas del año (romería, Navidad), casas rurales, animales en las fichas de hogar y huerta, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

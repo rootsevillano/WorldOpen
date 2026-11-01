@@ -8,6 +8,8 @@ export interface CriterionDefinition {
   default: CriterionValue;
   min?: number;
   max?: number;
+  /** Solo números enteros (fechas, días…) (ADR-0035). */
+  integer?: boolean;
   /** Valores permitidos para `enum`. */
   options?: string[];
   description: string;

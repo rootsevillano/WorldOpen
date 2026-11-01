@@ -3,7 +3,7 @@ import { Simulation } from '../../src';
 import { festivalDay, festivalHoliday, festivalVenues, verbena } from '../../src/agents/festival';
 import { inSchool, inShift } from '../../src/agents/environment';
 import { metric } from '../../src/metrics';
-import { manifest } from '../helpers';
+import { manifest, setCriterion } from '../helpers';
 
 const at = (month: number, day: number, hour: number, criteria: Record<string, unknown> = {}, population = 50, minutesPerTick = 30) =>
   new Simulation(manifest(5, { time: { minutesPerTick, start: { year: 1, month, day, hour, minute: 0 } }, criteria: { 'society.initialPopulation': population, ...criteria } }));
@@ -46,5 +46,30 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
       for (const e of sim.drainEvents()) if (e.type.startsWith('festival.')) types.push(e.type);
     }
     expect(types).toEqual(['festival.started', 'festival.day', 'festival.day', 'festival.day', 'festival.ended']);
+  });
+
+  it('el Modo Dios elige fecha, duración y día festivo; las fiestas pueden cruzar el cambio de año (ADR-0035)', () => {
+    const navidad = { 'society.festivalMonth': 12, 'society.festivalStartDay': 30, 'society.festivalLength': 3, 'society.festivalHoliday': 0 };
+    expect(festivalDay(at(12, 29, 12, navidad).world)).toBe(0);
+    expect(festivalDay(at(12, 30, 12, navidad).world)).toBe(1);
+    expect(festivalDay(at(1, 1, 12, navidad).world)).toBe(2);
+    expect(festivalDay(at(1, 2, 12, navidad).world)).toBe(3);
+    expect(festivalDay(at(1, 3, 12, navidad).world)).toBe(0);
+    // Sin día festivo: se trabaja todos los días de fiestas.
+    expect(festivalHoliday(at(1, 1, 10, navidad).world)).toBe(false);
+    // Cambiar el criterio en marcha mueve las fiestas al momento.
+    const sim = at(5, 10, 12);
+    expect(festivalDay(sim.world)).toBe(0);
+    expect(sim.submit(setCriterion('society.festivalMonth', 5))).toMatchObject({ ok: true });
+    expect(sim.submit(setCriterion('society.festivalStartDay', 9))).toMatchObject({ ok: true });
+    sim.step();
+    expect(festivalDay(sim.world)).toBe(2);
+    expect(festivalHoliday(sim.world)).toBe(true);
+  });
+
+  it('las fechas son números enteros', () => {
+    const sim = at(5, 10, 12);
+    expect(sim.submit(setCriterion('society.festivalStartDay', 2.5))).toMatchObject({ ok: false, reason: 'invalid_payload' });
+    expect(sim.submit(setCriterion('society.festivalMonth', 13))).toMatchObject({ ok: false, reason: 'invalid_payload' });
   });
 });

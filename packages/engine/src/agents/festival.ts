@@ -2,17 +2,17 @@ import { MINUTES_PER_DAY } from '../time/clock';
 import type { World } from '../world/world';
 
 /**
- * Fiestas del pueblo (ADR-0034). Del 15 al 18 de agosto (fiestas patronales; el 16 es festivo): verbena de 18:00 a
- * 03:00 en los locales junto a la plaza (el local más céntrico, donde para el autobús, y sus 2 vecinos), los vecinos
- * salen y trasnochan, se socializa el doble y vienen el triple de visitantes de los pueblos vecinos.
+ * Fiestas del pueblo (ADR-0034). Por defecto del 15 al 18 de agosto, el 16 festivo; el Modo Dios elige mes, día de
+ * inicio, duración y día festivo (ADR-0035: `society.festivalMonth`, `festivalStartDay`, `festivalLength`,
+ * `festivalHoliday`). Verbena de 18:00 a 03:00 en los locales junto a la plaza (el local más céntrico, donde para el
+ * autobús, y sus 2 vecinos): los vecinos salen y trasnochan, se socializa el doble y vienen el triple de visitantes.
  * `society.festivities` (0–3) gradúa la intensidad; 0 = sin fiestas. Todo se deriva de la fecha: no hay estado.
  */
 
-const MONTH = 8;
-const FIRST_DAY = 15;
-export const FESTIVAL_DAYS = 4;
-/** Día festivo (sin trabajo ni comercio de jornada): el segundo de fiestas. */
-const HOLIDAY = 2;
+/** Duración de las fiestas (días). */
+export function festivalLength(world: World): number {
+  return world.num('society.festivalLength');
+}
 /** Verbena: de 18:00 a 03:00 (la madrugada cuenta como la noche del día anterior). */
 const VERBENA_FROM = 18 * 60;
 const VERBENA_TO = 3 * 60;
@@ -29,9 +29,10 @@ export function festivalDay(world: World, offsetMinutes = 0): number {
   if (world.num('society.festivities') <= 0) return 0;
   const t = minutesSinceStart(world) + offsetMinutes - VERBENA_TO;
   const dayOfYear = Math.floor(t / MINUTES_PER_DAY) % 360;
-  const month = Math.floor(dayOfYear / 30) + 1;
-  const day = (dayOfYear % 30) + 1;
-  return month === MONTH && day >= FIRST_DAY && day < FIRST_DAY + FESTIVAL_DAYS ? day - FIRST_DAY + 1 : 0;
+  // Días desde el primero de fiestas (puede cruzar fin de mes o de año: meses de 30 días, años de 360).
+  const first = (world.num('society.festivalMonth') - 1) * 30 + (world.num('society.festivalStartDay') - 1);
+  const index = (((dayOfYear - first) % 360) + 360) % 360;
+  return index < festivalLength(world) ? index + 1 : 0;
 }
 
 /** ¿Verbena ahora? */
@@ -43,7 +44,8 @@ export function verbena(world: World): boolean {
 
 /** ¿Es el día festivo de las fiestas (de 03:00 a 03:00)? */
 export function festivalHoliday(world: World): boolean {
-  return festivalDay(world) === HOLIDAY;
+  const holiday = world.num('society.festivalHoliday');
+  return holiday > 0 && festivalDay(world) === holiday;
 }
 
 /** Intensidad de las fiestas (`society.festivities`). */
@@ -68,7 +70,7 @@ export function festivalSystem(world: World): void {
   const now = festivalDay(world);
   const before = festivalDay(world, -world.time.minutesPerTick);
   if (now === before) return;
-  if (now === 1) world.emit('festival.started', { days: FESTIVAL_DAYS });
+  if (now === 1) world.emit('festival.started', { days: festivalLength(world), holiday: festivalHoliday(world) });
   else if (now === 0) world.emit('festival.ended', {});
-  else world.emit('festival.day', { day: now, holiday: now === HOLIDAY });
+  else world.emit('festival.day', { day: now, holiday: festivalHoliday(world) });
 }

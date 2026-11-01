@@ -59,6 +59,8 @@ export interface NewWorldOptions {
   population: number;
   /** `<id>-<versión>` de un map-pack instalado; sin él, mapa sintético. */
   mapPack?: string;
+  /** Fecha de inicio (mes 1–12, día 1–30); sin ella, la de siempre (21 de marzo) (ADR-0035). */
+  start?: { month: number; day: number };
 }
 
 export interface EngineState {
@@ -304,7 +306,7 @@ function newManifest(o: NewWorldOptions, pack?: MapPackManifest): WorldManifest 
   const regions: RegionRef[] | undefined = pack
     ? [{ id: 'r1', displayName: pack.displayName, mapPack: { id: pack.id, version: pack.version }, offset: { x: 0, z: 0 } }]
     : undefined;
-  return createManifest({
+  const m = createManifest({
     worldId: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     seed: o.seed,
@@ -312,6 +314,7 @@ function newManifest(o: NewWorldOptions, pack?: MapPackManifest): WorldManifest 
     criteria: { 'society.initialPopulation': o.population },
     ...(regions ? { regions } : {}),
   });
+  return o.start ? { ...m, time: { ...m.time, start: { ...m.time.start, month: o.start.month, day: o.start.day } } } : m;
 }
 
 /** Recursos de dibujo de las regiones con map-pack (el render los descarga del propio map-pack). */

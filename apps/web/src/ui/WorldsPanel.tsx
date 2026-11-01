@@ -22,6 +22,8 @@ export function WorldsPanel(props: {
   const [seed, setSeed] = useState(1);
   const [population, setPopulation] = useState(50);
   const [mapPack, setMapPack] = useState('');
+  const [month, setMonth] = useState(3);
+  const [day, setDay] = useState(21);
   const current = props.status?.worldId;
 
   return (
@@ -45,7 +47,7 @@ export function WorldsPanel(props: {
               className="new-world"
               onSubmit={(e) => {
                 e.preventDefault();
-                props.onNew({ name, seed, population, ...(mapPack ? { mapPack } : {}) });
+                props.onNew({ name, seed, population, start: { month, day }, ...(mapPack ? { mapPack } : {}) });
               }}
             >
               <input aria-label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
@@ -59,6 +61,16 @@ export function WorldsPanel(props: {
                   </option>
                 ))}
               </select>
+              <label className="small">
+                Empieza el{' '}
+                <input aria-label="Día de inicio" type="number" min={1} max={30} value={day} onChange={(e) => setDay(Math.min(30, Math.max(1, e.target.valueAsNumber || 1)))} />
+                {' de '}
+                <select aria-label="Mes de inicio" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+                  {MONTHS.map((n, k) => (
+                    <option key={n} value={k + 1}>{n}</option>
+                  ))}
+                </select>
+              </label>
               <button type="submit">Crear</button>
             </form>
           )}
@@ -95,3 +107,5 @@ export function WorldsPanel(props: {
     </section>
   );
 }
+
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];

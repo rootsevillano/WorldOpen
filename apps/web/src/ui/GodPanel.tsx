@@ -46,7 +46,7 @@ function CriterionField({ def, value, onApply }: { def: CriterionDefinition; val
 
   let input;
   if (def.type === 'number') {
-    const step = def.max !== undefined && def.min !== undefined && def.max - def.min <= 1 ? 0.05 : 1;
+    const step = def.integer ? 1 : def.max !== undefined && def.min !== undefined && def.max - def.min <= 1 ? 0.05 : 1;
     input = (
       <input type="number" min={def.min} max={def.max} step={step} value={Number(draft)} onChange={(e) => setDraft(e.target.valueAsNumber)} />
     );

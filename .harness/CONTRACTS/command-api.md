@@ -42,6 +42,10 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | `society.petOwnership` | number | 0 … 1 | 0.3 | admin |
 | `society.tourism` | number | 0 … 3 | 1 | admin |
 | `society.transit` | number | 0 … 3 | 1 | admin |
+| `society.festivalHoliday` | number (entero) | 0 … 10 | 2 | admin |
+| `society.festivalLength` | number (entero) | 1 … 10 | 4 | admin |
+| `society.festivalMonth` | number (entero) | 1 … 12 | 8 | admin |
+| `society.festivalStartDay` | number (entero) | 1 … 30 | 15 | admin |
 | `society.festivities` | number | 0 … 3 | 1 | admin |
 | `society.fertility` | number | 0 … 5 | 1 | admin |
 | `society.immigration` | number | 0 … 5 | 1 | admin |

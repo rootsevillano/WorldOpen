@@ -48,6 +48,7 @@ export class CriteriaRegistry {
     switch (def.type) {
       case 'number':
         if (typeof value !== 'number' || !Number.isFinite(value)) return 'se esperaba un número finito';
+        if (def.integer && !Number.isInteger(value)) return 'se esperaba un número entero';
         if (def.min !== undefined && value < def.min) return `mínimo ${def.min}`;
         if (def.max !== undefined && value > def.max) return `máximo ${def.max}`;
         return null;

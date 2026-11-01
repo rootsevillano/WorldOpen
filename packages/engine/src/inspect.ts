@@ -14,7 +14,7 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
-import { FESTIVAL_DAYS, festivalDay, verbena } from './agents/festival';
+import { festivalDay, festivalLength, verbena } from './agents/festival';
 import { AwayReason, Transit, hostal, hostalGuests, hostalRooms, nextArrival, nightPrice, visitorsNow } from './agents/transit';
 import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
@@ -255,7 +255,7 @@ export function economySummary(world: World): EconomySummary {
     housePrice: round(housePrice(world)),
     animals: countByKind(world),
     bus: busSummary(world),
-    festival: festivalDay(world) > 0 ? { day: festivalDay(world), days: FESTIVAL_DAYS, verbena: verbena(world) } : null,
+    festival: festivalDay(world) > 0 ? { day: festivalDay(world), days: festivalLength(world), verbena: verbena(world) } : null,
     hostal: hostal(world) >= 0
       ? { guests: hostalGuests(world), rooms: hostalRooms(world), price: round(nightPrice(world)), building: world.map.buildings[hostal(world)]!.id }
       : null,

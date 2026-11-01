@@ -41,6 +41,30 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.festivalMonth',
+      type: 'number', min: 1, max: 12, default: 8, integer: true,
+      description: 'Mes de las fiestas del pueblo (1–12).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.festivalStartDay',
+      type: 'number', min: 1, max: 30, default: 15, integer: true,
+      description: 'Día del mes en que empiezan las fiestas (meses de 30 días).',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.festivalLength',
+      type: 'number', min: 1, max: 10, default: 4, integer: true,
+      description: 'Duración de las fiestas en días.',
+      mutableBy: 'admin',
+    },
+    {
+      key: 'society.festivalHoliday',
+      type: 'number', min: 0, max: 10, default: 2, integer: true,
+      description: 'Día de fiestas que es festivo (sin trabajo ni escuela); 0 = ninguno.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.festivities',
       type: 'number', min: 0, max: 3, default: 1,
       description: 'Fiestas del pueblo (15–18 de agosto, el 16 festivo): intensidad de la verbena y de los visitantes; 0 = sin fiestas.',

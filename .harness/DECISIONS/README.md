@@ -39,3 +39,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0032](0032-visitor-agents.md) | Visitantes como agentes | Aceptada |
 | [0033](0033-hostal-tourism.md) | Hostal y turismo | Aceptada |
 | [0034](0034-town-festival.md) | Fiestas del pueblo | Aceptada |
+| [0035](0035-festival-dates.md) | Fechas de fiestas en el Modo Dios y fecha de inicio del mundo | Aceptada |
