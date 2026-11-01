@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { CommandEnvelope, CriterionValue, TimeConfig, WorldManifest } from '@worldopen/contracts';
-import { DEFAULT_TIME, MINUTES_PER_DAY, ticksPerDay } from '@worldopen/engine';
+import { DEFAULT_TIME, MINUTES_PER_DAY, ticksPerDay, type TownSide } from '@worldopen/engine';
 import { metric, resolvePayload } from '@worldopen/engine';
 import { createSimulation } from './simulate';
 
@@ -18,6 +18,8 @@ export interface Scenario {
   manifest?: Partial<WorldManifest>;
   /** Pueblos del mundo (ADR-0036); 1 por defecto. */
   towns?: number;
+  /** Lado de los pueblos vecinos (ADR-0037). */
+  townSide?: TownSide;
   commands?: (Omit<CommandEnvelope, 'id' | 'issuer'> & { atHour?: number })[];
   assertions: Assertion[];
 }
@@ -90,7 +92,7 @@ export function runScenario(file: string, scenario: Scenario, mapPack?: string):
   const t0 = performance.now();
   const rejected: string[] = [];
   const runOnce = (seed: number) => {
-    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time }, ...(mapPack ? { mapPack } : {}), ...(scenario.towns ? { towns: scenario.towns } : {}) });
+    const sim = createSimulation({ seed, manifest: { ...scenario.manifest, time }, ...(mapPack ? { mapPack } : {}), ...(scenario.towns ? { towns: scenario.towns } : {}), ...(scenario.townSide ? { townSide: scenario.townSide } : {}) });
     for (const c of commands(seed)) {
       const res = sim.submit({ ...c, payload: resolvePayload(sim, c.payload) });
       if (!res.ok) rejected.push(res.message);

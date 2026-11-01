@@ -1,5 +1,6 @@
 import type { EngineStatus, MapPackManifest, WorldSummary } from '@worldopen/contracts';
 import { useState } from 'react';
+import type { TownSide } from '@worldopen/engine';
 import type { NewWorldOptions } from './useEngine';
 
 const STATUS_ES: Record<string, string> = { created: 'nuevo', running: 'en marcha', paused: 'en pausa', ended: 'terminado' };
@@ -25,6 +26,7 @@ export function WorldsPanel(props: {
   const [month, setMonth] = useState(3);
   const [day, setDay] = useState(21);
   const [towns, setTowns] = useState(1);
+  const [townSide, setTownSide] = useState<TownSide>('east');
   const current = props.status?.worldId;
 
   return (
@@ -48,7 +50,7 @@ export function WorldsPanel(props: {
               className="new-world"
               onSubmit={(e) => {
                 e.preventDefault();
-                props.onNew({ name, seed, population, start: { month, day }, towns, ...(mapPack ? { mapPack } : {}) });
+                props.onNew({ name, seed, population, start: { month, day }, towns, townSide, ...(mapPack ? { mapPack } : {}) });
               }}
             >
               <input aria-label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
@@ -76,6 +78,15 @@ export function WorldsPanel(props: {
                 Pueblos{' '}
                 <input aria-label="Pueblos" type="number" min={1} max={3} value={towns} onChange={(e) => setTowns(Math.min(3, Math.max(1, e.target.valueAsNumber || 1)))} />
               </label>
+              {towns > 1 && (
+                <select aria-label="Lado de los vecinos" value={townSide} onChange={(e) => setTownSide(e.target.value as TownSide)}>
+                  <option value="east">al este</option>
+                  <option value="west">al oeste</option>
+                  <option value="north">al norte</option>
+                  <option value="south">al sur</option>
+                  <option value="around">alrededor</option>
+                </select>
+              )}
               <button type="submit">Crear</button>
             </form>
           )}

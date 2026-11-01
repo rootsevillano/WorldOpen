@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { CommandEnvelope, CriterionValue, GameDate, WorldManifest } from '@worldopen/contracts';
-import { Simulation, createManifest, neighbourTowns, syntheticEastEdge, tickToDate } from '@worldopen/engine';
+import { Simulation, countDwellings, createManifest, neighbourTowns, syntheticBounds, syntheticMap, tickToDate, type TownSide } from '@worldopen/engine';
 import { REPORT_METRICS, metric } from '@worldopen/engine';
 import { DEFAULT_MAPPACKS_DIR, loadRegion, regionFor } from './mappacks';
 
@@ -17,6 +17,8 @@ export interface SimulateOptions {
   mapPacksDir?: string;
   /** Pueblos del mundo (ADR-0036): el primero es el mapa elegido; los demás, sintéticos a su lado. */
   towns?: number;
+  /** Lado de los pueblos vecinos (ADR-0037); por defecto, al este. */
+  townSide?: TownSide;
 }
 
 export interface SimulateReport {
@@ -48,13 +50,15 @@ export function createSimulation(opts: Omit<SimulateOptions, 'ticks'>): Simulati
   });
   const dir = opts.mapPacksDir ?? DEFAULT_MAPPACKS_DIR;
   const maps = Object.fromEntries(manifest.regions.filter((r) => r.mapPack).map((r) => [r.id, loadRegion(dir, r)]));
-  // Pueblos vecinos sintéticos al este del primero (ADR-0036).
+  // Pueblos vecinos sintéticos junto al primero, de tamaño proporcional a él (ADR-0036, ADR-0037).
   if ((opts.towns ?? 1) > 1) {
     const first = manifest.regions[0]!;
-    const bounds = maps[first.id]?.bounds;
-    const eastOf = bounds ? bounds.maxX : syntheticEastEdge(first);
-    const centerZ = bounds ? (bounds.minZ + bounds.maxZ) / 2 : first.offset.z;
-    manifest.regions = [first, ...neighbourTowns(opts.seed, opts.towns! - 1, eastOf, centerZ)];
+    const map = maps[first.id] ?? syntheticMap(manifest.seed, first, first.blocks ? { blocks: first.blocks } : {});
+    const bounds = maps[first.id]?.bounds ?? syntheticBounds(first);
+    manifest.regions = [
+      first,
+      ...neighbourTowns({ seed: opts.seed, count: opts.towns! - 1, bounds, dwellings: countDwellings(map), taken: [first.displayName], ...(opts.townSide ? { side: opts.townSide } : {}) }),
+    ];
   }
   return new Simulation(manifest, Object.keys(maps).length > 0 ? { maps } : {});
 }

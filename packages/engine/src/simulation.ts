@@ -56,7 +56,7 @@ function loadMaps(manifest: WorldManifest, maps: Record<string, MapLogic> = {}):
   return manifest.regions.map((region) => {
     const loaded = maps[region.id];
     if (loaded) return loaded;
-    if (region.mapPack === null) return syntheticMap(manifest.seed, region);
+    if (region.mapPack === null) return syntheticMap(manifest.seed, region, region.blocks ? { blocks: region.blocks } : {});
     throw new Error(`Falta el map-pack ${region.mapPack.id}@${region.mapPack.version} de la región ${region.id}`);
   });
 }

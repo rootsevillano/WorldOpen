@@ -145,3 +145,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-01) Al pasar de un recurso global ("la plaza", "la carretera") a uno por pueblo, conservar el getter
   antiguo como alias del pueblo 0 (`busRoad` → `busRoads[0]`): el resto del código y los escenarios siguen igual y
   los cambios se limitan a donde importa el pueblo. Los ids de nodo deben vivir en el espacio de su región.
+- (2026-11-01) Para dimensionar algo generado proceduralmente («N viviendas»), generarlo con tamaños crecientes y
+  contar es exacto, determinista y barato. Es mejor que estimar una densidad media. Guardar el resultado (`blocks`)
+  en el manifiesto, no la fórmula.

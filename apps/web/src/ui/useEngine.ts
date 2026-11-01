@@ -10,7 +10,7 @@ import {
   type WorldManifest,
   type WorldSummary,
 } from '@worldopen/contracts';
-import { createManifest, SYNTHETIC_REGION, neighbourTowns, syntheticEastEdge } from '@worldopen/engine';
+import { countDwellings, createManifest, SYNTHETIC_REGION, neighbourTowns, syntheticBounds, syntheticMap, type TownSide } from '@worldopen/engine';
 import { WorldRenderer, type Pick, type RenderPack } from '@worldopen/render';
 import type { MapPackManifest, RegionRef } from '@worldopen/contracts';
 import { IndexedDbWorldStore } from '@worldopen/store';
@@ -63,6 +63,8 @@ export interface NewWorldOptions {
   start?: { month: number; day: number };
   /** Pueblos del mundo (1–3): el primero es el mapa elegido; los demás, sintéticos a su lado (ADR-0036). */
   towns?: number;
+  /** Lado de los pueblos vecinos (ADR-0037). */
+  townSide?: TownSide;
 }
 
 export interface EngineState {
@@ -277,7 +279,19 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
     issuer,
     session,
     select,
-    newWorld: (o) => client?.init(newManifest(o, mapPacks.find((m) => `${m.id}-${m.version}` === o.mapPack))),
+    newWorld: (o) => {
+      const pack = mapPacks.find((m) => `${m.id}-${m.version}` === o.mapPack);
+      // Los vecinos se dimensionan con las viviendas del mapa real (ADR-0037).
+      if (!pack || (o.towns ?? 1) < 2) {
+        client?.init(newManifest(o, pack));
+        return;
+      }
+      void fetch(`/map-packs/${pack.id}-${pack.version}/${pack.logic.buildings}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((buildings: Parameters<typeof countDwellings>[0]['buildings']) => countDwellings({ buildings }))
+        .catch(() => 0)
+        .then((dwellings) => client?.init(newManifest(o, pack, dwellings)));
+    },
     openWorld: (id) => {
       const w = worlds.find((x) => x.worldId === id);
       // Un mundo terminado solo se puede estudiar.
@@ -304,16 +318,17 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
   };
 }
 
-function newManifest(o: NewWorldOptions, pack?: MapPackManifest): WorldManifest {
+function newManifest(o: NewWorldOptions, pack?: MapPackManifest, packDwellings = 0): WorldManifest {
   const regions: RegionRef[] | undefined = pack
     ? [{ id: 'r1', displayName: pack.displayName, mapPack: { id: pack.id, version: pack.version }, offset: { x: 0, z: 0 } }]
     : undefined;
-  // Pueblos vecinos al este del primero (ADR-0036).
+  // Pueblos vecinos junto al primero, de tamaño proporcional a él (ADR-0036, ADR-0037).
   const first = regions?.[0] ?? SYNTHETIC_REGION;
   const extra = Math.max(0, (o.towns ?? 1) - 1);
-  const eastOf = pack ? pack.bounds.maxX : syntheticEastEdge(first);
-  const centerZ = pack ? (pack.bounds.minZ + pack.bounds.maxZ) / 2 : first.offset.z;
-  const all = extra > 0 ? [first, ...neighbourTowns(o.seed, extra, eastOf, centerZ)] : regions;
+  const bounds = pack ? pack.bounds : syntheticBounds(first);
+  const dwellings = pack ? packDwellings : countDwellings(syntheticMap(o.seed, first));
+  const neighbours = () => neighbourTowns({ seed: o.seed, count: extra, bounds, dwellings, taken: [first.displayName], ...(o.townSide ? { side: o.townSide } : {}) });
+  const all = extra > 0 ? [first, ...neighbours()] : regions;
   const m = createManifest({
     worldId: crypto.randomUUID(),
     createdAt: new Date().toISOString(),

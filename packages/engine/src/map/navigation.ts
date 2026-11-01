@@ -33,7 +33,7 @@ export class NavMap {
   readonly townOfNode: Int32Array;
   /** Por pueblo: viviendas, locales, tiendas y nodos, en orden. */
   readonly towns: { regionId: string; homes: number[]; venues: number[]; retail: number[]; nodes: number[] }[];
-  /** Carretera comarcal: pares de nodos (de un pueblo al siguiente) unidos en línea recta. */
+  /** Carretera comarcal: pares de nodos (de cada pueblo al más cercano de los anteriores) unidos en línea recta. */
   readonly links: [number, number][] = [];
 
   constructor(readonly logic: MapLogic[]) {
@@ -54,8 +54,8 @@ export class NavMap {
       this.adjacency[a]!.push({ node: b, cost: e.lengthM });
       if (!e.oneway) this.adjacency[b]!.push({ node: a, cost: e.lengthM });
     }
-    // Pueblos: cada región es un pueblo; la carretera comarcal une cada uno con el siguiente por sus nodos más
-    // cercanos (ADR-0036).
+    // Pueblos: cada región es un pueblo; la carretera comarcal une cada uno con el más cercano de los anteriores por
+    // sus nodos más cercanos (ADR-0036, ADR-0037: con vecinos a varios lados, no se cruza el primer pueblo).
     this.townOfNode = new Int32Array(nodes.length);
     this.towns = logic.map((m) => ({ regionId: m.regionId, homes: [], venues: [], retail: [], nodes: [] }));
     let k = 0;
@@ -68,7 +68,7 @@ export class NavMap {
     for (let t = 1; t < this.towns.length; t++) {
       let best: [number, number] | null = null;
       let bestD = Infinity;
-      for (const a of this.towns[t - 1]!.nodes) {
+      for (let s = 0; s < t; s++) for (const a of this.towns[s]!.nodes) {
         for (const b of this.towns[t]!.nodes) {
           const dx = this.nodeX[a]! - this.nodeX[b]!;
           const dz = this.nodeZ[a]! - this.nodeZ[b]!;

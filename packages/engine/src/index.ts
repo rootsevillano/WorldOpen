@@ -1,5 +1,5 @@
 export { Simulation, type SimulationOptions, type SubmitResult } from './simulation';
-export { createManifest, neighbourTowns, SYNTHETIC_REGION, syntheticEastEdge, TOWN_GAP_M } from './manifest';
+export { countDwellings, createManifest, neighbourTowns, SYNTHETIC_REGION, syntheticBounds, TOWN_GAP_M, type NeighbourOptions, type TownSide } from './manifest';
 export { CommandRegistry, type CommandDefinition } from './commands/registry';
 export { CriteriaRegistry } from './criteria/registry';
 export { Rng, type RngState } from './math/rng';

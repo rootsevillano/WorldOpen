@@ -11,6 +11,8 @@ export interface RegionRef {
   mapPack: { id: string; version: string } | null;
   /** Desplazamiento del origen de la región respecto al del mundo, en metros (X = Este, Z = −Norte). */
   offset: { x: number; z: number };
+  /** Solo mapa sintético: manzanas por lado (por defecto 5). Los pueblos vecinos se dimensionan así (ADR-0037). */
+  blocks?: number;
 }
 
 /** ADR-0004. Definición inmutable de un mundo. */

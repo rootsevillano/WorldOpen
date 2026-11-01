@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Varios pueblos · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Vecinos de tamaño real · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Varios pueblos — entregado (ADR-0036)
+## Vecinos de tamaño real — entregado (ADR-0037)
+- Cada vecino tiene entre el 35 % y el 80 % de las viviendas del primer pueblo (`RegionRef.blocks`). El lado se
+  elige al crear el mundo (este, oeste, norte, sur o alrededor), y la carretera une cada pueblo con el más cercano.
+  Los nombres inventados son más naturales. Motor 0.25.0. 18/18 en ambos mapas; 170 tests.
+
+## Varios pueblos (anterior) — completado (ADR-0036)
 - Mundos de 1–3 pueblos: el mapa elegido y vecinos sintéticos al este, unidos por la carretera comarcal. Autobús,
   hostal, plaza, colegio y ocio por pueblo; trabajo en otro pueblo. Protocolo v13; motor 0.24.0. 18/18 en ambos
   mapas; 169 tests.
