@@ -36,3 +36,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0029](0029-animal-inspector.md) | Inspector de animales | Aceptada |
 | [0030](0030-public-transport.md) | Transporte público (línea de autobús) | Sustituida por 0031 |
 | [0031](0031-intercity-transport.md) | Transporte público solo entre pueblos | Aceptada |
+| [0032](0032-visitor-agents.md) | Visitantes como agentes | Aceptada |

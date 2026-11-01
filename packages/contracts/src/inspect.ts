@@ -113,5 +113,5 @@ export interface EconomySummary {
   animals: { dogs: number; sheep: number; hens: number };
   /** Autobús a otros pueblos (ADR-0031): vecinos fuera, esperando en la parada, visitantes de hoy y próxima llegada
    * (min del día; `null` si no quedan). `null` si no hay carretera. */
-  bus: { away: number; waiting: number; visitorsToday: number; nextBus: number | null } | null;
+  bus: { away: number; waiting: number; visitorsToday: number; visitorsNow: number; nextBus: number | null } | null;
 }

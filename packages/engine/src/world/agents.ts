@@ -33,9 +33,11 @@ export const Occupation = {
   Child: 7,
   /** Trabaja en otro pueblo: sale por la mañana y vuelve por la tarde (ADR-0031). */
   Commuter: 8,
+  /** De visita: llega en el autobús y se va en otro el mismo día; sin hogar en el pueblo (ADR-0032). */
+  Visitor: 9,
 } as const;
 export type Occupation = (typeof Occupation)[keyof typeof Occupation];
-export const OCCUPATION_NAMES = ['unemployed', 'retired', 'shopkeeper', 'farmer', 'sawyer', 'civilServant', 'student', 'child', 'commuter'] as const;
+export const OCCUPATION_NAMES = ['unemployed', 'retired', 'shopkeeper', 'farmer', 'sawyer', 'civilServant', 'student', 'child', 'commuter', 'visitor'] as const;
 
 /** Recurso: 0 = ninguno. */
 export const Resource = { None: 0, Food: 1, Water: 2, Wood: 3 } as const;

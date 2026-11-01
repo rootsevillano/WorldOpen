@@ -14,7 +14,7 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
-import { AwayReason, Transit, nextArrival } from './agents/transit';
+import { AwayReason, Transit, nextArrival, visitorsNow } from './agents/transit';
 import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
 import { ANIMAL_NAMES, Animal } from './world/animals';
@@ -36,7 +36,7 @@ function busSummary(world: World): EconomySummary['bus'] {
     if (a.transit[i] === Transit.Away) away++;
     else if (a.transit[i] === Transit.Waiting) waiting++;
   }
-  return { away, waiting, visitorsToday: world.visitorsToday, nextBus: nextArrival(world, minuteOfDay(world)) };
+  return { away, waiting, visitorsToday: world.visitorsToday, visitorsNow: visitorsNow(world), nextBus: nextArrival(world, minuteOfDay(world)) };
 }
 
 function countByKind(world: World): EconomySummary['animals'] {
@@ -226,6 +226,7 @@ export function economySummary(world: World): EconomySummary {
   let jobless = 0;
   for (let i = 0; i < a.count; i++) {
     if (a.busyLeft[i]! > 0 && a.location[i] !== a.home[i]) queueing++;
+    if (a.occupation[i] === Occupation.Visitor) continue;
     money += a.money[i]!;
     const occ = a.occupation[i]!;
     if (a.age[i]! < 18 || occ === Occupation.Retired || occ === Occupation.Student || occ === Occupation.Child) continue;

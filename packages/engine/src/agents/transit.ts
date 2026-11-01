@@ -5,6 +5,10 @@ import { ticksPerDay } from '../time/clock';
 import { Action, Occupation } from '../world/agents';
 import type { World } from '../world/world';
 import { dayOfWeek, minuteOfDay } from './environment';
+import { personName } from '../content/names';
+import { Rng } from '../math/rng';
+import { forgetAgent } from './lifecycle';
+import { removeAgent } from './population';
 import { fuelCost, pathLength, shouldDrive } from './vehicles';
 
 /**
@@ -35,11 +39,11 @@ const TRIP_BACK = 19 * 60;
 /** Excursiones: fines de semana, al salir de casa entre las 09:00 y las 13:00, el 8 % de las veces. */
 const TRIP_SHARE = 0.08;
 const TRIP_WINDOW: [number, number] = [540, 780];
-/** Gasto de quien pasa el día fuera (comida) y de cada visitante en la tienda del centro (× `economy.priceLevel`). */
+/** Gasto de quien pasa el día fuera (comida) (× `economy.priceLevel`) y rato de un visitante en cada local (min). */
+const VISIT_STAY = 45;
 const AWAY_SPEND = 6;
 /** Recorrido fuera del pueblo hasta el pueblo vecino (m, cada sentido): cuenta para la gasolina. */
 const OUTSIDE_M = 10_000;
-const VISITOR_SPEND = 6;
 /** Visitantes por autobús: 1,5 por cada 1 000 habitantes (el doble en fin de semana). */
 const VISITORS_PER_PERSON = 0.0015;
 
@@ -295,6 +299,7 @@ export function transitSystem(world: World): void {
   const edgeX = world.map.nodeX[road.edgeNode]!;
   const edgeZ = world.map.nodeZ[road.edgeNode]!;
   const price = fare(world);
+  const leavers: number[] = [];
   for (let i = 0; i < a.count; i++) {
     const stage = a.transit[i]!;
     if (stage === Transit.Away) {
@@ -306,7 +311,9 @@ export function transitSystem(world: World): void {
         comeBack(world, i, stopX, stopZ);
       }
     } else if (stage === Transit.Waiting) {
-      if (due.length > 0 && a.money[i]! >= price) {
+      if (due.length > 0 && a.occupation[i] === Occupation.Visitor) {
+        leavers.push(a.ids[i]!);
+      } else if (due.length > 0 && a.money[i]! >= price) {
         a.money[i]! -= price;
         depart(world, i);
       } else if (now - a.transitSince[i]! > MAX_WAIT || !serviceOn(world)) {
@@ -314,13 +321,116 @@ export function transitSystem(world: World): void {
       }
     }
   }
+  for (const id of leavers) leave(world, id);
+  visitorsSystem(world, road, m, now);
   if (due.length > 0) {
     const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
-    const visitors = Math.floor(a.count * VISITORS_PER_PERSON * weekend * due.length + hash(day, m));
-    if (visitors > 0 && road.shop >= 0) {
-      world.buildings.cash[road.shop]! += visitors * VISITOR_SPEND * world.num('economy.priceLevel');
-      world.visitorsToday += visitors;
-    }
+    const expected = residents(world) * VISITORS_PER_PERSON * weekend * due.length;
+    let visitors = 0;
+    for (let v = 0; v < Math.floor(expected + hash(day, m)); v++) if (spawnVisitor(world, road, m, day * 10_000 + m * 10 + v)) visitors++;
+    world.visitorsToday += visitors;
     world.emit('bus.arrived', { visitors, stop: world.map.buildings[road.stopBuilding]!.id });
   }
+}
+
+/** Vecinos (sin los visitantes). */
+export function residents(world: World): number {
+  const a = world.agents;
+  let n = 0;
+  for (let i = 0; i < a.count; i++) if (a.occupation[i] !== Occupation.Visitor) n++;
+  return n;
+}
+
+/** Visitantes en el pueblo ahora. */
+export function visitorsNow(world: World): number {
+  return world.agents.count - residents(world);
+}
+
+/** Locales cercanos a la parada (los 8 más próximos): adonde van los visitantes. */
+function visitorVenues(world: World, road: Road): number[] {
+  const map = world.map;
+  const s = map.buildings[road.stopBuilding]!.centroid;
+  const d = (b: number) => {
+    const c = map.buildings[b]!.centroid;
+    return (c.x - s.x) * (c.x - s.x) + (c.z - s.z) * (c.z - s.z);
+  };
+  return map.venues.filter((v) => world.buildings.state[v] === 0).sort((x, y) => d(x) - d(y) || x - y).slice(0, 8);
+}
+
+/**
+ * Baja del autobús un visitante (ADR-0032): un agente de paso, sin hogar en el pueblo (su "casa" es la parada) y con la
+ * hora a la que se irá. Sus rasgos salen de un PRNG propio sembrado por hash: no altera el del mundo.
+ */
+function spawnVisitor(world: World, road: Road, m: number, key: number): boolean {
+  const a = world.agents;
+  if (a.count >= a.capacity) return false;
+  const rng = Rng.fromSeed((Math.imul(key, 0x9e3779b1) ^ 0x5bd1e995) >>> 0);
+  const x = world.map.nodeX[road.stopNode]!;
+  const z = world.map.nodeZ[road.stopNode]!;
+  const i = a.add(x, 0, z);
+  a.sex[i] = rng.int(0, 1);
+  a.age[i] = rng.int(18, 75);
+  a.names[i] = personName(rng, a.sex[i]!);
+  a.sociability[i] = rng.nextFloat();
+  a.bravery[i] = rng.nextFloat();
+  a.occupation[i] = Occupation.Visitor;
+  a.home[i] = road.stopBuilding;
+  a.household[i] = 0;
+  a.money[i] = rng.int(30, 90);
+  a.bedtime[i] = 1380;
+  // Se va en un autobús de 1 a 4 horas después (como muy tarde, el último).
+  a.awayUntil[i] = Math.min(LAST_BUS - 10, m + 60 + rng.int(0, 180));
+  a.transitSince[i] = m;
+  goToVenue(world, i, road, key);
+  world.emit('visitor.arrived', { agentId: a.ids[i], name: a.names[i] });
+  return true;
+}
+
+/** El visitante va a uno de los locales cercanos a la parada (por hash), distinto del que está. */
+function goToVenue(world: World, i: number, road: Road, key: number): void {
+  const a = world.agents;
+  const venues = visitorVenues(world, road).filter((v) => v !== a.location[i]);
+  if (venues.length === 0) return;
+  const venue = venues[Math.floor(hash(a.ids[i]!, key) * venues.length)]!;
+  const path = world.map.route(a.positions[i * 3]!, a.positions[i * 3 + 2]!, a.location[i]!, venue);
+  if (!path) return;
+  a.action[i] = Action.GoOut;
+  a.paths[i] = path;
+  a.pathPos[i] = 0;
+  a.target[i] = venue;
+  a.location[i] = -1;
+  a.flags[i] = 0;
+  a.activities[i] = AgentActivity.Moving;
+}
+
+/**
+ * Visitantes en el pueblo: pasan un rato (unos 45 min) en cada local, cambian de local, y a su hora vuelven a la parada
+ * para irse en el próximo autobús. Al subir, dejan el pueblo. Quien siga aquí tras el último autobús se va igualmente.
+ */
+function visitorsSystem(world: World, road: Road, m: number, now: number): void {
+  const a = world.agents;
+  const gone: number[] = [];
+  for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] !== Occupation.Visitor) continue;
+    if (m >= LAST_BUS + DWELL + 10 || m < FIRST_BUS) {
+      gone.push(a.ids[i]!);
+      continue;
+    }
+    if (a.transit[i] !== Transit.None || a.paths[i] !== null || a.location[i]! < 0) continue;
+    if (m >= a.awayUntil[i]!) {
+      const toStop = world.map.routeToNode(a.positions[i * 3]!, a.positions[i * 3 + 2]!, a.location[i]!, road.stopNode);
+      if (toStop) begin(world, i, Transit.ToStop, toStop, AwayReason.Trip, a.awayUntil[i]!, 0);
+      else gone.push(a.ids[i]!);
+    } else if (m - a.transitSince[i]! >= VISIT_STAY) {
+      a.transitSince[i] = m;
+      goToVenue(world, i, road, now);
+    }
+  }
+  for (const id of gone) leave(world, id);
+}
+
+/** El visitante se va del pueblo (y sus conocidos lo olvidan). */
+function leave(world: World, id: number): void {
+  forgetAgent(world, id, false);
+  removeAgent(world, id, 'visitor.left');
 }

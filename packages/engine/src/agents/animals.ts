@@ -102,6 +102,7 @@ function daily(world: World): void {
   const an = world.animals;
   const bs = world.buildings;
   const day = today(world);
+  const abundance = world.num('economy.foodAbundance') / 0.7;
   // ¿Se trabajó hoy en cada huerta? (los minutos se reinician después, al pagar el jornal)
   const cared = new Set<number>();
   for (let i = 0; i < a.count; i++) if (a.workedToday[i]! > 0 && a.workplace[i]! >= 0) cared.add(a.workplace[i]!);
@@ -112,7 +113,8 @@ function daily(world: World): void {
   for (let i = 0; i < an.count; i++) {
     if (an.kind[i] !== Animal.Dog) {
       const f = an.farm[i]!;
-      if (cared.has(f)) bs.food[f] = Math.min(storageCap(world, f), bs.food[f]! + DAILY_FOOD[an.kind[i]!]!);
+      // Escala con la abundancia de comida (pasto y pienso; 0,7 es el valor por defecto): sin abundancia, no producen (ADR-0032).
+      if (cared.has(f)) bs.food[f] = Math.min(storageCap(world, f), bs.food[f]! + DAILY_FOOD[an.kind[i]!]! * abundance);
       continue;
     }
     const hh = an.household[i]!;

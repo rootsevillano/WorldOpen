@@ -6,7 +6,7 @@ import { Animal } from './world/animals';
 import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
-import { Transit, busesNow } from './agents/transit';
+import { Transit, busesNow, residents, visitorsNow } from './agents/transit';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
@@ -49,17 +49,27 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
   if (name.startsWith('criteria.')) return sim.world.criteria[name.slice('criteria.'.length)];
   const a = sim.world.agents;
   const bs = sim.world.buildings;
+  // Las métricas de población son de los vecinos: los visitantes de paso no cuentan (ADR-0032).
+  const resident = (i: number) => a.occupation[i] !== Occupation.Visitor;
   const ratio = (pred: (i: number) => boolean) => {
-    if (a.count === 0) return 0;
+    let n = 0;
     let c = 0;
-    for (let i = 0; i < a.count; i++) if (pred(i)) c++;
-    return c / a.count;
+    for (let i = 0; i < a.count; i++) {
+      if (!resident(i)) continue;
+      n++;
+      if (pred(i)) c++;
+    }
+    return n === 0 ? 0 : c / n;
   };
   const mean = (col: Float32Array) => {
-    if (a.count === 0) return 0;
+    let n = 0;
     let s = 0;
-    for (let i = 0; i < a.count; i++) s += col[i]!;
-    return s / a.count;
+    for (let i = 0; i < a.count; i++) {
+      if (!resident(i)) continue;
+      n++;
+      s += col[i]!;
+    }
+    return n === 0 ? 0 : s / n;
   };
 
   const b = /^building\.(@\w+\[\d+\])\.(\w+)$/.exec(name);
@@ -89,7 +99,8 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'clock.elapsedDays': return Math.floor(sim.tick / ticksPerDay(sim.manifest.time));
     case 'env.night': return nightFactor(sim.world);
     case 'env.temperatureC': return temperature(sim.world);
-    case 'agents.count': return a.count;
+    case 'agents.count': return residents(sim.world);
+    case 'agents.visitors': return visitorsNow(sim.world);
     case 'agents.childrenRatio': return ratio((i) => a.age[i]! < 18);
     case 'agents.elderlyRatio': return ratio((i) => a.age[i]! >= 65);
     // Adultos con pareja / adultos (ADR-0020).
@@ -97,13 +108,13 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       let adults = 0;
       let partnered = 0;
       for (let i = 0; i < a.count; i++) {
-        if (a.age[i]! < 18) continue;
+        if (a.age[i]! < 18 || !resident(i)) continue;
         adults++;
         if (partnerId(sim.world, i) !== 0) partnered++;
       }
       return adults === 0 ? 0 : partnered / adults;
     }
-    case 'households.count': return new Set(a.household.subarray(0, a.count)).size;
+    case 'households.count': return new Set(Array.from(a.household.subarray(0, a.count)).filter((_, i) => resident(i))).size;
     // Viviendas ocupadas / viviendas del mapa (un edificio sin datos cuenta como una).
     case 'households.occupancy': {
       let total = 0;
@@ -178,7 +189,7 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'economy.avgMoney': {
       let n = 0;
       let total = 0;
-      for (let i = 0; i < a.count; i++) if (a.age[i]! >= 18) { n++; total += a.money[i]!; }
+      for (let i = 0; i < a.count; i++) if (a.age[i]! >= 18 && resident(i)) { n++; total += a.money[i]!; }
       return n === 0 ? 0 : total / n;
     }
     // Quien compra (14+) y no puede pagar ni una ración.
@@ -186,7 +197,7 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       const price = marketPrice(sim.world, Resource.Food);
       let n = 0;
       let broke = 0;
-      for (let i = 0; i < a.count; i++) if (a.age[i]! >= MONEY_AGE) { n++; if (a.money[i]! < price) broke++; }
+      for (let i = 0; i < a.count; i++) if (a.age[i]! >= MONEY_AGE && resident(i)) { n++; if (a.money[i]! < price) broke++; }
       return n === 0 ? 0 : broke / n;
     }
     // Precio medio de la comida y de la leña relativo al base (1 = normal; ADR-0023).

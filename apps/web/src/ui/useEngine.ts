@@ -175,7 +175,7 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
             break;
           }
           case 'events':
-            push(msg.events.filter((e) => e.type !== 'agent.spawned' || msg.events.length < 20).map((e) => ({ tick: e.tick, kind: 'event', text: describeEvent(e) })));
+            push(msg.events.filter((e) => !e.type.startsWith('visitor.') && (e.type !== 'agent.spawned' || msg.events.length < 20)).map((e) => ({ tick: e.tick, kind: 'event', text: describeEvent(e) })));
             if (msg.events.some((e) => e.type === 'criteria.changed')) void engine.query('catalog').then(setCatalog);
             break;
           case 'commandRejected':

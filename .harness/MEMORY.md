@@ -136,3 +136,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   pueblo, a pie o en coche. Mantener el mundo de un solo pueblo salvo que pida simular varios.
 - (2026-10-31) Visual Gate: los contadores del render (`visibleBuses`, …) solo cambian cuando el navegador pinta; con
   el panel oculto se quedan viejos. Comparar con `frame` o poner velocidad baja antes de medir.
+- (2026-11-01) Agentes de paso en el mismo `AgentStore`: decidir a qué sistemas no deben llegar (decisión, necesidades,
+  despensas, dinero del hogar) y filtrar las métricas de población; que se vayan antes de medianoche simplifica los
+  sistemas diarios. Sembrar su PRNG por hash para no mover el del mundo.

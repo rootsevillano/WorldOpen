@@ -81,6 +81,8 @@ export function needsSystem(world: World): void {
   const school = inSchool(world);
   const map = world.map;
   for (let i = 0; i < a.count; i++) {
+    // Los visitantes están de paso: su programa de visita no depende de necesidades (ADR-0032).
+    if (a.occupation[i] === Occupation.Visitor) continue;
     // Fuera del pueblo, las necesidades quedan en pausa (come fuera); el trabajo de fuera cuenta (ADR-0031).
     if (a.transit[i] === Transit.Away) {
       if (a.awayReason[i] === AwayReason.Work) a.work[i] = clamp01(a.work[i]! + dt * WORK_DONE);
@@ -164,7 +166,7 @@ export function decisionSystem(world: World): void {
   for (let i = 0; i < a.count; i++) {
     // Abasteciéndose (cola o servicio en curso) o comiendo: no se interrumpe.
     // Abasteciéndose, comiendo o en un viaje en autobús (ADR-0030): no se interrumpe.
-    if (a.busyLeft[i]! > 0 || a.transit[i]) continue;
+    if (a.busyLeft[i]! > 0 || a.transit[i] || a.occupation[i] === Occupation.Visitor) continue;
     const moving = a.paths[i] !== null;
     const due = (world.tick + a.ids[i]!) % every === 0;
     const stranded =

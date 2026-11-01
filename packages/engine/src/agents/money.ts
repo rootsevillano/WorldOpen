@@ -282,6 +282,7 @@ export function dailyMoney(world: World): void {
   for (let i = 0; i < a.count; i++) {
     const age = a.age[i]!;
     const occ = a.occupation[i]!;
+    if (occ === Occupation.Visitor) continue;
     let delta = -(age >= 18 ? LIVING_COST.adult : LIVING_COST.minor) * priceLevel;
     if (occ === Occupation.Retired) delta += PENSION * welfare;
     else if (occ === Occupation.Unemployed && age >= 18) delta += UNEMPLOYMENT_BENEFIT * welfare;
@@ -319,6 +320,7 @@ export function dailyMoney(world: World): void {
     if (p[1] > 0 && excess > 0) p[0] -= excess * DISCRETIONARY_DAILY;
   }
   for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] === Occupation.Visitor) continue;
     if (a.age[i]! < MONEY_AGE) {
       a.money[i] = 0;
       continue;

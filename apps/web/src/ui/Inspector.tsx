@@ -12,7 +12,7 @@ const ACTIONS_ES: Record<string, string> = {
 };
 const OCCUPATIONS_ES: Record<string, string> = {
   unemployed: 'en paro', retired: 'jubilado/a', shopkeeper: 'comercio', farmer: 'campo', sawyer: 'aserradero',
-  civilServant: 'servicio público', student: 'estudiante', child: 'niño/a en casa', commuter: 'trabaja en otro pueblo',
+  civilServant: 'servicio público', student: 'estudiante', child: 'niño/a en casa', commuter: 'trabaja en otro pueblo', visitor: 'de visita (viene de otro pueblo)',
 };
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',

@@ -1,8 +1,15 @@
 # CURRENT PHASE
 
-**Fase actual:** Transporte entre pueblos · ✅ **completada** (2026-10-31) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Visitantes como agentes · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Transporte entre pueblos — entregado (ADR-0031, sustituye a ADR-0030)
+## Visitantes como agentes — entregado (ADR-0032)
+- Los visitantes bajan del autobús como agentes de paso: recorren locales del centro, gastan y charlan, y se van en
+  otro autobús; no cuentan como vecinos ni entran en la vida del hogar. Protocolo v9; motor 0.20.0.
+- Behavior 16/16 en ambos mapas; 158 tests.
+
+## Transporte entre pueblos (anterior) — completado
+
+### ADR-0031
 - Sin autobús urbano. Autobús interurbano por la carretera del borde hasta el centro; vecinos que trabajan en otros
   pueblos o pasan el día fuera (en coche o autobús) y vuelven; visitantes que gastan en el centro. Protocolo v8; motor
   0.19.0. Behavior 16/16 en ambos mapas; 157 tests; Visual Gate.
@@ -109,7 +116,7 @@
 - Publicar el map-pack como Release de `almensilla-3d` (decisión y acción del usuario: el repo es suyo).
 - Despliegue del servidor (HTTPS, servicio, copias de `data/server/`).
 - Ortofoto en el map-pack (pesa ~100 MB: valorar teselas de baja resolución).
-- Siguiente modelo: varios pueblos simulados, visitantes como agentes, animales en las fichas de hogar y huerta, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
+- Siguiente modelo: varios pueblos simulados, hostal y turismo, animales en las fichas de hogar y huerta, fauna salvaje, hermanos y nietos; LOD si se pasa de 6 000.
 
 ## Bloqueos / decisiones abiertas
 - Nombre ficticio del pueblo: "Valdeolivo" (parámetro `--name` de `pack_map.py`).

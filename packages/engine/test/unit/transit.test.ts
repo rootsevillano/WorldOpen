@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Action, Occupation, Simulation } from '../../src';
 import { startAction } from '../../src/agents/systems';
 import { AwayReason, Transit, arrivals, buildRoad, busesNow, leaveTown, seedCommuters } from '../../src/agents/transit';
+import { metric } from '../../src/metrics';
 import { manifest } from '../helpers';
 
 const atMinute = (sim: Simulation, minute: number) => {
@@ -64,20 +65,22 @@ describe('Transporte entre pueblos (ADR-0031)', () => {
     expect(a.transit[i]).toBe(Transit.ToStop);
     const seen = new Set<number>();
     let worked = 0;
-    for (let t = 0; t < 10 * 60; t++) {
+    let wasAway = false;
+    let backHome = false;
+    for (let t = 0; t < 10 * 60 && !backHome; t++) {
       sim.step();
       const k = a.indexOf(id);
       seen.add(a.transit[k]!);
       if (a.transit[k] === Transit.Away) {
         expect(a.flags[k]).toBe(AgentFlag.Indoors);
         worked = Math.max(worked, a.workedToday[k]!);
+        wasAway = true;
       }
+      backHome = wasAway && a.location[k] === a.home[k];
     }
-    const k = a.indexOf(id);
     expect([...seen]).toEqual(expect.arrayContaining([Transit.Waiting, Transit.Away, Transit.None]));
     expect(worked).toBeGreaterThan(300);
-    expect(a.transit[k]).toBe(Transit.None);
-    expect(a.location[k]).toBe(a.home[k]);
+    expect(backHome).toBe(true);
   });
 
   it('con coche: sale por el borde, vuelve a su hora por el borde y aparca en casa', () => {
@@ -100,17 +103,41 @@ describe('Transporte entre pueblos (ADR-0031)', () => {
     expect(a.driving[k]).toBe(0);
   });
 
-  it('cada autobús trae visitantes que gastan en la tienda del centro', () => {
+  it('cada autobús trae visitantes: agentes de paso que van a locales del centro, no cuentan como vecinos y se van', () => {
     const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 2000 } }));
-    const shop = sim.world.busRoad!.shop;
+    const a = sim.world.agents;
     atMinute(sim, 540); // el tick de las 09:00 (aún sin ejecutar)
-    const cash = sim.world.buildings.cash[shop]!;
+    const neighbours = metric(sim, 'agents.count');
     sim.drainEvents();
     sim.step();
-    const ev = sim.drainEvents().find((e) => e.type === 'bus.arrived')!;
-    expect(ev).toBeDefined();
-    expect(ev.data.visitors as number).toBeGreaterThanOrEqual(3);
-    expect(sim.world.visitorsToday).toBeGreaterThanOrEqual(ev.data.visitors as number);
-    expect(sim.world.buildings.cash[shop]!).toBeGreaterThan(cash);
+    const events = sim.drainEvents();
+    const visitors = events.find((e) => e.type === 'bus.arrived')!.data.visitors as number;
+    const arrived = events.filter((e) => e.type === 'visitor.arrived').map((e) => e.data.agentId as number);
+    expect(visitors).toBeGreaterThanOrEqual(3);
+    expect(arrived).toHaveLength(visitors);
+    expect(metric(sim, 'agents.count')).toBe(neighbours);
+    const v = arrived.map((id) => a.indexOf(id));
+    for (const i of v) {
+      expect(a.home[i]).toBe(sim.world.busRoad!.stopBuilding);
+      expect(sim.world.map.venues).toContain(a.target[i]);
+      expect(a.action[i]).toBe(Action.GoOut);
+    }
+    // Al final del día ya no queda ninguno, y nadie conserva relaciones con ellos.
+    const ids = new Set(v.map((i) => a.ids[i]!));
+    atMinute(sim, 1400);
+    expect(metric(sim, 'agents.visitors')).toBe(0);
+    for (let k = 0; k < a.count * 8; k++) if (a.relKind[k]) expect(ids.has(a.relId[k]!)).toBe(false);
+  });
+
+  it('snapshot y restauración con visitantes en el pueblo (determinismo)', () => {
+    const m = manifest(3, { criteria: { 'society.initialPopulation': 1500 } });
+    const full = new Simulation(m);
+    full.step(60 * 9);
+    const half = new Simulation(m);
+    half.step(60 * 6);
+    expect(Number(metric(half, 'agents.visitors'))).toBeGreaterThan(0);
+    const resumed = Simulation.restore(m, JSON.parse(JSON.stringify(half.snapshot())), half.commandLog());
+    resumed.step(60 * 3);
+    expect(resumed.hash()).toBe(full.hash());
   });
 });

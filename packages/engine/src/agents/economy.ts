@@ -202,6 +202,8 @@ export function economySystem(world: World): void {
   const a = world.agents;
   for (let i = 0; i < a.count; i++) {
     const loc = a.location[i]!;
+    // Los visitantes no comen de despensas del pueblo (su "casa" es la parada) (ADR-0032).
+    if (a.occupation[i] === Occupation.Visitor) continue;
     if (a.busyLeft[i]! > 0 && loc === a.home[i] && a.action[i] !== Action.Provision) {
       a.busyLeft[i] = Math.max(0, a.busyLeft[i]! - dt);
       if (a.busyLeft[i] === 0 && a.activities[i] === AgentActivity.Eating) a.activities[i] = AgentActivity.Idle;
