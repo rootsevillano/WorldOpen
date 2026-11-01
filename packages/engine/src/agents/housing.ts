@@ -37,6 +37,11 @@ export function downPaymentShare(world: World): number {
   return credit <= 0 ? 1 : Math.min(1, DOWN_PAYMENT / credit);
 }
 
+/** Colchón (días de alquiler) que se guarda al comprar, además de la entrada. */
+export function buyBuffer(world: World): number {
+  return BUY_BUFFER_RENT_DAYS * rentNow(world);
+}
+
 function mortgagePayment(world: World): number {
   return MORTGAGE_SHARE * RENT_PER_DAY * world.num('economy.priceLevel') * rentIndex(world);
 }

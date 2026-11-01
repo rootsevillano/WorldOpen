@@ -150,3 +150,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   en el manifiesto, no la fórmula.
 - (2026-11-01) Una regla nueva que solo aplica con varios pueblos debe comprobar la condición antes de sortear con
   `world.rng`. Así, los mundos de un pueblo no cambian su secuencia aleatoria y los escenarios existentes no se mueven.
+- (2026-11-01) Al cambiar el id de un hogar (mudanza), revisar todo lo que apunta a él: `landlord` de los inquilinos y
+  `spare` (`census.move` lo pone a 0). Los heredocs de bash con mucho código fallan a veces: es más fiable escribir el
+  script con Write y ejecutarlo.

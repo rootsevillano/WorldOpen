@@ -3,7 +3,8 @@ import { Action, Memory, Occupation, RELATION_SLOTS, RelationKind } from '../wor
 import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
 import { forgetAgent } from './lifecycle';
-import { assignLandlord } from './housing';
+import { buyHome, sellHome } from './estate';
+import { assignLandlord, buyBuffer, downPaymentShare, housePrice } from './housing';
 import { residents } from './transit';
 import { EVICTION_DAYS, rentIndex, rentNow } from './money';
 import { pickNearby } from './nearby';
@@ -45,6 +46,8 @@ const MOVE_SCALE_M = 800;
  */
 const RELOCATE_SHARE = 0.5;
 const WORK_MOVE_YEARLY = 0.5;
+/** Los propietarios se mudan menos: venden su casa y compran otra en el destino (ADR-0039). */
+const OWNER_MOVE_FACTOR = 0.4;
 
 interface HouseholdStats {
   home: number;
@@ -321,7 +324,10 @@ function relocate(world: World, census: Census, i: number): boolean {
   return true;
 }
 
-/** Hogares de alquiler cuyos adultos que trabajan lo hacen todos en otro pueblo: se mudan a él (ADR-0038). */
+/**
+ * Hogares cuyos adultos que trabajan lo hacen todos en otro pueblo: se mudan a él (ADR-0038). Los de alquiler dejan el
+ * piso; los propietarios venden su vivienda y compran (o, si no les llega, alquilan) en el destino (ADR-0039).
+ */
 function moveToWork(world: World, census: Census): void {
   const map = world.map;
   const a = world.agents;
@@ -335,7 +341,8 @@ function moveToWork(world: World, census: Census): void {
   }
   for (const [hh, list] of members) {
     const first = list[0]!;
-    if (!a.renting[first] || a.arrears[first]! > 0 || a.home[first]! < 0) continue;
+    if (a.arrears[first]! > 0 || a.home[first]! < 0) continue;
+    const owner = a.renting[first] === 0;
     const from = map.townOfBuilding[a.home[first]!]!;
     let to = -1;
     let job = -1;
@@ -348,12 +355,18 @@ function moveToWork(world: World, census: Census): void {
       to = t;
       job = w;
     }
-    if (stay || to < 0 || world.rng.nextFloat() >= p) continue;
+    if (stay || to < 0 || world.rng.nextFloat() >= p * (owner ? OWNER_MOVE_FACTOR : 1)) continue;
     const home = census.findHomeIn(to, job);
     if (home < 0) continue;
+    const price = housePrice(world);
+    if (owner && !sellHome(world, hh, price)) continue;
+    // Las viviendas de sobra y los inquilinos siguen siendo del hogar, que cambia de id al mudarse.
+    const spare = a.spare[first]!;
     const household = a.nextHousehold++;
     for (const i of list) if (a.household[i] === hh) census.move(i, home, household);
-    assignLandlord(world, household);
+    for (const i of list) a.spare[i] = spare;
+    for (let j = 0; j < a.count; j++) if (a.renting[j] && a.landlord[j] === hh) a.landlord[j] = household;
+    if (!owner || !buyHome(world, household, home, price, price * downPaymentShare(world), buyBuffer(world))) assignLandlord(world, household);
     // Los niños cambian al colegio del pueblo nuevo.
     for (const i of list) {
       if (a.occupation[i] !== Occupation.Student) continue;
@@ -361,11 +374,11 @@ function moveToWork(world: World, census: Census): void {
       a.occupation[i] = occupation;
       a.workplace[i] = school;
     }
-    emitRelocated(world, home, list.length, from, to, 'work');
+    emitRelocated(world, home, list.length, from, to, owner ? 'work-owner' : 'work');
   }
 }
 
-function emitRelocated(world: World, home: number, size: number, from: number, to: number, reason: 'emigration' | 'work'): void {
+function emitRelocated(world: World, home: number, size: number, from: number, to: number, reason: 'emigration' | 'work' | 'work-owner'): void {
   world.emit('household.relocated', { home: world.map.buildings[home]!.id, size, from: world.townNames[from] ?? '', to: world.townNames[to] ?? '', reason });
 }
 

@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Mudanzas entre pueblos · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Vender para mudarse · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Mudanzas entre pueblos — entregado (ADR-0038)
+## Vender para mudarse — entregado (ADR-0039)
+- Los propietarios que trabajan en otro pueblo venden su vivienda (a un vecino rico o al Exterior), saldan la
+  hipoteca y compran en el destino al contado, con hipoteca o, si no les llega, alquilan. Motor 0.27.0. 19/19 en
+  ambos mapas; 174 tests.
+
+## Mudanzas entre pueblos (anterior) — completado (ADR-0038)
 - Los hogares de alquiler que trabajan todos en otro pueblo se mudan allí (y los niños cambian de colegio). La mitad
   de quienes se irían del mundo se quedan en otro pueblo si hay casa. Criterio `society.townMigration`, evento
   `household.relocated`. Motor 0.26.0. 19/19 en ambos mapas; 171 tests.

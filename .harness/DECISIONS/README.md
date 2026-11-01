@@ -43,3 +43,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0036](0036-multiple-towns.md) | Varios pueblos en un mundo | Aceptada |
 | [0037](0037-neighbour-town-size.md) | Pueblos vecinos de tamaño real, nombres naturales y lado elegible | Aceptada |
 | [0038](0038-town-migration.md) | Mudanzas entre pueblos | Aceptada |
+| [0039](0039-sell-to-move.md) | Vender para mudarse de pueblo | Aceptada |

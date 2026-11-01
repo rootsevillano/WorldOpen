@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RelationKind, Simulation } from '../../src';
-import { bequeath, letSpareHome, sellSpareHomes } from '../../src/agents/estate';
+import { bequeath, buyHome, letSpareHome, sellHome, sellSpareHomes } from '../../src/agents/estate';
 import { manifest } from '../helpers';
 
 const indices = (sim: Simulation) => Array.from({ length: sim.world.agents.count }, (_, k) => k);
@@ -100,3 +100,58 @@ describe('Herencia y compraventa (ADR-0028)', () => {
     expect(pool.get(rich)![0]).toBe(1e6 - 40_000);
   });
 });
+
+describe('Vender para mudarse (ADR-0039)', () => {
+  const money = (sim: Simulation, hh: number) => members(sim, hh).reduce((t, k) => t + (sim.world.agents.age[k]! >= 14 ? sim.world.agents.money[k]! : 0), 0);
+
+  it('el propietario vende: cobra el precio, salda la hipoteca y el comprador local la tiene de sobra', () => {
+    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 600, ...quiet } }));
+    const a = sim.world.agents;
+    const adults = indices(sim).filter((k) => a.age[k]! >= 30 && !a.renting[k]);
+    const seller = a.household[adults[0]!]!;
+    const rich = a.household[adults.find((k) => a.household[k] !== seller)!]!;
+    for (const k of members(sim, seller)) a.mortgage[k] = 10_000;
+    for (const k of members(sim, rich)) {
+      a.mortgage[k] = 0;
+      if (a.age[k]! >= 14) a.money[k] = 1e6;
+    }
+    const before = money(sim, seller);
+    const spare = a.spare[members(sim, rich)[0]!]!;
+    expect(sellHome(sim.world, seller, 40_000)).toBe(true);
+    expect(money(sim, seller)).toBeCloseTo(before + 30_000, 3);
+    expect(members(sim, seller).every((k) => a.mortgage[k] === 0)).toBe(true);
+    expect(a.spare[members(sim, rich)[0]!]).toBe(spare + 1);
+  });
+
+  it('si la venta no cubre la hipoteca y no tiene el resto, no vende', () => {
+    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 300, ...quiet } }));
+    const a = sim.world.agents;
+    const hh = a.household[indices(sim).find((k) => a.age[k]! >= 30 && !a.renting[k])!]!;
+    for (const k of members(sim, hh)) {
+      a.mortgage[k] = 50_000;
+      a.money[k] = 0;
+    }
+    expect(sellHome(sim.world, hh, 40_000)).toBe(false);
+    expect(a.mortgage[members(sim, hh)[0]!]).toBe(50_000);
+  });
+
+  it('compra al contado, con hipoteca o, si no le llega, no compra', () => {
+    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 300, ...quiet } }));
+    const a = sim.world.agents;
+    const k = indices(sim).find((x) => a.age[x]! >= 30 && a.renting[x])!;
+    const hh = a.household[k]!;
+    const setMoney = (m: number) => members(sim, hh).forEach((x) => (a.money[x] = a.age[x]! >= 14 ? m / members(sim, hh).filter((y) => a.age[y]! >= 14).length : 0));
+    setMoney(100);
+    expect(buyHome(sim.world, hh, a.home[k]!, 40_000, 4_000, 1_000)).toBe(false);
+    expect(a.renting[k]).toBe(1);
+    setMoney(6_000);
+    expect(buyHome(sim.world, hh, a.home[k]!, 40_000, 4_000, 1_000)).toBe(true);
+    expect(a.renting[k]).toBe(0);
+    expect(a.mortgage[k]).toBe(36_000);
+    expect(money(sim, hh)).toBeCloseTo(2_000, 3);
+    setMoney(50_000);
+    expect(buyHome(sim.world, hh, a.home[k]!, 40_000, 4_000, 1_000)).toBe(true);
+    expect(a.mortgage[k]).toBe(0);
+  });
+});
+

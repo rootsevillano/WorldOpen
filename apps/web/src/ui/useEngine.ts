@@ -387,7 +387,7 @@ function describeEvent(e: SimEvent): string {
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;
     case 'household.moved': return `${String(d.name)} se muda a ${String(d.home)}`;
-    case 'household.relocated': return `🚚 Un hogar de ${String(d.size)} ${d.size === 1 ? 'persona' : 'personas'} se muda de ${String(d.from)} a ${String(d.to)}${d.reason === 'work' ? ', donde trabaja' : ''}`;
+    case 'household.relocated': return `🚚 Un hogar de ${String(d.size)} ${d.size === 1 ? 'persona' : 'personas'} se muda de ${String(d.from)} a ${String(d.to)}${d.reason === 'work' ? ', donde trabaja' : d.reason === 'work-owner' ? ', donde trabaja (vende su casa)' : ''}`;
     case 'household.arrived': return `🧳 Llega al pueblo un hogar de ${String(d.size)} ${d.size === 1 ? 'persona' : 'personas'} (${String(d.home)})`;
     case 'agent.emigrated': return d.reason === 'eviction' ? `${String(d.name)} se va del pueblo tras el desahucio` : d.reason === 'orphan' ? `${String(d.name)} se va a vivir con familia de fuera` : `${String(d.name)} se va del pueblo a los ${String(d.age)} años`;
     case 'harvest.delivered': return `${String(d.name)} lleva ${String(d.amount)} de cosecha a ${String(d.building)}`;

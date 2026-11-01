@@ -1,4 +1,4 @@
-import { RELATION_SLOTS, RelationKind } from '../world/agents';
+import { Occupation, RELATION_SLOTS, RelationKind } from '../world/agents';
 import type { World } from '../world/world';
 import { MONEY_AGE } from './money';
 
@@ -148,4 +148,98 @@ export function sellSpareHomes(world: World, pool: Map<number, [number, number]>
     world.emit('home.sold', { seller: a.names[i], buyer: buyer !== 0 ? a.names[first.get(buyer)!] : null, price: Math.round(price) });
   }
   return change;
+}
+
+/** Dinero de los miembros de 14+ de cada hogar (sin visitantes). */
+function wealthByHousehold(world: World): Map<number, number> {
+  const a = world.agents;
+  const out = new Map<number, number>();
+  for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] === Occupation.Visitor) continue;
+    const hh = a.household[i]!;
+    out.set(hh, (out.get(hh) ?? 0) + (a.age[i]! >= MONEY_AGE ? a.money[i]! : 0));
+  }
+  return out;
+}
+
+/** Suma `amount` (o lo resta, si es negativo) al dinero de los miembros de 14+ del hogar, en proporción a lo que tienen. */
+function credit(world: World, household: number, amount: number, wealth: number): void {
+  const a = world.agents;
+  let adults = 0;
+  for (let i = 0; i < a.count; i++) if (a.household[i] === household && a.age[i]! >= MONEY_AGE) adults++;
+  for (let i = 0; i < a.count; i++) {
+    if (a.household[i] !== household || a.age[i]! < MONEY_AGE) continue;
+    a.money[i]! += wealth > 0 ? (amount * a.money[i]!) / wealth : amount / adults;
+  }
+}
+
+/**
+ * Un hogar propietario que se muda a otro pueblo vende su vivienda (ADR-0039): la compra el hogar propietario sin
+ * hipoteca más rico que pueda pagarla (y la tendrá de sobra, para alquilar) o, si ninguno, el Exterior. Con lo cobrado
+ * se salda la hipoteca. Devuelve false, sin vender, si la venta no cubre la deuda y el hogar no puede poner el resto.
+ */
+export function sellHome(world: World, household: number, price: number): boolean {
+  const a = world.agents;
+  const wealth = wealthByHousehold(world);
+  const own = wealth.get(household) ?? 0;
+  let seller = -1;
+  for (let i = 0; i < a.count; i++) if (a.household[i] === household && (seller < 0 || a.age[i]! > a.age[seller]!)) seller = i;
+  if (seller < 0 || a.renting[seller] || own + price < a.mortgage[seller]!) return false;
+  const tenants = new Set<number>();
+  for (let i = 0; i < a.count; i++) if (a.renting[i] || a.mortgage[i]! > 0) tenants.add(a.household[i]!);
+  let buyer = 0;
+  let richest = price;
+  for (const [hh, w] of wealth) {
+    if (hh !== household && !tenants.has(hh) && w >= richest) {
+      buyer = hh;
+      richest = w;
+    }
+  }
+  let buyerName: string | null = null;
+  if (buyer !== 0) {
+    credit(world, buyer, -price, richest);
+    setHousehold(world, buyer, a.spare, Math.min(255, spareOf(world, buyer) + 1));
+    for (let i = 0; i < a.count && buyerName === null; i++) if (a.household[i] === buyer) buyerName = a.names[i]!;
+  }
+  credit(world, household, price - a.mortgage[seller]!, own);
+  for (let i = 0; i < a.count; i++) if (a.household[i] === household) a.mortgage[i] = 0;
+  world.emit('home.sold', { seller: a.names[seller], buyer: buyerName, price: Math.round(price) });
+  return true;
+}
+
+/**
+ * Tras mudarse, compra su nueva vivienda (ADR-0039) a un hogar que tenga viviendas de sobra (el que más) o al
+ * Exterior: al contado si le llega con un colchón de `buffer`; si no, con hipoteca si tiene para la entrada (`down`)
+ * y el colchón. Devuelve false si no puede comprar (entonces alquila).
+ */
+export function buyHome(world: World, household: number, home: number, price: number, down: number, buffer: number): boolean {
+  const a = world.agents;
+  const wealth = wealthByHousehold(world);
+  const own = wealth.get(household) ?? 0;
+  const paid = own >= price + buffer ? price : own >= down + buffer ? down : -1;
+  if (paid < 0) return false;
+  let seller = 0;
+  let most = 0;
+  for (let i = 0; i < a.count; i++) {
+    if (a.household[i] !== household && a.spare[i]! > most) {
+      most = a.spare[i]!;
+      seller = a.household[i]!;
+    }
+  }
+  if (seller !== 0) {
+    setHousehold(world, seller, a.spare, most - 1);
+    credit(world, seller, price, wealth.get(seller) ?? 0);
+  }
+  credit(world, household, -paid, own);
+  let name = '';
+  for (let i = 0; i < a.count; i++) {
+    if (a.household[i] !== household) continue;
+    a.renting[i] = 0;
+    a.landlord[i] = 0;
+    a.arrears[i] = 0;
+    a.mortgage[i] = price - paid;
+    if (!name) name = a.names[i]!;
+  }
+  world.emit('home.bought', { home: world.map.buildings[home]!.id, name, price: Math.round(price), mortgage: Math.round(price - paid) });
+  return true;
 }
