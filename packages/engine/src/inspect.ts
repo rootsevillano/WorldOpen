@@ -14,7 +14,7 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
-import { AwayReason, Transit, nextArrival, visitorsNow } from './agents/transit';
+import { AwayReason, Transit, hostal, hostalGuests, hostalRooms, nextArrival, nightPrice, visitorsNow } from './agents/transit';
 import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
 import { ANIMAL_NAMES, Animal } from './world/animals';
@@ -203,6 +203,7 @@ export function buildingDetail(world: World, id: string): BuildingDetail | null 
     residents: bs.residents[index]!,
     workers,
     queue,
+    lodging: index === hostal(world) ? { guests: hostalGuests(world), rooms: hostalRooms(world) } : null,
     business: isBusiness(world, index)
       ? {
           cash: round(bs.cash[index]!),
@@ -253,5 +254,8 @@ export function economySummary(world: World): EconomySummary {
     housePrice: round(housePrice(world)),
     animals: countByKind(world),
     bus: busSummary(world),
+    hostal: hostal(world) >= 0
+      ? { guests: hostalGuests(world), rooms: hostalRooms(world), price: round(nightPrice(world)), building: world.map.buildings[hostal(world)]!.id }
+      : null,
   };
 }

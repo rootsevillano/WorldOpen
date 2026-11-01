@@ -1,7 +1,7 @@
 import { AgentFlag } from '@worldopen/contracts';
 import { headingOf } from '../math/angles';
 import { ticksPerDay } from '../time/clock';
-import { Action } from '../world/agents';
+import { Action, Occupation } from '../world/agents';
 import { Animal } from '../world/animals';
 import type { World } from '../world/world';
 import { storageCap } from './economy';
@@ -107,7 +107,7 @@ function daily(world: World): void {
   const cared = new Set<number>();
   for (let i = 0; i < a.count; i++) if (a.workedToday[i]! > 0 && a.workplace[i]! >= 0) cared.add(a.workplace[i]!);
   const homes = new Map<number, number>();
-  for (let i = 0; i < a.count; i++) if (!homes.has(a.household[i]!)) homes.set(a.household[i]!, a.home[i]!);
+  for (let i = 0; i < a.count; i++) if (!(a.occupation[i] === Occupation.Visitor) && !homes.has(a.household[i]!)) homes.set(a.household[i]!, a.home[i]!);
   const dogs = new Set<number>();
   const gone: number[] = [];
   for (let i = 0; i < an.count; i++) {

@@ -84,6 +84,8 @@ export interface BuildingDetail {
   workers: number;
   /** Agentes esperando a ser atendidos (cola). */
   queue: number;
+  /** Bar-hostal (ADR-0033): huéspedes y habitaciones; `null` si no lo es. */
+  lodging: { guests: number; rooms: number } | null;
   /** Negocios (ADR-0022): caja, plantilla y puestos; `null` en viviendas y servicios públicos. */
   business: { cash: number; staff: number; positions: number; /** Precio de venta por unidad (tiendas y aserraderos; ADR-0023). */ price: number | null; /** Jornal que paga (ADR-0024). */ wage: number } | null;
 }
@@ -114,4 +116,6 @@ export interface EconomySummary {
   /** Autobús a otros pueblos (ADR-0031): vecinos fuera, esperando en la parada, visitantes de hoy y próxima llegada
    * (min del día; `null` si no quedan). `null` si no hay carretera. */
   bus: { away: number; waiting: number; visitorsToday: number; visitorsNow: number; nextBus: number | null } | null;
+  /** Hostal (ADR-0033): huéspedes, habitaciones, precio de la noche y edificio; `null` si no hay. */
+  hostal: { guests: number; rooms: number; price: number; building: string } | null;
 }

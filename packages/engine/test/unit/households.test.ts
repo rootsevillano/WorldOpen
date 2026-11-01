@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RelationKind, Simulation } from '../../src';
+import { Occupation, RelationKind, Simulation } from '../../src';
 import { householdsSystem } from '../../src/agents/households';
 import { spawnAgent } from '../../src/agents/population';
 import { bond, partnerId } from '../../src/agents/social';
@@ -16,7 +16,8 @@ const quiet = { 'society.mortality': 0, 'society.fertility': 0, 'society.emigrat
 function residentsConsistent(sim: Simulation): boolean {
   const a = sim.world.agents;
   const count = new Uint16Array(sim.world.map.buildings.length);
-  for (let i = 0; i < a.count; i++) count[a.home[i]!]!++;
+  // Los visitantes (huéspedes del hostal, ADR-0033) no son residentes de ningún edificio.
+  for (let i = 0; i < a.count; i++) if (a.occupation[i] !== Occupation.Visitor) count[a.home[i]!]!++;
   return count.every((c, b) => c === sim.world.buildings.residents[b]);
 }
 

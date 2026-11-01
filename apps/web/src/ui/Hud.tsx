@@ -37,7 +37,8 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
               Perros {economy.animals.dogs} · Ovejas {economy.animals.sheep} · Gallinas {economy.animals.hens}
               {economy.bus &&
                 ` · Fuera del pueblo ${economy.bus.away} · En la parada ${economy.bus.waiting} · Visitantes hoy ${economy.bus.visitorsToday}` +
-                  (economy.bus.nextBus !== null ? ` · Próximo autobús ${clock(economy.bus.nextBus)}` : '')} · Ahorros {economy.householdMoney.toFixed(0)} · Cajas {economy.businessCash.toFixed(0)}
+                  (economy.bus.nextBus !== null ? ` · Próximo autobús ${clock(economy.bus.nextBus)}` : '')}
+              {economy.hostal && ` · Hostal ${economy.hostal.guests}/${economy.hostal.rooms} huéspedes`} · Ahorros {economy.householdMoney.toFixed(0)} · Cajas {economy.businessCash.toFixed(0)}
             </div>
           )}
           <div className="muted small">

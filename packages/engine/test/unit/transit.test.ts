@@ -2,7 +2,7 @@ import { AgentFlag } from '@worldopen/contracts';
 import { describe, expect, it } from 'vitest';
 import { Action, Occupation, Simulation } from '../../src';
 import { startAction } from '../../src/agents/systems';
-import { AwayReason, Transit, arrivals, buildRoad, busesNow, leaveTown, seedCommuters } from '../../src/agents/transit';
+import { AwayReason, Transit, arrivals, buildRoad, busesNow, hostal, hostalRooms, leaveTown, season, seedCommuters } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 import { manifest } from '../helpers';
 
@@ -122,10 +122,12 @@ describe('Transporte entre pueblos (ADR-0031)', () => {
       expect(sim.world.map.venues).toContain(a.target[i]);
       expect(a.action[i]).toBe(Action.GoOut);
     }
-    // Al final del día ya no queda ninguno, y nadie conserva relaciones con ellos.
+    // Al final del día no queda ninguno de paso (los huéspedes duermen en el hostal), y nadie conserva relaciones con
+    // quienes se fueron.
     const ids = new Set(v.map((i) => a.ids[i]!));
     atMinute(sim, 1400);
-    expect(metric(sim, 'agents.visitors')).toBe(0);
+    expect(metric(sim, 'agents.dayVisitors')).toBe(0);
+    for (const id of [...ids]) if (a.indexOf(id) >= 0) ids.delete(id);
     for (let k = 0; k < a.count * 8; k++) if (a.relKind[k]) expect(ids.has(a.relId[k]!)).toBe(false);
   });
 
@@ -138,6 +140,58 @@ describe('Transporte entre pueblos (ADR-0031)', () => {
     expect(Number(metric(half, 'agents.visitors'))).toBeGreaterThan(0);
     const resumed = Simulation.restore(m, JSON.parse(JSON.stringify(half.snapshot())), half.commandLog());
     resumed.step(60 * 3);
+    expect(resumed.hash()).toBe(full.hash());
+  });
+});
+
+describe('Hostal y turismo (ADR-0033)', () => {
+  it('el bar-hostal es la tienda junto a la parada; la temporada multiplica los visitantes', () => {
+    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 100 } }));
+    const h = hostal(sim.world);
+    expect(h).toBe(sim.world.busRoad!.shop);
+    expect(hostalRooms(sim.world)).toBe(Math.max(4, Math.floor(sim.world.map.buildings[h]!.grossFloorAreaM2 / 25)));
+    const at = (month: number) => new Simulation(manifest(5, { time: { minutesPerTick: 1, start: { year: 1, month, day: 1, hour: 6, minute: 0 } }, criteria: { 'society.initialPopulation': 10 } }));
+    expect([season(at(7).world), season(at(1).world), season(at(4).world)]).toEqual([2, 0.5, 1]);
+  });
+
+  it('un turista duerme en el hostal (paga la noche), sigue en el pueblo a medianoche y por la mañana continúa la visita', () => {
+    const m = manifest(5, { time: { minutesPerTick: 1, start: { year: 1, month: 7, day: 1, hour: 6, minute: 0 } }, criteria: { 'society.initialPopulation': 2000, 'society.tourism': 3 } });
+    const sim = new Simulation(m);
+    const a = sim.world.agents;
+    const inn = hostal(sim.world);
+    let tourist = -1;
+    while (tourist < 0 && sim.frame().date.minuteOfDay < 1200) {
+      sim.step();
+      const ev = sim.drainEvents().find((e) => e.type === 'tourist.arrived');
+      if (ev) tourist = ev.data.agentId as number;
+    }
+    expect(tourist).toBeGreaterThan(0);
+    const nights = a.stayNights[a.indexOf(tourist)]!;
+    expect(nights).toBeGreaterThanOrEqual(1);
+    const cash = sim.world.buildings.cash[inn]!;
+    atMinute(sim, 1439);
+    const i = a.indexOf(tourist);
+    expect([a.location[i], a.action[i]]).toEqual([inn, Action.Sleep]);
+    expect(sim.world.buildings.cash[inn]!).toBeGreaterThanOrEqual(cash);
+    expect(Number(metric(sim, 'tourism.guests'))).toBeLessThanOrEqual(hostalRooms(sim.world));
+    expect(metric(sim, 'agents.dayVisitors')).toBe(0);
+    // Pasa la medianoche en el pueblo (los sistemas diarios no la ven) y por la mañana sigue con una noche menos.
+    atMinute(sim, 9 * 60);
+    const k = a.indexOf(tourist);
+    expect(k).toBeGreaterThanOrEqual(0);
+    expect(a.stayNights[k]).toBe(nights - 1);
+    expect(a.action[k]).not.toBe(Action.Sleep);
+  });
+
+  it('snapshot y restauración con huéspedes durmiendo en el hostal (determinismo)', () => {
+    const m = manifest(3, { time: { minutesPerTick: 5, start: { year: 1, month: 7, day: 1, hour: 6, minute: 0 } }, criteria: { 'society.initialPopulation': 1500, 'society.tourism': 3 } });
+    const full = new Simulation(m);
+    full.step(12 * 36);
+    const half = new Simulation(m);
+    half.step(12 * 18);
+    expect(Number(metric(half, 'tourism.guests'))).toBeGreaterThan(0);
+    const resumed = Simulation.restore(m, JSON.parse(JSON.stringify(half.snapshot())), half.commandLog());
+    resumed.step(12 * 18);
     expect(resumed.hash()).toBe(full.hash());
   });
 });

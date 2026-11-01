@@ -203,6 +203,9 @@ export function Inspector(props: {
           <div className="small muted">
             {building.residents} residentes · {building.occupants} dentro · {building.workers} trabajando · {building.queue} en cola
           </div>
+          {building.lodging && (
+            <div className="small">🛏 Bar-hostal: {building.lodging.guests}/{building.lodging.rooms} habitaciones ocupadas</div>
+          )}
           {building.business && (
             <div className="small muted">
               Caja {building.business.cash.toFixed(0)} · plantilla {building.business.staff}/{building.business.positions} puestos

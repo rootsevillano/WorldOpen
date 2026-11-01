@@ -6,7 +6,7 @@ import { Animal } from './world/animals';
 import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
-import { Transit, busesNow, residents, visitorsNow } from './agents/transit';
+import { Transit, busesNow, hostalGuests, hostalRooms, residents, visitorsNow } from './agents/transit';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
@@ -101,6 +101,11 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'env.temperatureC': return temperature(sim.world);
     case 'agents.count': return residents(sim.world);
     case 'agents.visitors': return visitorsNow(sim.world);
+    // Hostal (ADR-0033): huéspedes y ocupación.
+    case 'tourism.guests': return hostalGuests(sim.world);
+    // Visitantes de paso en el día (sin los huéspedes del hostal): a medianoche no queda ninguno.
+    case 'agents.dayVisitors': return visitorsNow(sim.world) - hostalGuests(sim.world);
+    case 'tourism.occupancy': return hostalRooms(sim.world) === 0 ? 0 : hostalGuests(sim.world) / hostalRooms(sim.world);
     case 'agents.childrenRatio': return ratio((i) => a.age[i]! < 18);
     case 'agents.elderlyRatio': return ratio((i) => a.age[i]! >= 65);
     // Adultos con pareja / adultos (ADR-0020).

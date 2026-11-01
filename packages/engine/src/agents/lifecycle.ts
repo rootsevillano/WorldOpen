@@ -69,7 +69,7 @@ export function lifecycleSystem(world: World): void {
 
   // Cumpleaños: cambios de etapa (escuela a los 6, trabajo a los 18, jubilación a los 67) y de horario de sueño.
   for (let i = 0; i < a.count; i++) {
-    if (a.birthDay[i] !== today || a.age[i]! >= 120) continue;
+    if (a.occupation[i] === Occupation.Visitor || a.birthDay[i] !== today || a.age[i]! >= 120) continue;
     const age = ++a.age[i]!;
     // A los 18 se empieza buscando trabajo: lo dan los negocios que contratan (ADR-0022).
     if (age === 18) {
@@ -85,6 +85,8 @@ export function lifecycleSystem(world: World): void {
 
   // Muertes (en orden inverso: el borrado intercambia con el último).
   for (let i = a.count - 1; i >= 0; i--) {
+    // Los visitantes no están en el censo del pueblo (ADR-0032/0033): ni mueren ni nacen aquí.
+    if (a.occupation[i] === Occupation.Visitor) continue;
     let p = (band(MORTALITY, a.age[i]!) / DAYS_PER_YEAR) * mortality;
     const starving = a.health[i]! < 0.05;
     if (starving) p += STARVATION_DAILY;
@@ -99,6 +101,7 @@ export function lifecycleSystem(world: World): void {
 
   // Embarazos y nacimientos.
   for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] === Occupation.Visitor) continue;
     if (a.pregnantDays[i]! > 0) {
       a.pregnantDays[i] = Math.min(PREGNANCY_DAYS, a.pregnantDays[i]! + Math.max(1, Math.round(dt / MINUTES_PER_DAY)));
       if (a.pregnantDays[i]! < PREGNANCY_DAYS) continue;

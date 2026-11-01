@@ -4,6 +4,7 @@ import type { World } from '../world/world';
 import { minuteOfDay } from './environment';
 import { forgetAgent } from './lifecycle';
 import { assignLandlord } from './housing';
+import { residents } from './transit';
 import { EVICTION_DAYS, rentIndex, rentNow } from './money';
 import { pickNearby } from './nearby';
 import { householdSize, removeAgent, spawnHousehold } from './population';
@@ -55,6 +56,8 @@ class Census {
     const a = world.agents;
     this.used = new Uint16Array(world.map.buildings.length);
     for (let i = 0; i < a.count; i++) {
+      // Los visitantes (alojados en el hostal) no son hogares del pueblo (ADR-0033).
+      if (a.occupation[i] === Occupation.Visitor) continue;
       this.index.set(a.ids[i]!, i);
       const hh = a.household[i]!;
       let s = this.households.get(hh);
@@ -185,7 +188,7 @@ function formCouples(world: World, census: Census): void {
   const rng = world.rng;
   for (let i = 0; i < a.count; i++) {
     const age = a.age[i]!;
-    if (age < PARTNER_AGE[0] || age > PARTNER_AGE[1] || !single(world, i)) continue;
+    if (a.occupation[i] === Occupation.Visitor || age < PARTNER_AGE[0] || age > PARTNER_AGE[1] || !single(world, i)) continue;
     for (let s = 0; s < RELATION_SLOTS; s++) {
       const k = i * RELATION_SLOTS + s;
       if (a.relKind[k] !== RelationKind.Friend || a.relAffinity[k]! < PARTNER_AFFINITY) continue;
@@ -236,7 +239,7 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
   const rent = rentNow(world);
   for (let i = 0; i < a.count; i++) {
     const age = a.age[i]!;
-    if (age < EMIGRATION_AGE[0] || !single(world, i)) continue;
+    if (a.occupation[i] === Occupation.Visitor || age < EMIGRATION_AGE[0] || !single(world, i)) continue;
     const s = census.households.get(a.household[i]!)!;
     const withParents = s.oldest >= age + 16;
     // Solo se independiza quien tiene ahorros para unos meses de alquiler (ADR-0024).
@@ -266,7 +269,8 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
   for (let i = 0; i < a.count; i++) if (evicted.has(a.household[i]!) && !emigrants.includes(a.ids[i]!)) evictions.push(a.ids[i]!);
   // Menores sin ningún adulto en su hogar: los acoge familia de fuera.
   for (let i = 0; i < a.count; i++) {
-    const s = census.households.get(a.household[i]!)!;
+    const s = census.households.get(a.household[i]!);
+    if (!s) continue; // visitantes alojados (ADR-0033)
     if (s.adults === 0 && !evictions.includes(a.ids[i]!)) emigrants.push(a.ids[i]!);
   }
 }
@@ -277,7 +281,7 @@ function immigrate(world: World, census: Census): void {
   const rng = world.rng;
   // Un alquiler caro disuade de venir (y uno barato atrae, hasta ×1.5) (ADR-0024).
   const appeal = Math.min(1.5, 1 / (rentIndex(world) * world.num('economy.rentLevel')));
-  let expected = (a.count * IMMIGRATION_YEARLY * world.num('society.immigration') * appeal) / (DAYS_PER_YEAR * MEAN_HOUSEHOLD);
+  let expected = (residents(world) * IMMIGRATION_YEARLY * world.num('society.immigration') * appeal) / (DAYS_PER_YEAR * MEAN_HOUSEHOLD);
   const free: number[] = [];
   for (const h of world.map.homes) if (census.vacant(h)) free.push(h);
   for (; expected > 0 && free.length > 0; expected--) {

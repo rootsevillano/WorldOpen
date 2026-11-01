@@ -40,6 +40,7 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | `society.commuting` | number | 0 … 1 | 0.5 | admin |
 | `society.emigration` | number | 0 … 5 | 1 | admin |
 | `society.petOwnership` | number | 0 … 1 | 0.3 | admin |
+| `society.tourism` | number | 0 … 3 | 1 | admin |
 | `society.transit` | number | 0 … 3 | 1 | admin |
 | `society.fertility` | number | 0 … 5 | 1 | admin |
 | `society.immigration` | number | 0 … 5 | 1 | admin |

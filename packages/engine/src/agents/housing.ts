@@ -2,6 +2,7 @@ import { ticksPerDay } from '../time/clock';
 import type { World } from '../world/world';
 import { letSpareHome, sellSpareHomes } from './estate';
 import { MONEY_AGE, RENT_PER_DAY, rentIndex, rentNow } from './money';
+import { Occupation } from '../world/agents';
 
 /**
  * Propietarios y vivienda (ADR-0026). El alquiler lo cobra un hogar del pueblo (su casero) o un fondo de fuera
@@ -75,6 +76,7 @@ export function assignLandlord(world: World, household: number): void {
   const wealth = new Map<number, number>();
   const tenants = new Set<number>();
   for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] === Occupation.Visitor) continue;
     if (a.renting[i] || a.mortgage[i]! > 0) tenants.add(a.household[i]!);
     if (a.age[i]! >= MONEY_AGE) wealth.set(a.household[i]!, (wealth.get(a.household[i]!) ?? 0) + a.money[i]!);
   }
@@ -113,7 +115,7 @@ export function housingDaily(world: World, pool: Map<number, [number, number]>):
   const payments = new Map<number, number>();
   for (let i = 0; i < a.count; i++) {
     const hh = a.household[i]!;
-    if (first.has(hh)) continue;
+    if (a.occupation[i] === Occupation.Visitor || first.has(hh)) continue;
     first.set(hh, i);
     const p = pool.get(hh)!;
     if (a.renting[i]) {
@@ -140,6 +142,7 @@ export function housingDaily(world: World, pool: Map<number, [number, number]>):
   // Compraventa de viviendas de sobra entre particulares (ADR-0028).
   const spareChange = sellSpareHomes(world, pool, price, day, first);
   for (let i = 0; i < a.count; i++) {
+    if (a.occupation[i] === Occupation.Visitor) continue;
     const hh = a.household[i]!;
     const sc = spareChange.get(hh);
     if (sc) a.spare[i] = Math.max(0, Math.min(255, a.spare[i]! + sc));

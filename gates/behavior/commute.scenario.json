@@ -1,6 +1,6 @@
 {
   "name": "commute",
-  "description": "ADR-0031: el autobús une el pueblo con los vecinos (no hay transporte público dentro). Un día laborable, quien trabaja en otro pueblo sale por la mañana (en coche o autobús) y vuelve por la tarde; a medianoche todos están en casa; llegan 15 autobuses al día. Los visitantes (ADR-0032) bajan del autobús, pasan el día en locales del centro y se van: a medianoche no queda ninguno.",
+  "description": "ADR-0031: el autobús une el pueblo con los vecinos (no hay transporte público dentro). Un día laborable, quien trabaja en otro pueblo sale por la mañana (en coche o autobús) y vuelve por la tarde; a medianoche todos están en casa; llegan 15 autobuses al día. Los visitantes (ADR-0032) bajan del autobús, pasan el día en locales del centro y se van: a medianoche no queda ninguno de paso (los huéspedes duermen en el hostal, ADR-0033).",
   "seeds": [
     1,
     2
@@ -59,7 +59,7 @@
     },
     {
       "kind": "metric",
-      "metric": "agents.visitors",
+      "metric": "agents.dayVisitors",
       "op": "==",
       "value": 0,
       "at": {

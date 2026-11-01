@@ -106,6 +106,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.tourism',
+      type: 'number', min: 0, max: 3, default: 1,
+      description: 'Turismo: multiplica los visitantes (×2 en verano, ×0,5 en invierno) y cuántos se alojan en el hostal.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.transit',
       type: 'number', min: 0, max: 3, default: 1,
       description: 'Autobús a los pueblos vecinos: 1 = uno cada hora de 07:00 a 21:00; 2 = cada media hora; 0 = sin servicio.',

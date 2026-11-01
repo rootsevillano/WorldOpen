@@ -44,7 +44,18 @@ const VISIT_STAY = 45;
 const AWAY_SPEND = 6;
 /** Recorrido fuera del pueblo hasta el pueblo vecino (m, cada sentido): cuenta para la gasolina. */
 const OUTSIDE_M = 10_000;
-/** Visitantes por autobús: 1,5 por cada 1 000 habitantes (el doble en fin de semana). */
+/**
+ * Hostal y turismo (ADR-0033): el bar-hostal es la tienda más cercana a la parada; una habitación por cada 25 m² (mín.
+ * 4), 35 la noche (× `economy.priceLevel`). Parte de los visitantes (30 % × `society.tourism`, hasta 1) se aloja 1–3
+ * noches si quedan habitaciones: a las 21:00 va a dormir al hostal y por la mañana sigue de visita.
+ */
+const ROOM_M2 = 25;
+const MIN_ROOMS = 4;
+const NIGHT_PRICE = 35;
+const OVERNIGHT_SHARE = 0.3;
+const CHECK_IN = 21 * 60;
+const WAKE_UP = 8 * 60 + 30;
+/** Visitantes por autobús: 1,5 por cada 1 000 habitantes (el doble en fin de semana; × temporada × `society.tourism`). */
 const VISITORS_PER_PERSON = 0.0015;
 
 const hash = (a: number, b: number) => (Math.imul(Math.imul(a, 0x9e3779b1) ^ Math.imul(b + 1, 0x85ebca6b), 0xc2b2ae35) >>> 0) / 0x100000000;
@@ -325,12 +336,42 @@ export function transitSystem(world: World): void {
   visitorsSystem(world, road, m, now);
   if (due.length > 0) {
     const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
-    const expected = residents(world) * VISITORS_PER_PERSON * weekend * due.length;
+    const expected = residents(world) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism');
     let visitors = 0;
     for (let v = 0; v < Math.floor(expected + hash(day, m)); v++) if (spawnVisitor(world, road, m, day * 10_000 + m * 10 + v)) visitors++;
     world.visitorsToday += visitors;
     world.emit('bus.arrived', { visitors, stop: world.map.buildings[road.stopBuilding]!.id });
   }
+}
+
+/** Temporada turística: ×2 en verano (jun–ago), ×0,5 en invierno (dic–feb), ×1 el resto. */
+export function season(world: World): number {
+  const s = world.time.start;
+  const day = (s.month - 1) * 30 + (s.day - 1) + Math.floor((s.hour * 60 + s.minute + world.tick * world.time.minutesPerTick) / 1440);
+  const month = Math.floor((day % 360) / 30) + 1;
+  return month >= 6 && month <= 8 ? 2 : month === 12 || month <= 2 ? 0.5 : 1;
+}
+
+/** El bar-hostal (la tienda junto a la parada) o −1. */
+export function hostal(world: World): number {
+  return world.busRoad?.shop ?? -1;
+}
+
+export function hostalRooms(world: World): number {
+  const h = hostal(world);
+  return h < 0 ? 0 : Math.max(MIN_ROOMS, Math.floor(world.map.buildings[h]!.grossFloorAreaM2 / ROOM_M2));
+}
+
+/** Huéspedes del hostal ahora (visitantes con noches por delante). */
+export function hostalGuests(world: World): number {
+  const a = world.agents;
+  let n = 0;
+  for (let i = 0; i < a.count; i++) if (a.stayNights[i]! > 0) n++;
+  return n;
+}
+
+export function nightPrice(world: World): number {
+  return NIGHT_PRICE * world.num('economy.priceLevel');
 }
 
 /** Vecinos (sin los visitantes). */
@@ -378,8 +419,16 @@ function spawnVisitor(world: World, road: Road, m: number, key: number): boolean
   a.household[i] = 0;
   a.money[i] = rng.int(30, 90);
   a.bedtime[i] = 1380;
-  // Se va en un autobús de 1 a 4 horas después (como muy tarde, el último).
+  // Se va en un autobús de 1 a 4 horas después (como muy tarde, el último)…
+  a.stayNights[i] = 0;
   a.awayUntil[i] = Math.min(LAST_BUS - 10, m + 60 + rng.int(0, 180));
+  // …o se aloja en el hostal 1–3 noches si quedan habitaciones (ADR-0033).
+  if (hostal(world) >= 0 && rng.nextFloat() < OVERNIGHT_SHARE * Math.min(1, world.num('society.tourism')) && hostalGuests(world) < hostalRooms(world)) {
+    a.stayNights[i] = rng.int(1, 3);
+    a.money[i] = rng.int(150, 350);
+    a.awayUntil[i] = CHECK_IN;
+    world.emit('tourist.arrived', { agentId: a.ids[i], name: a.names[i], nights: a.stayNights[i] });
+  }
   a.transitSince[i] = m;
   goToVenue(world, i, road, key);
   world.emit('visitor.arrived', { agentId: a.ids[i], name: a.names[i] });
@@ -410,13 +459,47 @@ function goToVenue(world: World, i: number, road: Road, key: number): void {
 function visitorsSystem(world: World, road: Road, m: number, now: number): void {
   const a = world.agents;
   const gone: number[] = [];
+  const inn = hostal(world);
   for (let i = 0; i < a.count; i++) {
     if (a.occupation[i] !== Occupation.Visitor) continue;
-    if (m >= LAST_BUS + DWELL + 10 || m < FIRST_BUS) {
+    const guest = a.stayNights[i]! > 0;
+    // De paso en el día: tras el último autobús ya no queda nadie. Los huéspedes pasan la noche en el hostal.
+    if (!guest && (m >= LAST_BUS + DWELL + 10 || m < FIRST_BUS)) {
       gone.push(a.ids[i]!);
       continue;
     }
     if (a.transit[i] !== Transit.None || a.paths[i] !== null || a.location[i]! < 0) continue;
+    if (guest && a.action[i] === Action.Sleep) {
+      // Por la mañana se levanta: una noche menos; si era la última, se irá en un autobús de hoy.
+      if (m < WAKE_UP || m >= CHECK_IN) continue;
+      a.stayNights[i]!--;
+      a.awayUntil[i] = a.stayNights[i] === 0 ? Math.min(LAST_BUS - 10, m + 60 + Math.floor(hash(a.ids[i]!, m) * 180)) : CHECK_IN;
+      a.action[i] = Action.Stay;
+      a.transitSince[i] = m;
+      goToVenue(world, i, road, now);
+      continue;
+    }
+    if (guest && m >= a.awayUntil[i]!) {
+      // A dormir al hostal: paga la noche (si no puede, se va como un visitante de paso).
+      if (a.money[i]! < nightPrice(world) || inn < 0) {
+        a.stayNights[i] = 0;
+        a.awayUntil[i] = m;
+        continue;
+      }
+      a.money[i]! -= nightPrice(world);
+      world.buildings.cash[inn]! += nightPrice(world);
+      const path = a.location[i] === inn ? null : world.map.route(a.positions[i * 3]!, a.positions[i * 3 + 2]!, a.location[i]!, inn);
+      a.action[i] = Action.Sleep;
+      if (path) {
+        a.paths[i] = path;
+        a.pathPos[i] = 0;
+        a.target[i] = inn;
+        a.location[i] = -1;
+        a.flags[i] = 0;
+        a.activities[i] = AgentActivity.Moving;
+      }
+      continue;
+    }
     if (m >= a.awayUntil[i]!) {
       const toStop = world.map.routeToNode(a.positions[i * 3]!, a.positions[i * 3 + 2]!, a.location[i]!, road.stopNode);
       if (toStop) begin(world, i, Transit.ToStop, toStop, AwayReason.Trip, a.awayUntil[i]!, 0);
