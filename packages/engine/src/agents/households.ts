@@ -7,7 +7,7 @@ import { assignLandlord } from './housing';
 import { residents } from './transit';
 import { EVICTION_DAYS, rentIndex, rentNow } from './money';
 import { pickNearby } from './nearby';
-import { householdSize, removeAgent, spawnHousehold } from './population';
+import { householdSize, pickOccupation, removeAgent, spawnHousehold } from './population';
 import { bond, pair, partnerId, remember } from './social';
 
 /**
@@ -38,6 +38,13 @@ const IMMIGRANT_RENTERS = 0.6;
 const EMANCIPATION_RENT_DAYS = 90;
 /** Escala de distancia al buscar vivienda (m): se prefiere cerca de la casa actual. */
 const MOVE_SCALE_M = 800;
+/**
+ * Mudanzas entre pueblos (ADR-0038), × `society.townMigration`: de quienes se irían del mundo, esta parte se queda
+ * en otro pueblo si allí hay casa; y probabilidad anual de que un hogar de alquiler cuyos adultos trabajan todos en
+ * otro pueblo se mude a él.
+ */
+const RELOCATE_SHARE = 0.5;
+const WORK_MOVE_YEARLY = 0.5;
 
 interface HouseholdStats {
   home: number;
@@ -84,6 +91,12 @@ class Census {
   findHome(near: number): number {
     const c = this.world.map.buildings[near]!.centroid;
     return pickNearby(this.world, c.x, c.z, this.world.map.homes, MOVE_SCALE_M, (b) => this.vacant(b));
+  }
+
+  /** Vivienda libre en el pueblo `town`, cerca de `near` (−1 si no hay ninguna). */
+  findHomeIn(town: number, near: number): number {
+    const c = this.world.map.buildings[near]!.centroid;
+    return pickNearby(this.world, c.x, c.z, this.world.map.towns[town]!.homes, MOVE_SCALE_M, (b) => this.vacant(b));
   }
 
   anyVacancy(): boolean {
@@ -254,7 +267,7 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
     }
     if (age > EMIGRATION_AGE[1] || (s.adults === 1 && s.minors > 0)) continue;
     const pressure = (withParents && !housing ? HOUSING_PRESSURE : 1) * (a.occupation[i] === Occupation.Unemployed ? 2 : 1);
-    if (rng.nextFloat() < (EMIGRATION_YEARLY / DAYS_PER_YEAR) * emigration * pressure) emigrants.push(a.ids[i]!);
+    if (rng.nextFloat() < (EMIGRATION_YEARLY / DAYS_PER_YEAR) * emigration * pressure && !relocate(world, census, i)) emigrants.push(a.ids[i]!);
   }
   // Desahucio: el hogar con un mes de alquiler impagado se va del pueblo (ADR-0024).
   const evicted = new Set<number>();
@@ -273,6 +286,87 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
     if (!s) continue; // visitantes alojados (ADR-0033)
     if (s.adults === 0 && !evictions.includes(a.ids[i]!)) emigrants.push(a.ids[i]!);
   }
+}
+
+/**
+ * En vez de irse del mundo, a veces se muda a otro pueblo con casa libre: al de su trabajo si trabaja fuera y, si no,
+ * al que tenga más viviendas libres (ADR-0038).
+ */
+function relocate(world: World, census: Census, i: number): boolean {
+  const map = world.map;
+  const a = world.agents;
+  if (map.towns.length < 2 || world.rng.nextFloat() >= RELOCATE_SHARE * world.num('society.townMigration')) return false;
+  const from = map.townOfBuilding[a.home[i]!]!;
+  const w = a.workplace[i]!;
+  let to = w >= 0 && a.occupation[i] !== Occupation.Student ? map.townOfBuilding[w]! : from;
+  if (to === from) {
+    let most = 0;
+    map.towns.forEach((t, k) => {
+      if (k === from) return;
+      let free = 0;
+      for (const h of t.homes) if (census.vacant(h)) free++;
+      if (free > most) {
+        most = free;
+        to = k;
+      }
+    });
+  }
+  if (to === from) return false;
+  const home = census.findHomeIn(to, to === map.townOfBuilding[w] ? w : map.towns[to]!.homes[0]!);
+  if (home < 0) return false;
+  const household = a.nextHousehold++;
+  census.move(i, home, household);
+  assignLandlord(world, household);
+  emitRelocated(world, home, 1, from, to, 'emigration');
+  return true;
+}
+
+/** Hogares de alquiler cuyos adultos que trabajan lo hacen todos en otro pueblo: se mudan a él (ADR-0038). */
+function moveToWork(world: World, census: Census): void {
+  const map = world.map;
+  const a = world.agents;
+  const p = (WORK_MOVE_YEARLY / DAYS_PER_YEAR) * world.num('society.townMigration');
+  if (map.towns.length < 2 || p <= 0) return;
+  const members = new Map<number, number[]>();
+  for (const i of census.index.values()) {
+    const list = members.get(a.household[i]!);
+    if (list) list.push(i);
+    else members.set(a.household[i]!, [i]);
+  }
+  for (const [hh, list] of members) {
+    const first = list[0]!;
+    if (!a.renting[first] || a.arrears[first]! > 0 || a.home[first]! < 0) continue;
+    const from = map.townOfBuilding[a.home[first]!]!;
+    let to = -1;
+    let job = -1;
+    let stay = false;
+    for (const i of list) {
+      const w = a.workplace[i]!;
+      if (a.age[i]! < 18 || w < 0 || a.occupation[i] === Occupation.Student) continue;
+      const t = map.townOfBuilding[w]!;
+      if (t === from || (to >= 0 && t !== to)) stay = true;
+      to = t;
+      job = w;
+    }
+    if (stay || to < 0 || world.rng.nextFloat() >= p) continue;
+    const home = census.findHomeIn(to, job);
+    if (home < 0) continue;
+    const household = a.nextHousehold++;
+    for (const i of list) if (a.household[i] === hh) census.move(i, home, household);
+    assignLandlord(world, household);
+    // Los niños cambian al colegio del pueblo nuevo.
+    for (const i of list) {
+      if (a.occupation[i] !== Occupation.Student) continue;
+      const [occupation, school] = pickOccupation(world, a.age[i]!, home);
+      a.occupation[i] = occupation;
+      a.workplace[i] = school;
+    }
+    emitRelocated(world, home, list.length, from, to, 'work');
+  }
+}
+
+function emitRelocated(world: World, home: number, size: number, from: number, to: number, reason: 'emigration' | 'work'): void {
+  world.emit('household.relocated', { home: world.map.buildings[home]!.id, size, from: world.townNames[from] ?? '', to: world.townNames[to] ?? '', reason });
 }
 
 /** Llegan hogares nuevos a viviendas libres. */
@@ -302,6 +396,7 @@ export function householdsSystem(world: World): void {
   const census = new Census(world);
   formCouples(world, census);
   cohabit(world, census);
+  moveToWork(world, census);
   const emigrants: number[] = [];
   const evictions: number[] = [];
   leaveHome(world, census, emigrants, evictions);

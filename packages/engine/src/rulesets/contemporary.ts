@@ -161,6 +161,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.townMigration',
+      type: 'number', min: 0, max: 10, default: 1,
+      description: 'Mudanzas entre pueblos del mundo: parte de quienes se irían se quedan en otro pueblo, y los hogares que trabajan fuera se mudan allí; 0 = ninguna.',
+      mutableBy: 'admin',
+    },
+    {
       key: 'society.initialPopulation',
       type: 'number', min: 0, max: 10000, default: 5,
       description: 'Habitantes al crear el mundo. Después, la población cambia con comandos.',

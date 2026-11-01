@@ -91,4 +91,30 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(sim.world.map.links.map(([a, b]) => [t[a], t[b]])).toEqual([[0, 1], [0, 2]]);
     expect(new Set([SYNTHETIC_REGION.displayName, e!.displayName, o!.displayName]).size).toBe(3);
   });
+
+  it('mudanzas entre pueblos: el hogar entero cambia de pueblo y los niños, de colegio (ADR-0038)', () => {
+    const sim = threeTowns(800, { 'society.townMigration': 10 });
+    const map = sim.world.map;
+    const a = sim.world.agents;
+    const moved: { home: string; to: string; reason: string }[] = [];
+    for (let d = 0; d < 30; d++) {
+      sim.step(144);
+      for (const e of sim.drainEvents()) if (e.type === 'household.relocated') moved.push(e.data as { home: string; to: string; reason: string });
+    }
+    expect(moved.length).toBeGreaterThan(0);
+    for (const m of moved) {
+      const b = map.buildings.findIndex((x) => x.id === m.home);
+      const town = map.townOfBuilding[b]!;
+      expect(sim.world.townNames[town]).toBe(m.to);
+      for (let i = 0; i < a.count; i++) {
+        if (a.home[i] !== b || a.occupation[i] !== 6) continue;
+        expect(map.townOfBuilding[a.workplace[i]!]).toBe(town);
+      }
+    }
+    // Un solo pueblo: nadie se muda entre pueblos.
+    const one = new Simulation(createManifest({ worldId: 'w', createdAt: 'x', seed: 3, criteria: { 'society.initialPopulation': 300, 'society.townMigration': 10 } }));
+    one.step(144 * 5);
+    expect(one.drainEvents().some((e) => e.type === 'household.relocated')).toBe(false);
+  });
 });
+

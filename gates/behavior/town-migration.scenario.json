@@ -1,0 +1,43 @@
+{
+  "name": "town-migration",
+  "description": "ADR-0038: en un mundo de tres pueblos, los hogares de alquiler que trabajan en otro pueblo se mudan allí y parte de quienes se irían se quedan en otro pueblo; nadie se pierde (la población no se desploma) y es determinista.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 30,
+  "towns": 3,
+  "townSide": "around",
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10
+    },
+    "criteria": {
+      "society.initialPopulation": 800,
+      "society.townMigration": 10
+    }
+  },
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "events.household.relocated",
+      "op": ">=",
+      "value": 1
+    },
+    {
+      "kind": "metric",
+      "metric": "towns.count",
+      "op": "==",
+      "value": 3
+    },
+    {
+      "kind": "metric",
+      "metric": "agents.count",
+      "op": ">=",
+      "value": 700
+    }
+  ]
+}

@@ -148,3 +148,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-01) Para dimensionar algo generado proceduralmente («N viviendas»), generarlo con tamaños crecientes y
   contar es exacto, determinista y barato. Es mejor que estimar una densidad media. Guardar el resultado (`blocks`)
   en el manifiesto, no la fórmula.
+- (2026-11-01) Una regla nueva que solo aplica con varios pueblos debe comprobar la condición antes de sortear con
+  `world.rng`. Así, los mundos de un pueblo no cambian su secuencia aleatoria y los escenarios existentes no se mueven.

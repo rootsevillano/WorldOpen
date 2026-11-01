@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Vecinos de tamaño real · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Mudanzas entre pueblos · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
 
-## Vecinos de tamaño real — entregado (ADR-0037)
+## Mudanzas entre pueblos — entregado (ADR-0038)
+- Los hogares de alquiler que trabajan todos en otro pueblo se mudan allí (y los niños cambian de colegio). La mitad
+  de quienes se irían del mundo se quedan en otro pueblo si hay casa. Criterio `society.townMigration`, evento
+  `household.relocated`. Motor 0.26.0. 19/19 en ambos mapas; 171 tests.
+
+## Vecinos de tamaño real (anterior) — completado (ADR-0037)
 - Cada vecino tiene entre el 35 % y el 80 % de las viviendas del primer pueblo (`RegionRef.blocks`). El lado se
   elige al crear el mundo (este, oeste, norte, sur o alrededor), y la carretera une cada pueblo con el más cercano.
   Los nombres inventados son más naturales. Motor 0.25.0. 18/18 en ambos mapas; 170 tests.
