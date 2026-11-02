@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Salarios por pueblo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Cambiar a mejor trabajo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Salarios por pueblo — entregado (ADR-0042)
+## Cambiar a mejor trabajo — entregado (ADR-0043)
+- Una vez por semana, al salir del trabajo, quien trabaja en un negocio va a pedir un puesto que le deje un 10 % más
+  de jornal neto (en su pueblo o en otro) y se cambia si la plaza sigue libre. Motor 0.31.0. 20/20 en ambos mapas;
+  178 tests.
+
+## Salarios por pueblo (anterior) — completado (ADR-0042)
 - Los negocios empiezan con un salario de 0,8× a 1× según el tamaño de su pueblo. Quien busca trabajo elige el de más
   jornal neto (descontado el desplazamiento). Métricas y HUD con jornal por pueblo. Protocolo v15; motor 0.30.0.
   20/20 en ambos mapas; 177 tests.

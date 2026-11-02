@@ -160,3 +160,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   criterios.
 - (2026-11-02) Una media de jornales por pueblo refleja sobre todo la mezcla de oficios. Para medir el efecto de
   una política salarial, usar el índice de cada negocio (`wageIndex`), no el jornal.
+- (2026-11-02) Los tests que eligen «el primer negocio de X» se rompen cuando cambia el reparto de empleos. Elegir
+  por la condición que importa (p. ej. que tenga plaza: `staff + 1 < positionsOf`).

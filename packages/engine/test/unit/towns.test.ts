@@ -3,7 +3,7 @@ import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, n
 import { festivalVenues } from '../../src/agents/festival';
 import { startAction } from '../../src/agents/systems';
 import { housePrice, housingDaily } from '../../src/agents/housing';
-import { dailyWageAt, hireAt, openings, rentIndex, rentNow, townRentIndices, townSizeShares, townWageIndices } from '../../src/agents/money';
+import { dailyWageAt, hireAt, openings, positionsOf, rentIndex, rentNow, townRentIndices, townSizeShares, townWageIndices } from '../../src/agents/money';
 import { hostal } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 
@@ -157,7 +157,8 @@ describe('Varios pueblos (ADR-0036)', () => {
     while (!(Math.floor(world.tick / 144) % 7 === 0 && world.tick % 144 === 54)) sim.step(1);
     const businesses = [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial];
     for (const b of businesses) bs.cash[b] = 0;
-    const target = businesses.find((b) => map.townOfBuilding[b] === 1)!;
+    const staff = openings(world).staff;
+    const target = businesses.find((b) => map.townOfBuilding[b] === 1 && staff[b]! + 1 < positionsOf(world, b))!;
     bs.cash[target] = 1e7;
     const i = Array.from({ length: a.count }, (_, k) => k).find((k) => a.age[k]! >= 20 && a.age[k]! < 60 && map.townOfBuilding[a.home[k]!] === 0 && a.location[k] === a.home[k])!;
     a.occupation[i] = 0;
@@ -217,6 +218,31 @@ describe('Varios pueblos (ADR-0036)', () => {
     a.searchedDay[i] = 0;
     startAction(world, i, Action.SeekJob, a.home[i]!);
     expect(a.target[i]).toBe(near);
+  });
+
+  it('cambiar a mejor trabajo: quien trabaja va a pedir un puesto con más jornal neto y deja el suyo (ADR-0043)', () => {
+    const sim = threeTowns();
+    const world = sim.world;
+    const map = world.map;
+    const a = world.agents;
+    const bs = world.buildings;
+    const businesses = [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial];
+    for (const b of businesses) bs.cash[b] = 0;
+    const i = Array.from({ length: a.count }, (_, k) => k).find((k) => a.workplace[k]! >= 0 && a.occupation[k] !== 6 && businesses.includes(a.workplace[k]!))!;
+    const from = a.workplace[i]!;
+    const staff = openings(world).staff;
+    const better = businesses.find((b) => b !== from && staff[b]! + 1 < positionsOf(world, b))!;
+    bs.cash[better] = 1e7;
+    bs.wage[better] = 1.5;
+    bs.wage[from] = 0.7;
+    sim.step(1);
+    startAction(world, i, Action.SeekJob, a.home[i]!);
+    expect(a.target[i]).toBe(better);
+    expect(hireAt(world, i, better)).toBe(true);
+    expect(a.workplace[i]).toBe(better);
+    const e = sim.drainEvents().find((x) => x.type === 'job.changed' && (x.data as { agentId: number }).agentId === a.ids[i]);
+    expect((e?.data as { from: string }).from).toBe(map.buildings[from]!.id);
+    expect(['ownTown', 'otherTown']).toContain((e?.data as { search: string }).search);
   });
 });
 

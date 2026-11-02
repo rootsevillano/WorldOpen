@@ -76,7 +76,7 @@ const RAISE_WEEKS = 6;
 const CUT_WEEKS = 2;
 const SLACK_UNEMPLOYMENT = 0.1;
 /** Solo se cambia de trabajo por un 10 % más. */
-const SWITCH_PREMIUM = 1.1;
+export const SWITCH_PREMIUM = 1.1;
 
 /**
  * Índice de alquiler por la ocupación de las viviendas del pueblo (hogares / viviendas): 1 al 90 %, más caro si hay
@@ -561,18 +561,28 @@ export function openings(world: World): Openings {
   return openingsCache;
 }
 
-/** Quien llega pidiendo trabajo a un negocio con un puesto libre empieza en él (ADR-0041). Devuelve si le contratan. */
+/**
+ * Quien llega pidiendo trabajo a un negocio con un puesto libre empieza en él (ADR-0041); si ya trabajaba en otro, se
+ * cambia (ADR-0043). Devuelve si le contratan.
+ */
 export function hireAt(world: World, i: number, b: number): boolean {
   const o = openings(world);
   const k = o.open.indexOf(b);
   if (k < 0 || !hasOpening(world, b, o.staff[b]!)) return false;
   const a = world.agents;
+  const from = a.workplace[i]!;
   a.occupation[i] = occupationFor(world, b);
   a.workplace[i] = b;
   o.staff[b]!++;
   if (!hasOpening(world, b, o.staff[b]!)) o.open.splice(k, 1);
   const map = world.map;
-  const otherTown = map.townOfBuilding[b] !== map.townOfBuilding[a.home[i]!];
-  world.emit('job.hired', { agentId: a.ids[i], name: a.names[i], building: map.buildings[b]!.id, search: otherTown ? 'otherTown' : 'ownTown' });
+  const search = map.townOfBuilding[b] !== map.townOfBuilding[a.home[i]!] ? 'otherTown' : 'ownTown';
+  if (from >= 0) {
+    // Cambia de trabajo por su cuenta (ADR-0043): deja una plaza libre en el anterior.
+    if (isBusiness(world, from)) o.staff[from]!--;
+    world.emit('job.changed', { agentId: a.ids[i], name: a.names[i], from: map.buildings[from]!.id, building: map.buildings[b]!.id, search });
+  } else {
+    world.emit('job.hired', { agentId: a.ids[i], name: a.names[i], building: map.buildings[b]!.id, search });
+  }
   return true;
 }

@@ -20,9 +20,9 @@ import {
   unload,
   usable,
 } from './economy';
-import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
+import { dayOfWeek, inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
-import { canAfford, dailyWageAt, hireAt, openings, payHarvest, spendLeisure } from './money';
+import { SWITCH_PREMIUM, canAfford, dailyWageAt, hireAt, isBusiness, openings, payHarvest, spendLeisure } from './money';
 import { ticksPerDay } from '../time/clock';
 import { dogsToWalk } from './animals';
 import { allFestivalVenues, festivalDay, festivalVenues, festivities, verbena } from './festival';
@@ -164,6 +164,8 @@ export function decisionSystem(world: World): void {
   // Buscar trabajo (ADR-0041): en horario laboral, si hay algún puesto libre en el mundo.
   const jobsOpen = shift && openings(world).open.length > 0;
   const today = searchDay(world);
+  // Cambiar a un trabajo mejor (ADR-0043): los laborables al salir del trabajo (15:00–19:00), una vez por semana.
+  const switchOpen = !shift && dayOfWeek(world) < 5 && minute >= SWITCH_WINDOW[0] && minute < SWITCH_WINDOW[1] && openings(world).open.length > 0;
 
   // Cuánta gente de cada edificio está ya abasteciéndose de cada recurso.
   // Recaderos en curso por edificio y recurso (índice edificio × 4 + recurso).
@@ -244,6 +246,13 @@ export function decisionSystem(world: World): void {
       // En paro: una vez al día, ir a pedir trabajo a un negocio con un puesto libre (ADR-0041).
       if (jobsOpen && occupation === Occupation.Unemployed && age >= 18 && age < 67 && a.searchedDay[i] !== today) {
         consider(Action.SeekJob, 0.7 + (current === Action.SeekJob ? 0.2 : 0));
+      }
+      // Quien trabaja en un negocio mira una vez por semana si hay un puesto que le deje bastante más jornal neto.
+      const w = a.workplace[i]!;
+      if (switchOpen && w >= 0 && occupation !== Occupation.Student && isBusiness(world, w) && (a.searchedDay[i] === 0 || ((today - a.searchedDay[i]!) & 0xffff) >= SWITCH_EVERY_DAYS)) {
+        a.searchedDay[i] = today;
+        const b = pickJob(world, i);
+        if (b >= 0 && jobNet(world, i, b) >= SWITCH_PREMIUM * jobNet(world, i, w)) consider(Action.SeekJob, 0.7);
       }
       if (occupation === Occupation.Farmer && loc >= 0 && loc === a.workplace[i] && world.buildings.food[loc]! >= DELIVERY_MIN && sourceOpen(world, Resource.Food) && nearestShop(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!) >= 0) {
         consider(Action.Deliver, 0.95);
@@ -361,6 +370,17 @@ function searchDay(world: World): number {
 
 /** Coste diario de ir y volver al trabajo por km de distancia en línea recta (tiempo y gasto) (ADR-0042). */
 const COMMUTE_COST_PER_KM = 2;
+/** Cambio de trabajo por su cuenta (ADR-0043): franja (minuto del día) y cada cuántos días se mira. */
+const SWITCH_WINDOW: [number, number] = [900, 1140];
+const SWITCH_EVERY_DAYS = 7;
+
+/** Jornal neto de un puesto para `i`: el jornal menos lo que cuesta ir y volver desde casa (ADR-0042). */
+function jobNet(world: World, i: number, b: number): number {
+  const h = world.map.buildings[world.agents.home[i]!]!.centroid;
+  const c = world.map.buildings[b]!.centroid;
+  const d = Math.sqrt((c.x - h.x) * (c.x - h.x) + (c.z - h.z) * (c.z - h.z));
+  return dailyWageAt(world, b) - (2 * d * COMMUTE_COST_PER_KM) / 1000;
+}
 
 /**
  * Negocio con un puesto libre al que ir a pedir trabajo: el de mejor jornal neto (jornal menos lo que cuesta ir y
@@ -374,10 +394,10 @@ function pickJob(world: World, i: number): number {
   let bestNet = -Infinity;
   let bestD = Infinity;
   for (const b of openings(world).open) {
-    if (!usable(world, b)) continue;
+    if (!usable(world, b) || b === a.workplace[i]) continue;
     const c = map.buildings[b]!.centroid;
     const d = Math.sqrt((c.x - h.x) * (c.x - h.x) + (c.z - h.z) * (c.z - h.z));
-    const net = dailyWageAt(world, b) - (2 * d * COMMUTE_COST_PER_KM) / 1000;
+    const net = jobNet(world, i, b);
     if (net > bestNet + 1e-9 || (net > bestNet - 1e-9 && d < bestD)) {
       best = b;
       bestNet = net;

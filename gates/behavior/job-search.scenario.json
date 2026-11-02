@@ -1,6 +1,6 @@
 {
   "name": "job-search",
-  "description": "ADR-0041: en un mundo de tres pueblos, quien está en paro va a pedir trabajo a los negocios con puestos libres, primero en su pueblo y, si no hay, en otro; le contratan al llegar. Un martes de madrugada llegan 200 vecinos (parte en paro), para que haya quien busque entre semana también en el mapa real, donde el lunes se contrata a todo el paro.",
+  "description": "ADR-0041/0043: en un mundo de tres pueblos, quien está en paro va a pedir trabajo a los negocios con puestos libres, primero en su pueblo y, si no hay, en otro; le contratan al llegar; quien trabaja se cambia a un puesto que le deje bastante más jornal neto. Un martes de madrugada llegan 200 vecinos (parte en paro), para que haya quien busque entre semana también en el mapa real, donde el lunes se contrata a todo el paro.",
   "seeds": [
     1,
     2
@@ -33,6 +33,13 @@
     {
       "kind": "metric",
       "metric": "events.job.hired:search=otherTown",
+      "op": ">=",
+      "value": 1,
+      "minPassRatio": 0.5
+    },
+    {
+      "kind": "metric",
+      "metric": "events.job.changed:search=ownTown",
       "op": ">=",
       "value": 1,
       "minPassRatio": 0.5

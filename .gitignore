@@ -3,8 +3,18 @@ dist/
 coverage/
 *.log
 .vite/
+
+
 # Map-packs y mundos guardados: se descargan/generan, no se versionan (ADR-0007, D7)
 data/map-packs/
 data/worlds/
 data/server/
 reports/
+
+
+# Ignorar todos los archivos con extensión .md
+*.md
+
+
+# Excluir README.md (no ignorarlo)
+!README.md
