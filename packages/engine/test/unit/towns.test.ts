@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, neighbourTowns, syntheticBounds, syntheticMap, type TownSide } from '../../src';
-import { festivalVenues, fiestas } from '../../src/agents/festival';
+import { activeFiesta, defaultFiestaDates, festivalHoliday, festivalVenues, fiestas } from '../../src/agents/festival';
+import { setCriterion } from '../helpers';
 import { startAction } from '../../src/agents/systems';
 import { housePrice, housingDaily } from '../../src/agents/housing';
 import { dailyWageAt, hireAt, openings, positionsOf, rentIndex, rentNow, townRentIndices, townSizeShares, townWageIndices } from '../../src/agents/money';
@@ -320,6 +321,37 @@ describe('Varios pueblos (ADR-0036)', () => {
     // Una marquesina por pueblo, junto al final de su carretera.
     const stops = busStops(world);
     expect(stops.headings).toHaveLength(3);
+  });
+
+  it('fechas en el Modo Dios: la romería de cada pueblo y las fiestas de los vecinos son criterios (ADR-0047)', () => {
+    const sim = threeTowns(50);
+    const { criteria, values } = sim.catalog();
+    const names = sim.world.townNames;
+    // Por defecto, las fechas de su región (las de ADR-0046): no cambia nada.
+    const r2 = criteria.find((c) => c.key === 'fiestas.r2.patronalMonth');
+    expect(r2).toMatchObject({ integer: true, min: 1, max: 12, mutableBy: 'admin', label: `${names[1]} · fiestas: mes` });
+    expect(values['fiestas.r2.patronalMonth']).toBe(defaultFiestaDates('r2').patronalMonth);
+    expect(values['fiestas.r1.romeriaDay']).toBe(27);
+    // Las patronales del primer pueblo siguen en `society.festival…`.
+    expect(criteria.some((c) => c.key === 'fiestas.r1.patronalMonth')).toBe(false);
+    expect(criteria.filter((c) => c.key.startsWith('fiestas.'))).toHaveLength(2 + 6 + 6);
+    // Hoy es 21 de marzo: Dios pone aquí las fiestas del segundo pueblo y la romería del primero.
+    expect(activeFiesta(sim.world, 1)).toBeNull();
+    for (const [key, value] of [['fiestas.r2.patronalMonth', 3], ['fiestas.r2.patronalDay', 20], ['fiestas.r2.patronalLength', 3], ['fiestas.r1.romeriaMonth', 3], ['fiestas.r1.romeriaDay', 21]] as const) {
+      expect(sim.submit(setCriterion(key, value))).toMatchObject({ ok: true });
+    }
+    sim.step();
+    expect(activeFiesta(sim.world, 1)).toMatchObject({ fiesta: { kind: 'patronal' }, day: 2 });
+    expect(festivalHoliday(sim.world, 1)).toBe(true);
+    expect(activeFiesta(sim.world, 0)?.fiesta.kind).toBe('romeria');
+    expect(activeFiesta(sim.world, 2)).toBeNull();
+    // Fechas no válidas o de un pueblo que no existe.
+    expect(sim.submit(setCriterion('fiestas.r2.patronalDay', 31))).toMatchObject({ ok: false, reason: 'invalid_payload' });
+    expect(sim.submit(setCriterion('fiestas.r3.romeriaMonth', 4.5))).toMatchObject({ ok: false, reason: 'invalid_payload' });
+    expect(sim.submit(setCriterion('fiestas.r9.romeriaDay', 3))).toMatchObject({ ok: false, reason: 'invalid_payload' });
+    // También desde el manifiesto: sin día festivo, el tercer pueblo no tiene procesión.
+    const quiet = threeTowns(50, { 'fiestas.r3.patronalHoliday': 0 });
+    expect(fiestas(quiet.world, 2)[0]).toMatchObject({ holidays: [], procession: null });
   });
 });
 

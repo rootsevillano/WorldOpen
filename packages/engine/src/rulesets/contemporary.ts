@@ -1,7 +1,7 @@
 import { animalSystem } from '../agents/animals';
 import { transitSystem } from '../agents/transit';
 import { disasterSystem } from '../agents/disasters';
-import { festivalSystem, processionSystem } from '../agents/festival';
+import { festivalSystem, fiestaCriteria, processionSystem } from '../agents/festival';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
 import { moneySystem } from '../agents/money';
@@ -42,24 +42,28 @@ export const contemporary: Ruleset = {
     },
     {
       key: 'society.festivalMonth',
+      label: 'Primer pueblo · fiestas: mes',
       type: 'number', min: 1, max: 12, default: 8, integer: true,
       description: 'Mes de las fiestas del pueblo (1–12).',
       mutableBy: 'admin',
     },
     {
       key: 'society.festivalStartDay',
+      label: 'Primer pueblo · fiestas: día',
       type: 'number', min: 1, max: 30, default: 15, integer: true,
       description: 'Día del mes en que empiezan las fiestas (meses de 30 días).',
       mutableBy: 'admin',
     },
     {
       key: 'society.festivalLength',
+      label: 'Primer pueblo · fiestas: días',
       type: 'number', min: 1, max: 10, default: 4, integer: true,
       description: 'Duración de las fiestas en días.',
       mutableBy: 'admin',
     },
     {
       key: 'society.festivalHoliday',
+      label: 'Primer pueblo · fiestas: festivo',
       type: 'number', min: 0, max: 10, default: 2, integer: true,
       description: 'Día de fiestas que es festivo (sin trabajo ni escuela); 0 = ninguno.',
       mutableBy: 'admin',
@@ -196,6 +200,7 @@ export const contemporary: Ruleset = {
     { name: 'households', run: householdsSystem },
     { name: 'money', run: moneySystem },
   ],
+  regionCriteria: fiestaCriteria,
 };
 
 export const RULESETS: Record<string, Ruleset> = { [contemporary.id]: contemporary };

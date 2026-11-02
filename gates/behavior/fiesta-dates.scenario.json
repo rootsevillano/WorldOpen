@@ -1,0 +1,32 @@
+{
+  "name": "fiesta-dates",
+  "description": "ADR-0047: el Modo Dios elige las fechas de cada pueblo. Aquí, desde el manifiesto: el 10 de junio es la romería del primer pueblo (festivo) y el segundo pueblo está en el día grande de sus fiestas patronales.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 1,
+  "towns": 2,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": { "year": 1, "month": 6, "day": 10, "hour": 6, "minute": 0 }
+    },
+    "criteria": {
+      "society.initialPopulation": 400,
+      "fiestas.r1.romeriaMonth": 6,
+      "fiestas.r1.romeriaDay": 10,
+      "fiestas.r2.patronalMonth": 6,
+      "fiestas.r2.patronalDay": 9,
+      "fiestas.r2.patronalLength": 3
+    }
+  },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "festival.kind", "op": "==", "value": "romeria", "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.holiday", "op": "==", "value": 1, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.towns", "op": "==", "value": 2, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.romeria", "op": ">=", "value": 30, "at": { "day": 0, "hour": 13, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.pasos", "op": "==", "value": 1, "at": { "day": 0, "hour": 12, "minute": 10 } }
+  ]
+}

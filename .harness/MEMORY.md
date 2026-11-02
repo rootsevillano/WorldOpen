@@ -170,3 +170,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) Para que los agentes pasen horas en un sitio (romería), no basta con atraerlos: al llegar vuelven a
   decidir y se van. Hay que dar peso a quedarse (`consider(Stay, …)` estando allí). Los menores de 14 no salen solos:
   si deben ir con la familia, la consideración va fuera del bloque `!minor`.
+- (2026-11-02) Para hacer configurable algo por pueblo, los criterios por región (`Ruleset.regionCriteria`) dan
+  snapshot, hash, validación, comando y UI sin código nuevo. Por defecto, los valores que ya se derivaban: así no
+  cambia ningún mundo existente.

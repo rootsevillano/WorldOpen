@@ -84,6 +84,7 @@ export class Simulation {
 
     const criteria = new CriteriaRegistry();
     for (const def of ruleset.criteria) criteria.define(def);
+    for (const def of ruleset.regionCriteria?.(manifest.regions) ?? []) criteria.define(def);
     registerBuiltinCommands(this.commands);
     for (const def of ruleset.commands) this.commands.register(def);
 

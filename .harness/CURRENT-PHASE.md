@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Varias fiestas al año · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Fechas en el Modo Dios · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Varias fiestas al año — entregado (ADR-0046)
+## Fechas en el Modo Dios — entregado (ADR-0047)
+- Criterios `fiestas.<región>.…`: la romería de cada pueblo y las patronales de los vecinos (mes, día, duración,
+  festivo). Por defecto, las fechas de su región. El Modo Dios las agrupa en «Fechas de fiestas por pueblo», con el
+  nombre de cada pueblo. Protocolo v19; motor 0.35.0. 25/25 en ambos mapas; 185 tests.
+
+## Varias fiestas al año (anterior) — completado (ADR-0046)
 - Calendario por pueblo: patronales (las del primero en el Modo Dios, las de los vecinos según su región), romería
   (día festivo en el merendero) y Navidad (festivos, Nochevieja con verbena y fuegos, cabalgata de Reyes). Festivos,
   verbena, procesión, fuegos y visitantes por pueblo. Protocolo v18; motor 0.34.0. 24/24 en ambos mapas; 184 tests.

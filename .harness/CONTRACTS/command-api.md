@@ -48,6 +48,15 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | `society.festivalMonth` | number (entero) | 1 … 12 | 8 | admin |
 | `society.festivalStartDay` | number (entero) | 1 … 30 | 15 | admin |
 | `society.festivities` | number | 0 … 3 | 1 | admin |
+| `fiestas.<región>.romeriaMonth` | number (entero) | 1 … 12 | según la región | admin |
+| `fiestas.<región>.romeriaDay` | number (entero) | 1 … 30 | según la región | admin |
+| `fiestas.<región>.patronalMonth` (solo vecinos) | number (entero) | 1 … 12 | según la región | admin |
+| `fiestas.<región>.patronalDay` (solo vecinos) | number (entero) | 1 … 30 | según la región | admin |
+| `fiestas.<región>.patronalLength` (solo vecinos) | number (entero) | 1 … 10 | según la región | admin |
+| `fiestas.<región>.patronalHoliday` (solo vecinos) | number (entero) | 0 … 10 | 2 | admin |
+
+Los criterios `fiestas.<región>.…` (ADR-0047) los declara el ruleset con `regionCriteria(regions)`: existen una vez por
+región del manifiesto (`r1`, `r2`…). Cada criterio puede traer `label`, un nombre corto para la UI.
 | `society.fertility` | number | 0 … 5 | 1 | admin |
 | `society.immigration` | number | 0 … 5 | 1 | admin |
 | `society.mortality` | number | 0 … 5 | 1 | admin |

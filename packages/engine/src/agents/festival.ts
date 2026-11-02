@@ -1,4 +1,4 @@
-import { AgentActivity, AgentFlag } from '@worldopen/contracts';
+import { AgentActivity, AgentFlag, type CriterionDefinition, type RegionRef } from '@worldopen/contracts';
 import { headingOf } from '../math/angles';
 import { MINUTES_PER_DAY } from '../time/clock';
 import { Action, Occupation } from '../world/agents';
@@ -9,9 +9,10 @@ import { minuteOfDay } from './environment';
  * Fiestas (ADR-0034, ADR-0035, ADR-0046). Cada pueblo tiene su calendario:
  * - Fiestas patronales: verbena cada noche, procesión el día grande (festivo) y fuegos la última noche. Las del primer
  *   pueblo las elige el Modo Dios (`society.festivalMonth`, `festivalStartDay`, `festivalLength`, `festivalHoliday`;
- *   por defecto del 15 al 18 de agosto, el 16 festivo); las de los demás salen de su región (de mayo a septiembre).
- * - Romería: un día festivo de abril o mayo (según la región) en que parte de los vecinos pasa el día en el merendero
- *   del pueblo más alejado de la plaza.
+ *   por defecto del 15 al 18 de agosto, el 16 festivo); las de los demás, `fiestas.<región>.patronal…` (por defecto,
+ *   según la región, de mayo a septiembre) (ADR-0047).
+ * - Romería: un día festivo (`fiestas.<región>.romeria…`; por defecto, de abril o mayo según la región) en que parte
+ *   de los vecinos pasa el día en el merendero del pueblo más alejado de la plaza.
  * - Navidad (todos los pueblos): del 24 de diciembre al 6 de enero; festivos el 25, el 1 y el 6; verbena y fuegos en
  *   Nochevieja (la noche del 30 de diciembre, último día del año de 360) y cabalgata de Reyes el 5 a las 18:00.
  * Verbena de 18:00 a 03:00 en la plaza (el local junto a la parada) y sus 2 locales más cercanos: se sale y se
@@ -68,44 +69,87 @@ function unit(text: string, k: number): number {
   return (Math.imul(h ^ Math.imul(k + 1, 0x9e3779b1), 0x85ebca6b) >>> 0) / 0x100000000;
 }
 
+/**
+ * Fechas por defecto de un pueblo (ADR-0046), según su región: las patronales de los vecinos, de mayo a septiembre,
+ * de 3 a 5 días, el segundo festivo; la romería, en abril o mayo. Meses y días empiezan en 1.
+ */
+export function defaultFiestaDates(regionId: string): {
+  patronalMonth: number; patronalDay: number; patronalLength: number; patronalHoliday: number; romeriaMonth: number; romeriaDay: number;
+} {
+  return {
+    patronalMonth: 5 + Math.floor(unit(regionId, 1) * 5),
+    patronalDay: 1 + Math.floor(unit(regionId, 2) * 26),
+    patronalLength: 3 + Math.floor(unit(regionId, 3) * 3),
+    patronalHoliday: 2,
+    romeriaMonth: 4 + Math.floor(unit(regionId, 4) * 2),
+    romeriaDay: 1 + Math.floor(unit(regionId, 5) * 28),
+  };
+}
+
+/**
+ * Criterios de fechas por pueblo (ADR-0047), que el Modo Dios puede cambiar: `fiestas.<región>.romeriaMonth` y
+ * `romeriaDay` en todos los pueblos y, en los vecinos, `patronalMonth`, `patronalDay`, `patronalLength` y
+ * `patronalHoliday` (las del primer pueblo siguen en `society.festival…`). Por defecto, las fechas de su región.
+ */
+export function fiestaCriteria(regions: readonly Pick<RegionRef, 'id' | 'displayName'>[]): CriterionDefinition[] {
+  const defs: CriterionDefinition[] = [];
+  regions.forEach((region, t) => {
+    const d = defaultFiestaDates(region.id);
+    const def = (field: keyof typeof d, label: string, min: number, max: number, description: string): CriterionDefinition => ({
+      key: `fiestas.${region.id}.${field}`,
+      label: `${region.displayName} · ${label}`,
+      type: 'number', min, max, default: d[field], integer: true,
+      description: `${region.displayName}: ${description}`,
+      mutableBy: 'admin',
+    });
+    if (t > 0) {
+      defs.push(
+        def('patronalMonth', 'fiestas: mes', 1, 12, 'mes de las fiestas patronales (1–12).'),
+        def('patronalDay', 'fiestas: día', 1, 30, 'día del mes en que empiezan las fiestas patronales.'),
+        def('patronalLength', 'fiestas: días', 1, 10, 'duración de las fiestas patronales en días.'),
+        def('patronalHoliday', 'fiestas: festivo', 0, 10, 'día de fiestas que es festivo, con procesión (0 = ninguno).'),
+      );
+    }
+    defs.push(
+      def('romeriaMonth', 'romería: mes', 1, 12, 'mes de la romería (1–12).'),
+      def('romeriaDay', 'romería: día', 1, 30, 'día del mes de la romería, que es festivo.'),
+    );
+  });
+  return defs;
+}
+
+/** Fiestas patronales: verbena cada noche, procesión el día festivo a las 12:00 y fuegos la última noche. */
+function patronal(month: number, day: number, length: number, holiday: number): Fiesta {
+  const big = holiday > 0 && holiday <= length ? holiday : 0;
+  return {
+    kind: 'patronal',
+    first: (month - 1) * 30 + (day - 1),
+    length,
+    holidays: big ? [big] : [],
+    verbenaDays: Array.from({ length }, (_, k) => k + 1),
+    procession: big ? { day: big, from: 12 * 60 } : null,
+    fireworks: length,
+    outing: 0,
+    visitors: 2,
+  };
+}
+
 /** Calendario de fiestas de un pueblo, por prioridad (si coinciden dos, cuenta la primera). */
 export function fiestas(world: World, town = 0): Fiesta[] {
   if (world.num('society.festivities') <= 0) return [];
   const region = world.map.towns[town]?.regionId ?? 'r1';
-  let patronal: Fiesta;
-  if (town === 0) {
-    const length = world.num('society.festivalLength');
-    const holiday = world.num('society.festivalHoliday');
-    const big = holiday > 0 && holiday <= length ? holiday : 0;
-    patronal = {
-      kind: 'patronal',
-      first: (world.num('society.festivalMonth') - 1) * 30 + (world.num('society.festivalStartDay') - 1),
-      length,
-      holidays: big ? [big] : [],
-      verbenaDays: Array.from({ length }, (_, k) => k + 1),
-      procession: big ? { day: big, from: 12 * 60 } : null,
-      fireworks: length,
-      outing: 0,
-      visitors: 2,
-    };
-  } else {
-    // Los vecinos: de mayo a septiembre, de 3 a 5 días, el segundo festivo.
-    const length = 3 + Math.floor(unit(region, 3) * 3);
-    patronal = {
-      kind: 'patronal',
-      first: (4 + Math.floor(unit(region, 1) * 5)) * 30 + Math.floor(unit(region, 2) * 26),
-      length,
-      holidays: [2],
-      verbenaDays: Array.from({ length }, (_, k) => k + 1),
-      procession: { day: 2, from: 12 * 60 },
-      fireworks: length,
-      outing: 0,
-      visitors: 2,
-    };
-  }
+  // Fechas del Modo Dios (ADR-0047); sin el criterio (rulesets sin fechas por pueblo), las de su región.
+  const d = defaultFiestaDates(region);
+  const date = (field: keyof typeof d): number => {
+    const v = world.criteria[`fiestas.${region}.${field}`];
+    return typeof v === 'number' ? v : d[field];
+  };
+  const own = town === 0
+    ? patronal(world.num('society.festivalMonth'), world.num('society.festivalStartDay'), world.num('society.festivalLength'), world.num('society.festivalHoliday'))
+    : patronal(date('patronalMonth'), date('patronalDay'), date('patronalLength'), date('patronalHoliday'));
   const romeria: Fiesta = {
     kind: 'romeria',
-    first: (3 + Math.floor(unit(region, 4) * 2)) * 30 + Math.floor(unit(region, 5) * 28),
+    first: (date('romeriaMonth') - 1) * 30 + (date('romeriaDay') - 1),
     length: 1,
     holidays: [1],
     verbenaDays: [],
@@ -114,7 +158,7 @@ export function fiestas(world: World, town = 0): Fiesta[] {
     outing: 1,
     visitors: 1,
   };
-  return [patronal, { kind: 'navidad', ...CHRISTMAS }, romeria];
+  return [own, { kind: 'navidad', ...CHRISTMAS }, romeria];
 }
 
 function minutesSinceStart(world: World): number {

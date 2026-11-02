@@ -63,7 +63,7 @@ describe('Comandos y criterios', () => {
     const cat = new Simulation(manifest()).catalog();
     expect(cat.commands.map((c) => c.type)).toEqual(['agent.remove', 'agent.spawn', 'criteria.set', 'disaster.fire']);
     expect(cat.criteria.map((c) => c.key)).toEqual([
-      'climate.baseTemperatureC', 'economy.creditAccess', 'economy.foodAbundance', 'economy.livestock', 'economy.priceLevel', 'economy.rentLevel', 'economy.wageLevel', 'economy.waterSupply', 'economy.welfare', 'society.carOwnership', 'society.commuting', 'society.emigration', 'society.fertility', 'society.festivalHoliday', 'society.festivalLength', 'society.festivalMonth', 'society.festivalStartDay', 'society.festivities', 'society.immigration', 'society.initialPopulation', 'society.mortality', 'society.petOwnership', 'society.sociability', 'society.tourism',
+      'climate.baseTemperatureC', 'economy.creditAccess', 'economy.foodAbundance', 'economy.livestock', 'economy.priceLevel', 'economy.rentLevel', 'economy.wageLevel', 'economy.waterSupply', 'economy.welfare', 'fiestas.r1.romeriaDay', 'fiestas.r1.romeriaMonth', 'society.carOwnership', 'society.commuting', 'society.emigration', 'society.fertility', 'society.festivalHoliday', 'society.festivalLength', 'society.festivalMonth', 'society.festivalStartDay', 'society.festivities', 'society.immigration', 'society.initialPopulation', 'society.mortality', 'society.petOwnership', 'society.sociability', 'society.tourism',
       'society.townMigration', 'society.transit', 'world.era',
     ]);
     expect(cat.values['climate.baseTemperatureC']).toBe(18);

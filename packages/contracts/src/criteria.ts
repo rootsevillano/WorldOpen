@@ -4,6 +4,8 @@ export type CriterionValue = number | boolean | string;
 export interface CriterionDefinition {
   /** `dominio.nombre`, p. ej. `climate.baseTemperatureC`. */
   key: string;
+  /** Nombre corto para la UI (p. ej. «Cabeporares · romería: mes»); si falta, se muestra la clave (ADR-0047). */
+  label?: string;
   type: 'number' | 'boolean' | 'enum';
   default: CriterionValue;
   min?: number;
