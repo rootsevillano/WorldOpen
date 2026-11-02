@@ -1,7 +1,7 @@
 import { animalSystem } from '../agents/animals';
 import { transitSystem } from '../agents/transit';
 import { disasterSystem } from '../agents/disasters';
-import { festivalSystem } from '../agents/festival';
+import { festivalSystem, processionSystem } from '../agents/festival';
 import { economySystem, serviceSystem } from '../agents/economy';
 import { lifecycleSystem } from '../agents/lifecycle';
 import { moneySystem } from '../agents/money';
@@ -187,6 +187,7 @@ export const contemporary: Ruleset = {
     { name: 'needs', run: needsSystem },
     { name: 'decision', run: decisionSystem },
     { name: 'movement', run: movementSystem },
+    { name: 'procession', run: processionSystem },
     { name: 'transit', run: transitSystem },
     { name: 'service', run: serviceSystem },
     { name: 'social', run: socialSystem },

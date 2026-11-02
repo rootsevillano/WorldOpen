@@ -31,6 +31,13 @@ export interface RenderFrame {
   busCount: number;
   busPositions: Float32Array;
   busHeadings: Float32Array;
+  /** Fiestas (ADR-0044): pasos de las procesiones en curso (posiciones stride 3 y rumbos). */
+  pasoCount: number;
+  pasoPositions: Float32Array;
+  pasoHeadings: Float32Array;
+  /** Plazas con fuegos artificiales ahora (stride 3); el render anima los cohetes. */
+  fireworkCount: number;
+  fireworkSites: Float32Array;
 }
 
 export const AnimalKind = { Dog: 0, Sheep: 1, Hen: 2 } as const;
@@ -72,5 +79,8 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.animalFlags.buffer,
     frame.busPositions.buffer,
     frame.busHeadings.buffer,
+    frame.pasoPositions.buffer,
+    frame.pasoHeadings.buffer,
+    frame.fireworkSites.buffer,
   ] as ArrayBuffer[];
 }

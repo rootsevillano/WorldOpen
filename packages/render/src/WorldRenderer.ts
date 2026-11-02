@@ -9,6 +9,12 @@ const MAX_AGENTS = 10_000;
 const MAX_ANIMALS = 20_000;
 
 /** Colores de coche (por id del conductor: estable entre frames). */
+/** Fuegos artificiales (ADR-0044): chispas que el render anima con su propio reloj (no son estado del mundo). */
+const MAX_SPARKS = 2000;
+const SPARKS_PER_BURST = 80;
+const SPARK_LIFE_S = 1.8;
+const FIREWORK_COLORS = [0xff4d4d, 0xffd84d, 0x4dd2ff, 0x9dff4d, 0xff7dff, 0xffffff].map((c) => new THREE.Color(c));
+
 const CAR_COLORS = [0xb03a2e, 0x1f618d, 0xd4ac0d, 0xeeeeee, 0x2c3e50, 0x7f8c8d, 0x117a65].map((c) => new THREE.Color(c));
 
 /** Une geometrías indexadas de caja en una sola (sin depender de BufferGeometryUtils). */
@@ -91,6 +97,18 @@ export class WorldRenderer {
   private readonly animalAtInstance: number[][] = [[], [], []];
   /** Autobuses (ADR-0030). */
   private readonly buses: THREE.InstancedMesh;
+  /** Fiestas (ADR-0044): pasos de procesión y chispas de los fuegos artificiales. */
+  private readonly pasos: THREE.InstancedMesh;
+  private readonly sparks: THREE.Points;
+  private readonly sparkPos = new Float32Array(MAX_SPARKS * 3);
+  private readonly sparkVel = new Float32Array(MAX_SPARKS * 3);
+  private readonly sparkCol = new Float32Array(MAX_SPARKS * 3);
+  private readonly sparkBase = new Float32Array(MAX_SPARKS * 3);
+  private readonly sparkLife = new Float32Array(MAX_SPARKS);
+  private prevPasos: Float32Array | null = null;
+  private sparkNext = 0;
+  private lastSparkAt = 0;
+  private nextBurstAt = 0;
   private readonly mapGroup = new THREE.Group();
   private buildingMesh: THREE.InstancedMesh | null = null;
   private footprints: FootprintMesh | null = null;
@@ -187,6 +205,32 @@ export class WorldRenderer {
     this.buses.frustumCulled = false;
     this.buses.name = 'BUSES';
     this.scene.add(this.buses);
+    // Paso de procesión: andas doradas con la imagen encima (rumbo 0 = +X).
+    this.pasos = new THREE.InstancedMesh(
+      mergeBoxes(
+        new THREE.BoxGeometry(2.8, 0.7, 1.9).translate(0, 1.0, 0),
+        new THREE.BoxGeometry(0.6, 1.7, 0.6).translate(0, 2.2, 0),
+        new THREE.BoxGeometry(1.2, 0.15, 1.2).translate(0, 3.15, 0),
+      ),
+      new THREE.MeshStandardMaterial({ color: 0xd4af37, emissive: 0x3a2a00, roughness: 0.35, metalness: 0.6 }),
+      16,
+    );
+    this.pasos.count = 0;
+    this.pasos.frustumCulled = false;
+    this.pasos.name = 'PASOS';
+    this.scene.add(this.pasos);
+    // Chispas de los fuegos: puntos aditivos (brillan sobre el cielo nocturno).
+    const sparkGeometry = new THREE.BufferGeometry();
+    for (let k = 0; k < MAX_SPARKS; k++) this.sparkPos[k * 3 + 1] = -1e4;
+    sparkGeometry.setAttribute('position', new THREE.BufferAttribute(this.sparkPos, 3));
+    sparkGeometry.setAttribute('color', new THREE.BufferAttribute(this.sparkCol, 3));
+    this.sparks = new THREE.Points(
+      sparkGeometry,
+      new THREE.PointsMaterial({ size: 2.2, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+    );
+    this.sparks.frustumCulled = false;
+    this.sparks.name = 'FIREWORKS';
+    this.scene.add(this.sparks);
     for (const [k, m] of this.animalMeshes.entries()) {
       m.count = 0;
       m.frustumCulled = false;
@@ -401,6 +445,7 @@ export class WorldRenderer {
         if (prev.animalFlags[i]! & AgentFlag.Indoors) continue;
         this.prevAnimalPos.set(prev.animalIds[i]!, [prev.animalPositions[i * 3]!, 0, prev.animalPositions[i * 3 + 2]!]);
       }
+      this.prevPasos = prev.pasoCount === frame.pasoCount && prev.pasoCount > 0 ? prev.pasoPositions.slice() : null;
       this.tickDuration = THREE.MathUtils.clamp(now - this.tickArrivedAt, 16, 1000);
       this.tickArrivedAt = now;
     } else if (!prev) {
@@ -510,6 +555,88 @@ export class WorldRenderer {
     if (this.cars.instanceColor) this.cars.instanceColor.needsUpdate = true;
     this.updateAnimals(f, now, scale);
     this.updateBuses(f, scale);
+    this.updatePasos(f, now, scale);
+    this.updateFireworks(f, now);
+  }
+
+  private updatePasos(f: RenderFrame, now: number, scale: number): void {
+    const n = Math.min(f.pasoCount ?? 0, 16);
+    const t = THREE.MathUtils.clamp((now - this.tickArrivedAt) / this.tickDuration, 0, 1);
+    for (let k = 0; k < n; k++) {
+      let x = f.pasoPositions[k * 3]!;
+      let z = f.pasoPositions[k * 3 + 2]!;
+      if (this.prevPasos) {
+        x = this.prevPasos[k * 3]! + (x - this.prevPasos[k * 3]!) * t;
+        z = this.prevPasos[k * 3 + 2]! + (z - this.prevPasos[k * 3 + 2]!) * t;
+      }
+      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
+      this.tmp.rotation.set(0, f.pasoHeadings[k]!, 0);
+      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.updateMatrix();
+      this.pasos.setMatrixAt(k, this.tmp.matrix);
+    }
+    this.pasos.count = n;
+    this.pasos.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Lanza ramilletes de chispas sobre cada plaza con fuegos y anima las que están en el aire (gravedad y fundido). */
+  private updateFireworks(f: RenderFrame, now: number): void {
+    const dt = Math.min(0.1, Math.max(0, (now - this.lastSparkAt) / 1000));
+    this.lastSparkAt = now;
+    const sites = f.fireworkCount ?? 0;
+    if (sites > 0 && now >= this.nextBurstAt) {
+      for (let s = 0; s < sites; s++) {
+        const sx = f.fireworkSites[s * 3]! + (Math.random() - 0.5) * 50;
+        const sz = f.fireworkSites[s * 3 + 2]! + (Math.random() - 0.5) * 50;
+        const sy = (this.heights ? this.heights.at(sx, sz) : 0) + 45 + Math.random() * 35;
+        const color = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)]!;
+        const speed = 12 + Math.random() * 8;
+        for (let k = 0; k < SPARKS_PER_BURST; k++) {
+          const j = this.sparkNext;
+          this.sparkNext = (this.sparkNext + 1) % MAX_SPARKS;
+          const u = Math.random() * 2 - 1;
+          const th = Math.random() * Math.PI * 2;
+          const r = Math.sqrt(1 - u * u);
+          const v = speed * (0.85 + Math.random() * 0.3);
+          this.sparkPos.set([sx, sy, sz], j * 3);
+          this.sparkVel.set([r * Math.cos(th) * v, u * v, r * Math.sin(th) * v], j * 3);
+          this.sparkBase.set([color.r, color.g, color.b], j * 3);
+          this.sparkLife[j] = SPARK_LIFE_S * (0.7 + Math.random() * 0.3);
+        }
+      }
+      this.nextBurstAt = now + 400 + Math.random() * 700;
+    }
+    let alive = 0;
+    for (let j = 0; j < MAX_SPARKS; j++) {
+      if (this.sparkLife[j]! <= 0) continue;
+      this.sparkLife[j]! -= dt;
+      if (this.sparkLife[j]! <= 0) {
+        this.sparkPos[j * 3 + 1] = -1e4;
+        this.sparkCol.fill(0, j * 3, j * 3 + 3);
+        continue;
+      }
+      alive++;
+      this.sparkVel[j * 3 + 1]! -= 7 * dt;
+      for (let c = 0; c < 3; c++) {
+        this.sparkVel[j * 3 + c]! *= 1 - 0.9 * dt;
+        this.sparkPos[j * 3 + c]! += this.sparkVel[j * 3 + c]! * dt;
+        this.sparkCol[j * 3 + c] = this.sparkBase[j * 3 + c]! * Math.min(1, this.sparkLife[j]! / (SPARK_LIFE_S * 0.6));
+      }
+    }
+    this.liveSparks = alive;
+    this.sparks.geometry.getAttribute('position').needsUpdate = true;
+    this.sparks.geometry.getAttribute('color').needsUpdate = true;
+  }
+
+  private liveSparks = 0;
+
+  /** Pasos de procesión dibujados y chispas de fuegos en el aire (para el Visual Gate). */
+  get visiblePasos(): number {
+    return this.pasos.count;
+  }
+
+  get visibleSparks(): number {
+    return this.liveSparks;
   }
 
   private updateAnimals(f: RenderFrame, now: number, scale: number): void {

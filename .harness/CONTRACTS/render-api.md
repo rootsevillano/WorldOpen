@@ -12,6 +12,9 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
   `animalKinds` (u8, `AnimalKind`: perro, oveja, gallina) y `animalFlags` (`Indoors` = recogido: no se dibuja). El
   render los interpola desde su posición del frame anterior. `pick` devuelve `{ kind: 'animal', id }` para un animal
   visible (ADR-0029).
+- Fiestas (protocolo v16, ADR-0044): `pasoCount`, `pasoPositions` (f32 × 3), `pasoHeadings` (paso de cada
+  procesión en curso; el render lo interpola) y `fireworkCount`, `fireworkSites` (f32 × 3, plazas con fuegos; el
+  render anima las chispas con su propio reloj).
 - Autobuses (protocolo v7; desde ADR-0031, interurbanos): `busCount`, `busPositions` (f32 × 3), `busHeadings`; el
   autobús entra por la carretera del borde, para en el centro y se va. Quien está fuera del pueblo va `Indoors`.
 - Mapa: el render pide `query {map}` (lista de `MapLogic`) al recibir `ready`. Sin GLB, dibuja edificios como volúmenes

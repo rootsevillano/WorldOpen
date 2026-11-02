@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Cambiar a mejor trabajo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Procesión y fuegos · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Cambiar a mejor trabajo — entregado (ADR-0043)
+## Procesión y fuegos — entregado (ADR-0044)
+- El día grande, los vecinos se reúnen en la plaza y a las 12:00 desfilan de dos en dos detrás del paso y vuelven; la
+  última noche hay fuegos artificiales sobre cada plaza. Frame con pasos y fuegos (protocolo v16); motor 0.32.0.
+  21/21 en ambos mapas; 179 tests.
+
+## Cambiar a mejor trabajo (anterior) — completado (ADR-0043)
 - Una vez por semana, al salir del trabajo, quien trabaja en un negocio va a pedir un puesto que le deje un 10 % más
   de jornal neto (en su pueblo o en otro) y se cambia si la plaza sigue libre. Motor 0.31.0. 20/20 en ambos mapas;
   178 tests.

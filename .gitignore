@@ -13,7 +13,7 @@ reports/
 
 
 # Ignorar todos los archivos con extensión .md
-*.md
+# *.md
 
 
 # Excluir README.md (no ignorarlo)

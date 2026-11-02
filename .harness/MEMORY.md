@@ -162,3 +162,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   una política salarial, usar el índice de cada negocio (`wageIndex`), no el jornal.
 - (2026-11-02) Los tests que eligen «el primer negocio de X» se rompen cuando cambia el reparto de empleos. Elegir
   por la condición que importa (p. ej. que tenga plaza: `staff + 1 < positionsOf`).
+- (2026-11-02) El frame se genera después de `tick++`. Lo que se calcula en el frame a partir de la hora (como el
+  paso) debe usar la hora del último tick, o se desfasa respecto a lo que movieron los sistemas. En el navegador, con
+  la pestaña oculta los temporizadores van lentos: para llegar a una hora exacta, `__worldopen.engine.step(n)`.

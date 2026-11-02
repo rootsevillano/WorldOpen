@@ -244,5 +244,36 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect((e?.data as { from: string }).from).toBe(map.buildings[from]!.id);
     expect(['ownTown', 'otherTown']).toContain((e?.data as { search: string }).search);
   });
+
+  it('procesión del día grande y fuegos de la última noche, en cada pueblo; deterministas al restaurar (ADR-0044)', () => {
+    const m = createManifest({
+      worldId: 'w', createdAt: 'x', seed: 3,
+      regions: [SYNTHETIC_REGION, ...neighbours().slice(0, 1)],
+      time: { minutesPerTick: 5, start: { year: 1, month: 8, day: 16, hour: 10, minute: 0 } },
+      criteria: { 'society.initialPopulation': 400 },
+    });
+    const sim = new Simulation(m);
+    const a = sim.world.agents;
+    sim.step(12 * 2 + 2); // 12:10
+    const marching = () => Array.from({ length: a.count }, (_, k) => k).filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
+    const now = marching();
+    expect(now.length).toBeGreaterThan(20);
+    const f = sim.frame();
+    expect(f.pasoCount).toBe(2);
+    // Desfilan por la calle (fuera de casa, sin trayecto propio), en filas cerca del paso de su pueblo.
+    for (const i of now) expect(a.flags[i]).toBe(0);
+    // Restaurar en mitad de la procesión da el mismo mundo.
+    const half = Simulation.restore(m, JSON.parse(JSON.stringify(sim.snapshot())), sim.commandLog());
+    sim.step(24);
+    half.step(24);
+    expect(half.hash()).toBe(sim.hash());
+    expect(marching()).toHaveLength(0);
+    expect(sim.frame().pasoCount).toBe(0);
+    // Fuegos: la noche del 18 al 19, de 00:00 a 00:30, en las dos plazas.
+    while (!(sim.frame().date.day === 19 && sim.frame().date.hour === 0 && sim.frame().date.minute === 10)) sim.step(1);
+    expect(sim.frame().fireworkCount).toBe(2);
+    sim.step(6);
+    expect(sim.frame().fireworkCount).toBe(0);
+  });
 });
 

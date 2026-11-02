@@ -1,6 +1,6 @@
 import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
-import { allFestivalVenues, festivalDay, verbena } from './agents/festival';
+import { allFestivalVenues, festivalDay, fireworkSites, processionPasos, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
@@ -140,6 +140,14 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     // Fiestas (ADR-0034): día de fiestas, verbena en curso y vecinos en los locales de la verbena.
     case 'festival.day': return festivalDay(sim.world);
     case 'festival.verbena': return verbena(sim.world) ? 1 : 0;
+    // Procesión y fuegos (ADR-0044): quien desfila ahora, pasos en la calle y plazas con fuegos.
+    case 'festival.marching': {
+      let n = 0;
+      for (let i = 0; i < a.count; i++) if (a.action[i] === Action.Procession && a.location[i]! < 0 && a.paths[i] === null) n++;
+      return n;
+    }
+    case 'festival.pasos': return processionPasos(sim.world).headings.length;
+    case 'festival.fireworks': return fireworkSites(sim.world).length / 3;
     case 'agents.atFestivalRatio': {
       const venues = new Set(allFestivalVenues(sim.world));
       return ratio((i) => venues.has(a.location[i]!));

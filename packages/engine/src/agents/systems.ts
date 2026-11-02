@@ -25,7 +25,7 @@ import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { SWITCH_PREMIUM, canAfford, dailyWageAt, hireAt, isBusiness, openings, payHarvest, spendLeisure } from './money';
 import { ticksPerDay } from '../time/clock';
 import { dogsToWalk } from './animals';
-import { allFestivalVenues, festivalDay, festivalVenues, festivities, verbena } from './festival';
+import { allFestivalVenues, festivalDay, festivalVenues, festivities, processionGathering, processionParticipant, processionPlaza, processionTime, verbena } from './festival';
 import { remember } from './social';
 import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
 import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
@@ -164,6 +164,9 @@ export function decisionSystem(world: World): void {
   // Buscar trabajo (ADR-0041): en horario laboral, si hay algún puesto libre en el mundo.
   const jobsOpen = shift && openings(world).open.length > 0;
   const today = searchDay(world);
+  // Procesión del día grande (ADR-0044): quien va no decide hasta que vuelve; antes, se acerca a la plaza.
+  const procession = processionTime(world);
+  const gathering = procession && processionGathering(world);
   // Cambiar a un trabajo mejor (ADR-0043): los laborables al salir del trabajo (15:00–19:00), una vez por semana.
   const switchOpen = !shift && dayOfWeek(world) < 5 && minute >= SWITCH_WINDOW[0] && minute < SWITCH_WINDOW[1] && openings(world).open.length > 0;
 
@@ -179,6 +182,7 @@ export function decisionSystem(world: World): void {
     // Abasteciéndose (cola o servicio en curso) o comiendo: no se interrumpe.
     // Abasteciéndose, comiendo o en un viaje en autobús (ADR-0030): no se interrumpe.
     if (a.busyLeft[i]! > 0 || a.transit[i] || a.occupation[i] === Occupation.Visitor) continue;
+    if (procession && a.action[i] === Action.Procession) continue;
     const moving = a.paths[i] !== null;
     const due = (world.tick + a.ids[i]!) % every === 0;
     const stranded =
@@ -279,6 +283,9 @@ export function decisionSystem(world: World): void {
         if (best === Action.Provision) a.seeking[i] = bestR;
       }
     }
+    if (gathering && !carrying && !sleepTime && processionParticipant(world, i) && loc !== processionPlaza(world, i)) {
+      consider(Action.Procession, 1.3);
+    }
     if (loc < 0) {
       const lack = 1 - shelter;
       consider(Action.SeekShelter, lack * lack * 1.6 * (1.2 - 0.4 * a.bravery[i]!));
@@ -327,6 +334,9 @@ export function startAction(world: World, i: number, action: Action, home: numbe
       a.carryKind[i] = Resource.Food;
       a.carryAmount[i] = amount;
     }
+  } else if (action === Action.Procession) {
+    target = processionPlaza(world, i);
+    if (target < 0) a.action[i] = Action.Stay;
   } else if (action === Action.SeekJob) {
     a.searchedDay[i] = searchDay(world);
     target = pickJob(world, i);
@@ -460,7 +470,7 @@ function arrive(world: World, i: number, target: number): void {
   if (action === Action.SeekJob && hireAt(world, i, target)) remember(world, i, Memory.NewJob, target);
   if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
     a.busyLeft[i] = SERVICE_MINUTES;
-  } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter) {
+  } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter && action !== Action.Procession) {
     // Quien llega refugiándose sigue "refugiado" (no es ocio) hasta su siguiente decisión.
     a.action[i] = Action.Stay;
   }

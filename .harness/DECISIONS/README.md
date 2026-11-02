@@ -48,3 +48,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0041](0041-job-search.md) | Buscar trabajo (también en otros pueblos) | Aceptada |
 | [0042](0042-town-wages.md) | Salarios por pueblo | Aceptada |
 | [0043](0043-job-switch.md) | Cambiar a un trabajo mejor por iniciativa propia | Aceptada |
+| [0044](0044-procession-fireworks.md) | Procesión y fuegos artificiales | Aceptada |

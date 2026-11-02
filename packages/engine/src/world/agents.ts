@@ -17,9 +17,11 @@ export const Action = {
   Deliver: 7,
   /** En paro: ir a un negocio con un puesto libre (en su pueblo o en otro) a pedir trabajo (ADR-0041). */
   SeekJob: 8,
+  /** Fiestas: ir a la plaza y desfilar en la procesión del día grande (ADR-0044). */
+  Procession: 9,
 } as const;
 export type Action = (typeof Action)[keyof typeof Action];
-export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work', 'deliver', 'seekJob'] as const;
+export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work', 'deliver', 'seekJob', 'procession'] as const;
 export const ACTION_COUNT = ACTION_NAMES.length;
 
 export const Occupation = {
