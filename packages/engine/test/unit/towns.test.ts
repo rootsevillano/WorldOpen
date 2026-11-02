@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, neighbourTowns, syntheticBounds, syntheticMap, type TownSide } from '../../src';
-import { activeFiesta, defaultFiestaDates, festivalHoliday, festivalVenues, fiestas } from '../../src/agents/festival';
+import { activeFiesta, defaultFiestaDates, festivalHoliday, festivalVenues, fiestas, romeriaSite } from '../../src/agents/festival';
 import { setCriterion } from '../helpers';
 import { startAction } from '../../src/agents/systems';
 import { housePrice, housingDaily } from '../../src/agents/housing';
@@ -352,6 +352,48 @@ describe('Varios pueblos (ADR-0036)', () => {
     // También desde el manifiesto: sin día festivo, el tercer pueblo no tiene procesión.
     const quiet = threeTowns(50, { 'fiestas.r3.patronalHoliday': 0 });
     expect(fiestas(quiet.world, 2)[0]).toMatchObject({ holidays: [], procession: null });
+  });
+
+  it('cada pueblo tiene su ermita en el campo, con un camino, y allí va la romería (ADR-0049)', () => {
+    const sim = threeTowns(50);
+    const map = sim.world.map;
+    const core = (t: number) => {
+      const xs = map.towns[t]!.homes.map((h) => map.buildings[h]!.centroid);
+      return { x: xs.reduce((n, c) => n + c.x, 0) / xs.length, z: xs.reduce((n, c) => n + c.z, 0) / xs.length };
+    };
+    const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+    map.towns.forEach((town, t) => {
+      const h = town.hermitage;
+      expect(h).toBeGreaterThanOrEqual(0);
+      const b = map.buildings[h]!;
+      expect(b).toMatchObject({ role: 'hermitage', dwellings: 0 });
+      expect(map.townOfBuilding[h]).toBe(t);
+      // En el campo: más allá de todas las viviendas de su pueblo y más cerca de él que de los demás.
+      const own = core(t);
+      const farthestHome = Math.max(...town.homes.map((k) => dist(map.buildings[k]!.centroid, own)));
+      expect(dist(b.centroid, own)).toBeGreaterThan(farthestHome + 200);
+      for (let s = 0; s < map.towns.length; s++) if (s !== t) expect(dist(b.centroid, core(s))).toBeGreaterThan(dist(b.centroid, own));
+      // Se llega andando desde el pueblo por el camino de la ermita.
+      expect(map.nodePath(map.entranceNode[town.homes[0]!]!, map.entranceNode[h]!)).not.toBeNull();
+      expect(romeriaSite(sim.world, t)).toBe(h);
+      // No es un local: nadie va a trabajar ni a pasar el rato allí fuera de la romería.
+      expect(town.venues).not.toContain(h);
+    });
+    expect(sim.mapLogic().some((m) => m.regionId === 'ermitas')).toBe(false);
+    // El día de la romería, quien está en la ermita se ve fuera, en la pradera de alrededor.
+    const day = threeTowns(400, { 'fiestas.r1.romeriaMonth': 3, 'fiestas.r1.romeriaDay': 21 });
+    day.step(6 * 7); // 13:00
+    const h = day.world.map.towns[0]!.hermitage;
+    const c = day.world.map.buildings[h]!.centroid;
+    const f = day.frame();
+    const there = Array.from({ length: f.agentCount }, (_, k) => k).filter((k) => day.world.agents.location[k] === h);
+    expect(there.length).toBeGreaterThan(30);
+    for (const k of there) {
+      expect(f.agentFlags[k]! & 1).toBe(0);
+      const d = Math.hypot(f.agentPositions[k * 3]! - c.x, f.agentPositions[k * 3 + 2]! - c.z);
+      expect(d).toBeGreaterThanOrEqual(11.9);
+      expect(d).toBeLessThanOrEqual(40.1);
+    }
   });
 });
 

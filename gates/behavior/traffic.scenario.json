@@ -1,6 +1,6 @@
 {
   "name": "traffic",
-  "description": "ADR-0045: con tres pueblos y 3000 vecinos, en hora punta la carretera comarcal se atasca (los coches van más despacio y encienden las luces de freno); el autobús de cada pueblo tiene su horario según la demanda.",
+  "description": "ADR-0045: con tres pueblos y 4000 vecinos, en hora punta la carretera comarcal se atasca (los coches van más despacio y encienden las luces de freno); el autobús de cada pueblo tiene su horario según la demanda.",
   "seeds": [
     1,
     2
@@ -13,7 +13,7 @@
       "minutesPerTick": 2
     },
     "criteria": {
-      "society.initialPopulation": 3000
+      "society.initialPopulation": 4000
     }
   },
   "assertions": [

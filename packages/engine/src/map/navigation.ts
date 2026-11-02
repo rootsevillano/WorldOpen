@@ -31,8 +31,8 @@ export class NavMap {
   /** Pueblo (índice de región) de cada edificio y de cada nodo (ADR-0036). */
   readonly townOfBuilding: Int32Array;
   readonly townOfNode: Int32Array;
-  /** Por pueblo: viviendas, locales, tiendas y nodos, en orden. */
-  readonly towns: { regionId: string; homes: number[]; venues: number[]; retail: number[]; nodes: number[] }[];
+  /** Por pueblo: viviendas, locales, tiendas y nodos, en orden, y su ermita (ADR-0049; −1 si no tiene). */
+  readonly towns: { regionId: string; homes: number[]; venues: number[]; retail: number[]; nodes: number[]; hermitage: number }[];
   /** Carretera comarcal: pares de nodos (de cada pueblo al más cercano de los anteriores) unidos en línea recta. */
   readonly links: [number, number][] = [];
 
@@ -57,7 +57,7 @@ export class NavMap {
     // Pueblos: cada región es un pueblo; la carretera comarcal une cada uno con el más cercano de los anteriores por
     // sus nodos más cercanos (ADR-0036, ADR-0037: con vecinos a varios lados, no se cruza el primer pueblo).
     this.townOfNode = new Int32Array(nodes.length);
-    this.towns = logic.map((m) => ({ regionId: m.regionId, homes: [], venues: [], retail: [], nodes: [] }));
+    this.towns = logic.map((m) => ({ regionId: m.regionId, homes: [], venues: [], retail: [], nodes: [], hermitage: -1 }));
     let k = 0;
     logic.forEach((m, t) => {
       for (let j = 0; j < m.streets.nodes.length; j++, k++) {
@@ -65,11 +65,19 @@ export class NavMap {
         this.towns[t]!.nodes.push(k);
       }
     });
+    // La carretera no sale de las ermitas: sus caminos son de tierra y van al campo (ADR-0049).
+    const hermitageNodes = new Set<number>();
+    for (const b of this.buildings) {
+      const node = b.entrances[0]?.streetNodeId;
+      if (b.role === 'hermitage' && node != null) hermitageNodes.add(this.indexOfNode(node));
+    }
     for (let t = 1; t < this.towns.length; t++) {
       let best: [number, number] | null = null;
       let bestD = Infinity;
       for (let s = 0; s < t; s++) for (const a of this.towns[s]!.nodes) {
+        if (hermitageNodes.has(a)) continue;
         for (const b of this.towns[t]!.nodes) {
+          if (hermitageNodes.has(b)) continue;
           const dx = this.nodeX[a]! - this.nodeX[b]!;
           const dz = this.nodeZ[a]! - this.nodeZ[b]!;
           const d = dx * dx + dz * dz;
@@ -107,6 +115,7 @@ export class NavMap {
         town.venues.push(i);
       }
       if (b.use === 'retail') town.retail.push(i);
+      if (b.role === 'hermitage') town.hermitage = i;
       this.byUse[b.use].push(i);
       const entrance = b.entrances[0];
       this.entranceNode[i] =

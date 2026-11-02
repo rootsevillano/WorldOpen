@@ -1,8 +1,12 @@
 # CURRENT PHASE
 
-**Fase actual:** Carnaval · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Ermita en el campo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Carnaval — entregado (ADR-0048)
+## Ermita en el campo — entregado (ADR-0049)
+- Cada pueblo tiene una ermita 400 m más allá del casco, lejos de los demás pueblos, con un camino de tierra. La
+  romería se hace allí y los romeros se ven en la pradera de alrededor. Motor 0.37.0. 26/26 en ambos mapas; 187 tests.
+
+## Carnaval (anterior) — completado (ADR-0048)
 - Tres días desde el 12 de febrero (se mueve por pueblo en el Modo Dios): desfile de disfraces el primero a las
   17:00, baile de disfraces las dos primeras noches y el martes festivo. La mitad de los vecinos va disfrazada
   (`AgentFlag.Costumed`, de colores en el render). Protocolo v20; motor 0.36.0. 26/26 en ambos mapas; 186 tests.

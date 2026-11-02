@@ -46,6 +46,10 @@ function mergeBoxes(...parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
 const FLOOR_HEIGHT = 3;
 const STREET_WIDTH = { carriageway: 10, track: 5, pedestrian: 4 } as const;
 
+/** Ermita en el campo (ADR-0049): encalada. */
+const HERMITAGE_COLOR = 0xf7f3ea;
+const colorOf = (b: { use: BuildingUse; role?: string }): number => (b.role === 'hermitage' ? HERMITAGE_COLOR : USE_COLORS[b.use]);
+
 const USE_COLORS: Record<BuildingUse, number> = {
   residential: 0xe9dcc4,
   agriculture: 0xb9a77a,
@@ -369,7 +373,7 @@ export class WorldRenderer {
     mesh.name = 'BUILDINGS';
     this.buildingMesh = mesh;
     this.buildingIds = buildings.map((b) => b.id);
-    this.buildingBase = buildings.map((b) => new THREE.Color(USE_COLORS[b.use]));
+    this.buildingBase = buildings.map((b) => new THREE.Color(colorOf(b)));
     this.buildingStates = new Uint8Array(buildings.length);
     const color = new THREE.Color();
     buildings.forEach((b, i) => {
@@ -379,7 +383,7 @@ export class WorldRenderer {
       this.tmp.scale.set(side, Math.max(1, b.floorsAboveGround) * FLOOR_HEIGHT, side);
       this.tmp.updateMatrix();
       mesh.setMatrixAt(i, this.tmp.matrix);
-      mesh.setColorAt(i, color.setHex(USE_COLORS[b.use]));
+      mesh.setColorAt(i, color.setHex(colorOf(b)));
     });
     this.mapGroup.add(mesh);
   }

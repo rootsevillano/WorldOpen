@@ -176,3 +176,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) Lo que solo se ve, como los disfraces, se deriva al construir el frame (`costumeFlags`) en vez de
   guardarse en `a.flags`. Muchos sistemas reescriben `a.flags` y lo borrarían, y así no entra en el snapshot ni
   en el hash.
+- (2026-11-02) Algunos escenarios pasan por poco (p. ej., `traffic` en el mapa real: atasco en 1 de 2 semillas). Si
+  falla tras un cambio que solo mueve la aleatoriedad, conviene medirlo con 6 semillas en un directorio temporal
+  (`gate behavior <dir>`) antes de culpar al cambio, y después hacerlo robusto.

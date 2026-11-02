@@ -15,7 +15,7 @@ import {
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
 import { seedCash, seedWages } from './agents/money';
-import { costumeFlags, fireworkSites, processionPasos } from './agents/festival';
+import { costumeFlags, fireworkSites, meadowFrame, processionPasos } from './agents/festival';
 import { seedAnimals } from './agents/animals';
 import { buildRoad, busesNow, seedCommuters, busStops } from './agents/transit';
 import { populate } from './agents/population';
@@ -23,6 +23,7 @@ import { agentDetail, animalDetail, buildingDetail, economySummary } from './ins
 import { registerBuiltinCommands } from './commands/builtin';
 import { CommandRegistry } from './commands/registry';
 import { CriteriaRegistry } from './criteria/registry';
+import { hermitagePaths, withHermitages } from './map/hermitage';
 import { NavMap } from './map/navigation';
 import { syntheticMap } from './map/synthetic';
 import { StateHasher } from './math/hash';
@@ -53,13 +54,14 @@ interface QueuedCommand {
   envelope: CommandEnvelope;
 }
 
+/** Mapas de las regiones, cada uno con su ermita en el campo (ADR-0049). */
 function loadMaps(manifest: WorldManifest, maps: Record<string, MapLogic> = {}): MapLogic[] {
-  return manifest.regions.map((region) => {
+  return withHermitages(manifest.regions.map((region) => {
     const loaded = maps[region.id];
     if (loaded) return loaded;
     if (region.mapPack === null) return syntheticMap(manifest.seed, region, region.blocks ? { blocks: region.blocks } : {});
     throw new Error(`Falta el map-pack ${region.mapPack.id}@${region.mapPack.version} de la región ${region.id}`);
-  });
+  }));
 }
 
 /**
@@ -203,10 +205,13 @@ export class Simulation {
     return economySummary(this.world);
   }
 
-  /** Mapas de los pueblos y, si hay varios, la carretera comarcal que los une (ADR-0036). */
+  /**
+   * Mapas de los pueblos y, si hay varios, la carretera comarcal que los une (ADR-0036); en los map-packs, los caminos
+   * de las ermitas aparte, porque sus calles no se dibujan del mapa lógico (ADR-0049).
+   */
   mapLogic(): MapLogic[] {
-    const link = this.world.map.linkLogic();
-    return link ? [...this.world.map.logic, link] : this.world.map.logic;
+    const extra = [this.world.map.linkLogic(), hermitagePaths(this.world.map.logic)].filter((m): m is MapLogic => m !== null);
+    return [...this.world.map.logic, ...extra];
   }
 
   /** Frame para el render con buffers nuevos (transferibles). */
@@ -218,15 +223,18 @@ export class Simulation {
     const fireworks = fireworkSites(this.world);
     const stops = busStops(this.world);
     const n = a.count;
+    const agentPositions = a.positions.slice(0, n * 3);
+    const agentFlags = costumeFlags(this.world, a.flags.slice(0, n));
+    meadowFrame(this.world, agentFlags, agentPositions);
     return {
       tick: this.world.tick,
       date: tickToDate(this.world.tick, this.manifest.time),
       agentCount: n,
       agentIds: a.ids.slice(0, n),
-      agentPositions: a.positions.slice(0, n * 3),
+      agentPositions,
       agentHeadings: a.headings.slice(0, n),
       agentActivities: a.activities.slice(0, n),
-      agentFlags: costumeFlags(this.world, a.flags.slice(0, n)),
+      agentFlags,
       buildingStates: this.world.buildings.state.slice(),
       animalCount: an.count,
       animalIds: an.ids.slice(0, an.count),

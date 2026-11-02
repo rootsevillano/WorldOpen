@@ -286,8 +286,8 @@ export function festivalSystem(world: World): void {
 }
 
 /**
- * Romería (ADR-0046): el merendero, el local del pueblo más alejado de la plaza (cacheado por mundo), y quién va (por
- * hash del id: sin sorteo).
+ * Romería (ADR-0046, ADR-0049): la ermita del pueblo en el campo o, si el mapa no tiene, el merendero (el local más
+ * alejado de la plaza; cacheado por mundo), y quién va (por hash del id: sin sorteo).
  */
 const sites = new WeakMap<World, number[]>();
 
@@ -295,6 +295,7 @@ export function romeriaSite(world: World, town: number): number {
   let list = sites.get(world);
   if (!list) {
     list = world.map.towns.map((t, k) => {
+      if (t.hermitage >= 0) return t.hermitage;
       const plaza = festivalVenues(world, k)[0];
       if (plaza === undefined || t.venues.length < 2) return -1;
       const p = world.map.buildings[plaza]!.centroid;
@@ -557,4 +558,37 @@ export function costumeFlags(world: World, flags: Uint8Array): Uint8Array {
   if (!carnival.includes(true)) return flags;
   for (let i = 0; i < flags.length; i++) if (costumed(world, i, carnival)) flags[i] = flags[i]! | AgentFlag.Costumed;
   return flags;
+}
+
+/** Pradera de la ermita (ADR-0049): de 12 a 40 m del centro, fuera del edificio. */
+const MEADOW_FROM = 12;
+const MEADOW_TO = 40;
+
+/**
+ * En la romería, quien está en la ermita se ve fuera, comiendo en la pradera de alrededor: el frame lo saca del
+ * edificio y lo coloca en un punto fijo por persona (hash del id). Se deriva: no cambia el estado.
+ */
+export function meadowFrame(world: World, flags: Uint8Array, positions: Float32Array): void {
+  const sites = new Set<number>();
+  world.map.towns.forEach((t, k) => {
+    if (t.hermitage >= 0 && romeriaTime(world, k)) sites.add(t.hermitage);
+  });
+  if (sites.size === 0) return;
+  const a = world.agents;
+  for (let i = 0; i < flags.length; i++) {
+    const loc = a.location[i]!;
+    if (!sites.has(loc)) continue;
+    const c = world.map.buildings[loc]!.centroid;
+    const h = Math.imul(a.ids[i]! ^ 0x27d4eb2f, 0x165667b1) >>> 0;
+    // Dirección en el cuadrado [-1, 1]² normalizada (sin trigonometría) y distancia en la pradera.
+    let dx = ((h & 0xffff) / 0x8000) - 1;
+    let dz = ((h >>> 16) / 0x8000) - 1;
+    const len = Math.sqrt(dx * dx + dz * dz) || 1;
+    const r = MEADOW_FROM + ((Math.imul(h, 0x9e3779b1) >>> 0) / 0x100000000) * (MEADOW_TO - MEADOW_FROM);
+    dx = (dx / len) * r;
+    dz = (dz / len) * r;
+    positions[i * 3] = c.x + dx;
+    positions[i * 3 + 2] = c.z + dz;
+    flags[i] = flags[i]! & ~AgentFlag.Indoors;
+  }
 }

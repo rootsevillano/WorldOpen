@@ -1,6 +1,6 @@
 {
   "name": "romeria",
-  "description": "ADR-0046: el día de la romería del pueblo (27 de mayo, según su región) es festivo y parte de los vecinos pasa el día en el merendero más alejado de la plaza; al anochecer vuelven.",
+  "description": "ADR-0046: el día de la romería del pueblo (27 de mayo, según su región) es festivo y parte de los vecinos pasa el día en la ermita del campo (ADR-0049); al anochecer vuelven.",
   "seeds": [
     1,
     2
