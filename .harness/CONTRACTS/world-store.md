@@ -21,5 +21,6 @@ Código: `packages/contracts/src/store.ts`, `manifest.ts`, `snapshot.ts`. Decisi
 
 ## Varios pueblos (ADR-0036)
 - `manifest.regions` puede tener hasta 3 regiones: la primera es el mapa elegido; las demás, pueblos sintéticos con
-  nombre inventado, a 1,5 km del primero por el lado elegido. Su tamaño va en `RegionRef.blocks` (ADR-0037). Cada región es un pueblo; la carretera comarcal, las líneas de autobús,
+  nombre inventado, a 1,5 km del primero por el lado elegido. Su tamaño va en `RegionRef.blocks` (ADR-0037).
+  Los precios por pueblo (ADR-0040) se derivan del estado: no se guardan. Cada región es un pueblo; la carretera comarcal, las líneas de autobús,
   el hostal y la plaza de cada pueblo se derivan del mapa: no se guardan en el snapshot.

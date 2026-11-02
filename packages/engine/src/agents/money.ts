@@ -80,14 +80,49 @@ const SWITCH_PREMIUM = 1.1;
 
 /**
  * Índice de alquiler por la ocupación de las viviendas del pueblo (hogares / viviendas): 1 al 90 %, más caro si hay
- * pocas libres, más barato si sobran (0,6×–2,5×). Se calcula del estado: no necesita guardarse.
+ * pocas libres, más barato si sobran (0,6×–2,5×). Se calcula del estado: no necesita guardarse. Con `town` y varios
+ * pueblos, el de ese pueblo (ADR-0040); sin él, el del mundo entero.
  */
-export function rentIndex(world: World): number {
+export function rentIndex(world: World, town?: number): number {
+  if (town !== undefined && world.map.towns.length > 1) return townRentIndices(world)[town]!;
   const a = world.agents;
   let dwellings = 0;
   for (const h of world.map.homes) dwellings += Math.max(1, world.map.buildings[h]!.dwellings);
   const households = new Set(a.household.subarray(0, a.count)).size;
-  return Math.min(2.5, Math.max(0.6, 1 + 2 * (households / dwellings - 0.9)));
+  return occupancyIndex(households, dwellings);
+}
+
+function occupancyIndex(households: number, dwellings: number): number {
+  return Math.min(2.5, Math.max(0.6, 1 + 2 * (households / Math.max(1, dwellings) - 0.9)));
+}
+
+/**
+ * Índice de alquiler de cada pueblo (ADR-0040): la ocupación de sus viviendas por sus hogares y un recargo por tamaño
+ * (los pueblos grandes, con más trabajo y servicios, son más caros: de 0,6× a 1× el mayor, según sus viviendas). Con un
+ * solo pueblo, el índice de siempre.
+ */
+export function townRentIndices(world: World): number[] {
+  const map = world.map;
+  if (map.towns.length <= 1) return [rentIndex(world)];
+  const a = world.agents;
+  const dwellings = map.towns.map((t) => t.homes.reduce((s, h) => s + Math.max(1, map.buildings[h]!.dwellings), 0));
+  const seen = new Set<number>();
+  const households = map.towns.map(() => 0);
+  for (let i = 0; i < a.count; i++) {
+    const h = a.home[i]!;
+    if (a.occupation[i] === Occupation.Visitor || h < 0 || seen.has(a.household[i]!)) continue;
+    seen.add(a.household[i]!);
+    households[map.townOfBuilding[h]!]!++;
+  }
+  const largest = Math.max(...dwellings);
+  return dwellings.map((d, t) => occupancyIndex(households[t]!, d) * (0.6 + (0.4 * d) / largest));
+}
+
+/** Pueblo de la vivienda de un hogar (0 si no tiene). */
+export function townOfHousehold(world: World, household: number): number {
+  const a = world.agents;
+  for (let i = 0; i < a.count; i++) if (a.household[i] === household && a.home[i]! >= 0) return world.map.townOfBuilding[a.home[i]!]!;
+  return 0;
 }
 
 /** Salario medio de los negocios relativo al jornal base, ponderado por su plantilla (1 si no hay nadie). */

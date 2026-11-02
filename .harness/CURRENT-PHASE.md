@@ -1,8 +1,12 @@
 # CURRENT PHASE
 
-**Fase actual:** Vender para mudarse · ✅ **completada** (2026-11-01) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Precios por pueblo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Vender para mudarse — entregado (ADR-0039)
+## Precios por pueblo — entregado (ADR-0040)
+- Índice de alquiler por pueblo: ocupación × recargo por tamaño (0,6×–1×). Alquiler, cuota, compra, inversores,
+  emancipación y mudanzas usan el precio del pueblo. Protocolo v14; motor 0.28.0. 19/19 en ambos mapas; 175 tests.
+
+## Vender para mudarse (anterior) — completado (ADR-0039)
 - Los propietarios que trabajan en otro pueblo venden su vivienda (a un vecino rico o al Exterior), saldan la
   hipoteca y compran en el destino al contado, con hipoteca o, si no les llega, alquilan. Motor 0.27.0. 19/19 en
   ambos mapas; 174 tests.

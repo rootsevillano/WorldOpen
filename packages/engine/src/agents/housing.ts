@@ -1,7 +1,7 @@
 import { ticksPerDay } from '../time/clock';
 import type { World } from '../world/world';
 import { letSpareHome, sellSpareHomes } from './estate';
-import { MONEY_AGE, RENT_PER_DAY, rentIndex, rentNow } from './money';
+import { MONEY_AGE, RENT_PER_DAY, rentIndex, rentNow, townOfHousehold, townRentIndices } from './money';
 import { Occupation } from '../world/agents';
 
 /**
@@ -27,8 +27,8 @@ const LANDLORD_AGE = 45;
 
 const hash = (a: number, b: number) => (Math.imul((a * 2654435761) ^ (b * 40503), 0x9e3779b1) >>> 0) / 0x100000000;
 
-export function housePrice(world: World): number {
-  return RENT_PER_DAY * world.num('economy.priceLevel') * rentIndex(world) * PRICE_RENT_DAYS;
+export function housePrice(world: World, index = rentIndex(world)): number {
+  return RENT_PER_DAY * world.num('economy.priceLevel') * index * PRICE_RENT_DAYS;
 }
 
 /** Parte del precio que se paga de entrada (1 = al contado). */
@@ -38,12 +38,12 @@ export function downPaymentShare(world: World): number {
 }
 
 /** Colchón (días de alquiler) que se guarda al comprar, además de la entrada. */
-export function buyBuffer(world: World): number {
-  return BUY_BUFFER_RENT_DAYS * rentNow(world);
+export function buyBuffer(world: World, index = rentIndex(world)): number {
+  return BUY_BUFFER_RENT_DAYS * rentNow(world, index);
 }
 
-function mortgagePayment(world: World): number {
-  return MORTGAGE_SHARE * RENT_PER_DAY * world.num('economy.priceLevel') * rentIndex(world);
+function mortgagePayment(world: World, index: number): number {
+  return MORTGAGE_SHARE * RENT_PER_DAY * world.num('economy.priceLevel') * index;
 }
 
 /** Al crear el mundo: un 60 % de los hogares de alquiler paga a un hogar propietario del pueblo con algún mayor de 45. */
@@ -77,7 +77,8 @@ export function assignLandlord(world: World, household: number): void {
     for (let i = 0; i < a.count; i++) if (a.household[i] === household) a.landlord[i] = owner;
     return;
   }
-  const price = housePrice(world);
+  // La vivienda se paga al precio de su pueblo (ADR-0040).
+  const price = housePrice(world, rentIndex(world, townOfHousehold(world, household)));
   const wealth = new Map<number, number>();
   const tenants = new Set<number>();
   for (let i = 0; i < a.count; i++) {
@@ -108,21 +109,31 @@ export function assignLandlord(world: World, household: number): void {
  */
 export function housingDaily(world: World, pool: Map<number, [number, number]>): Set<number> {
   const a = world.agents;
-  const rent = rentNow(world);
-  const payment = mortgagePayment(world);
+  // Alquiler, cuota y precio del pueblo de cada hogar (ADR-0040); la compraventa de viviendas de sobra, al del mundo.
+  const index = townRentIndices(world);
+  const rents = index.map((x) => rentNow(world, x));
+  const payments_ = index.map((x) => mortgagePayment(world, x));
+  const prices = index.map((x) => housePrice(world, x));
+  const share = downPaymentShare(world);
+  const townOf = (i: number) => (a.home[i]! >= 0 ? (world.map.townOfBuilding[a.home[i]!] ?? 0) : 0);
   const price = housePrice(world);
-  const down = price * downPaymentShare(world);
   const day = Math.floor(world.tick / ticksPerDay(world.time));
   const unpaid = new Set<number>();
   const first = new Map<number, number>();
   /** Hogar → deuda hipotecaria tras comprar hoy; hogar → cuota pagada hoy. */
   const purchases = new Map<number, number>();
+  const paidPrice = new Map<number, number>();
   const payments = new Map<number, number>();
   for (let i = 0; i < a.count; i++) {
     const hh = a.household[i]!;
     if (a.occupation[i] === Occupation.Visitor || first.has(hh)) continue;
     first.set(hh, i);
     const p = pool.get(hh)!;
+    const t = index.length > 1 ? townOf(i) : 0;
+    const rent = rents[t]!;
+    const payment = payments_[t]!;
+    const homePrice = prices[t]!;
+    const down = homePrice * share;
     if (a.renting[i]) {
       // Si el casero ya no está en el pueblo, el piso es de un fondo de fuera.
       const landlord = pool.get(a.landlord[i]!);
@@ -133,8 +144,9 @@ export function housingDaily(world: World, pool: Map<number, [number, number]>):
       // Compra de su vivienda: entrada del hogar y el resto del banco; el casero cobra el precio entero.
       if (p[1] > 0 && p[0] >= down + BUY_BUFFER_RENT_DAYS * rent && hash(hh, day) < BUY_DAILY) {
         p[0] -= down;
-        if (landlord) landlord[0] += price;
-        purchases.set(hh, price - down);
+        if (landlord) landlord[0] += homePrice;
+        purchases.set(hh, homePrice - down);
+        paidPrice.set(hh, homePrice);
       }
     } else if (a.mortgage[i]! > 0) {
       const due = Math.min(a.mortgage[i]!, payment);
@@ -164,7 +176,7 @@ export function housingDaily(world: World, pool: Map<number, [number, number]>):
   }
   for (const [hh, debt] of purchases) {
     const i = first.get(hh)!;
-    world.emit('home.bought', { home: world.map.buildings[a.home[i]!]!.id, name: a.names[i], price: Math.round(price), mortgage: Math.round(debt) });
+    world.emit('home.bought', { home: world.map.buildings[a.home[i]!]!.id, name: a.names[i], price: Math.round(paidPrice.get(hh)!), mortgage: Math.round(debt) });
   }
   for (const hh of payments.keys()) {
     const i = first.get(hh)!;

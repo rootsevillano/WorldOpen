@@ -6,7 +6,7 @@ import { forgetAgent } from './lifecycle';
 import { buyHome, sellHome } from './estate';
 import { assignLandlord, buyBuffer, downPaymentShare, housePrice } from './housing';
 import { residents } from './transit';
-import { EVICTION_DAYS, rentIndex, rentNow } from './money';
+import { EVICTION_DAYS, rentIndex, rentNow, townRentIndices } from './money';
 import { pickNearby } from './nearby';
 import { householdSize, pickOccupation, removeAgent, spawnHousehold } from './population';
 import { bond, pair, partnerId, remember } from './social';
@@ -252,9 +252,11 @@ function leaveHome(world: World, census: Census, emigrants: number[], evictions:
   const rng = world.rng;
   const emigration = world.num('society.emigration');
   const housing = census.anyVacancy();
-  const rent = rentNow(world);
+  // Alquiler del pueblo de cada cual (ADR-0040).
+  const rents = townRentIndices(world).map((x) => rentNow(world, x));
   for (let i = 0; i < a.count; i++) {
     const age = a.age[i]!;
+    const rent = rents.length > 1 && a.home[i]! >= 0 ? rents[world.map.townOfBuilding[a.home[i]!]!]! : rents[0]!;
     if (a.occupation[i] === Occupation.Visitor || age < EMIGRATION_AGE[0] || !single(world, i)) continue;
     const s = census.households.get(a.household[i]!)!;
     const withParents = s.oldest >= age + 16;
@@ -303,13 +305,15 @@ function relocate(world: World, census: Census, i: number): boolean {
   const w = a.workplace[i]!;
   let to = w >= 0 && a.occupation[i] !== Occupation.Student ? map.townOfBuilding[w]! : from;
   if (to === from) {
+    // El pueblo con más viviendas libres, a igualdad, el más barato (ADR-0040).
+    const index = townRentIndices(world);
     let most = 0;
     map.towns.forEach((t, k) => {
       if (k === from) return;
       let free = 0;
       for (const h of t.homes) if (census.vacant(h)) free++;
-      if (free > most) {
-        most = free;
+      if (free / index[k]! > most) {
+        most = free / index[k]!;
         to = k;
       }
     });
@@ -333,6 +337,7 @@ function moveToWork(world: World, census: Census): void {
   const a = world.agents;
   const p = (WORK_MOVE_YEARLY / DAYS_PER_YEAR) * world.num('society.townMigration');
   if (map.towns.length < 2 || p <= 0) return;
+  const index = townRentIndices(world);
   const members = new Map<number, number[]>();
   for (const i of census.index.values()) {
     const list = members.get(a.household[i]!);
@@ -358,15 +363,16 @@ function moveToWork(world: World, census: Census): void {
     if (stay || to < 0 || world.rng.nextFloat() >= p * (owner ? OWNER_MOVE_FACTOR : 1)) continue;
     const home = census.findHomeIn(to, job);
     if (home < 0) continue;
-    const price = housePrice(world);
-    if (owner && !sellHome(world, hh, price)) continue;
+    // Vende al precio de su pueblo y compra al del destino (ADR-0040).
+    const price = housePrice(world, index[to]);
+    if (owner && !sellHome(world, hh, housePrice(world, index[from]))) continue;
     // Las viviendas de sobra y los inquilinos siguen siendo del hogar, que cambia de id al mudarse.
     const spare = a.spare[first]!;
     const household = a.nextHousehold++;
     for (const i of list) if (a.household[i] === hh) census.move(i, home, household);
     for (const i of list) a.spare[i] = spare;
     for (let j = 0; j < a.count; j++) if (a.renting[j] && a.landlord[j] === hh) a.landlord[j] = household;
-    if (!owner || !buyHome(world, household, home, price, price * downPaymentShare(world), buyBuffer(world))) assignLandlord(world, household);
+    if (!owner || !buyHome(world, household, home, price, price * downPaymentShare(world), buyBuffer(world, index[to]))) assignLandlord(world, household);
     // Los niños cambian al colegio del pueblo nuevo.
     for (const i of list) {
       if (a.occupation[i] !== Occupation.Student) continue;

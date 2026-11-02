@@ -19,7 +19,7 @@ import { AwayReason, Transit, hostal, hostalGuests, hostalRooms, nextArrival, ni
 import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
 import { ANIMAL_NAMES, Animal } from './world/animals';
-import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, wageIndex } from './agents/money';
+import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, townRentIndices, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -255,7 +255,13 @@ export function economySummary(world: World): EconomySummary {
     housePrice: round(housePrice(world)),
     animals: countByKind(world),
     bus: busSummary(world),
-    towns: world.map.towns.map((t, k) => ({ id: t.regionId, name: world.townNames[k] ?? t.regionId, population: residents(world, k) })),
+    towns: townRentIndices(world).map((index, k) => ({
+      id: world.map.towns[k]!.regionId,
+      name: world.townNames[k] ?? world.map.towns[k]!.regionId,
+      population: residents(world, k),
+      rent: round(rentNow(world, index)),
+      housePrice: round(housePrice(world, index)),
+    })),
     festival: festivalDay(world) > 0 ? { day: festivalDay(world), days: festivalLength(world), verbena: verbena(world) } : null,
     hostal: hostal(world) >= 0
       ? { guests: hostalGuests(world), rooms: hostalRooms(world), price: round(nightPrice(world)), building: world.map.buildings[hostal(world)]!.id }

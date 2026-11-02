@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, neighbourTowns, syntheticBounds, syntheticMap, type TownSide } from '../../src';
 import { festivalVenues } from '../../src/agents/festival';
 import { startAction } from '../../src/agents/systems';
+import { housePrice, housingDaily } from '../../src/agents/housing';
+import { rentIndex, rentNow, townRentIndices } from '../../src/agents/money';
 import { hostal } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 
@@ -116,5 +118,32 @@ describe('Varios pueblos (ADR-0036)', () => {
     one.step(144 * 5);
     expect(one.drainEvents().some((e) => e.type === 'household.relocated')).toBe(false);
   });
-});
 
+  it('precios por pueblo: el alquiler y la vivienda se pagan al precio del pueblo (ADR-0040)', () => {
+    // Un solo pueblo: el índice de siempre.
+    const one = new Simulation(createManifest({ worldId: 'w', createdAt: 'x', seed: 3, criteria: { 'society.initialPopulation': 300 } }));
+    expect(townRentIndices(one.world)).toEqual([rentIndex(one.world)]);
+    expect(rentIndex(one.world, 0)).toBe(rentIndex(one.world));
+
+    const sim = threeTowns();
+    const world = sim.world;
+    const map = world.map;
+    const a = world.agents;
+    const index = townRentIndices(world);
+    expect(index).toHaveLength(3);
+    // Ocupación de sus viviendas por sus hogares × recargo por tamaño (0,6× … 1× el mayor).
+    const dwellings = map.towns.map((t) => t.homes.reduce((n, h) => n + Math.max(1, map.buildings[h]!.dwellings), 0));
+    const households = map.towns.map((_, t) => new Set(Array.from({ length: a.count }, (_, k) => k).filter((k) => a.occupation[k] !== 9 && map.townOfBuilding[a.home[k]!] === t).map((k) => a.household[k]!)).size);
+    for (let t = 0; t < 3; t++) {
+      const occupancy = Math.min(2.5, Math.max(0.6, 1 + 2 * (households[t]! / dwellings[t]! - 0.9)));
+      expect(index[t]!).toBeCloseTo(occupancy * (0.6 + (0.4 * dwellings[t]!) / Math.max(...dwellings)), 9);
+    }
+    expect(Number(metric(sim, `town.${map.towns[1]!.regionId}.housePrice`))).toBeCloseTo(housePrice(world, index[1]), 6);
+    // Cada hogar de alquiler paga el alquiler de su pueblo.
+    const pool = new Map<number, [number, number]>();
+    for (let i = 0; i < a.count; i++) pool.set(a.household[i]!, [1e6, 0]);
+    const renter = Array.from({ length: a.count }, (_, k) => k).find((k) => a.renting[k] && a.landlord[k] === 0 && map.townOfBuilding[a.home[k]!] === 2)!;
+    housingDaily(world, pool);
+    expect(1e6 - pool.get(a.household[renter]!)![0]).toBeCloseTo(rentNow(world, index[2]), 6);
+  });
+});

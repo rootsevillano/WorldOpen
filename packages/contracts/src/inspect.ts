@@ -116,8 +116,8 @@ export interface EconomySummary {
   /** Autobús a otros pueblos (ADR-0031): vecinos fuera, esperando en la parada, visitantes de hoy y próxima llegada
    * (min del día; `null` si no quedan). `null` si no hay carretera. */
   bus: { away: number; waiting: number; visitorsToday: number; visitorsNow: number; nextBus: number | null } | null;
-  /** Pueblos del mundo (ADR-0036): región, nombre y vecinos. */
-  towns: { id: string; name: string; population: number }[];
+  /** Pueblos del mundo (ADR-0036): región, nombre, vecinos, alquiler diario y precio de la vivienda (ADR-0040). */
+  towns: { id: string; name: string; population: number; rent: number; housePrice: number }[];
   /** Fiestas del pueblo (ADR-0034): día (1–4), total y si hay verbena; `null` fuera de fiestas. */
   festival: { day: number; days: number; verbena: boolean } | null;
   /** Hostal (ADR-0033): huéspedes, habitaciones, precio de la noche y edificio; `null` si no hay. */

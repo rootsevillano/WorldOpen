@@ -153,3 +153,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-01) Al cambiar el id de un hogar (mudanza), revisar todo lo que apunta a él: `landlord` de los inquilinos y
   `spare` (`census.move` lo pone a 0). Los heredocs de bash con mucho código fallan a veces: es más fiable escribir el
   script con Write y ejecutarlo.
+- (2026-11-02) En Windows, Python con `open(..., 'w')` escribe CRLF; para tocar el final de un fichero, leer y
+  escribir con `newline=''`. No meter `'\\n'` en cadenas de Python dentro de scripts: acaba como texto literal.

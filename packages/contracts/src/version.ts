@@ -1,5 +1,5 @@
 /** Versión del protocolo host ⇄ motor. Cambia solo con cambios incompatibles en `protocol.ts`. */
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 /** Versión del motor. Un replay exacto exige la misma versión (ADR-0004). */
-export const ENGINE_VERSION = '0.27.0';
+export const ENGINE_VERSION = '0.28.0';

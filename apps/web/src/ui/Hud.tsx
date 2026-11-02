@@ -30,7 +30,7 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
             </div>
           )}
           {economy && economy.towns.length > 1 && (
-            <div className="small">{economy.towns.map((t) => `${t.name} ${t.population}`).join(' · ')}</div>
+            <div className="small">{economy.towns.map((t) => `${t.name} ${t.population} (alquiler ${t.rent.toFixed(1)})`).join(' · ')}</div>
           )}
           {economy && (
             <div className="small muted" data-testid="economy">
