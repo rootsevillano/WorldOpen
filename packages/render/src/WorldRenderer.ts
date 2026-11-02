@@ -16,6 +16,8 @@ const SPARK_LIFE_S = 1.8;
 const FIREWORK_COLORS = [0xff4d4d, 0xffd84d, 0x4dd2ff, 0x9dff4d, 0xff7dff, 0xffffff].map((c) => new THREE.Color(c));
 
 const JAMMED_COLOR = new THREE.Color(0xff2a1a);
+/** Disfraces de carnaval (ADR-0048): colores vivos, uno por persona. */
+const COSTUME_COLORS = [0xe74c3c, 0xf1c40f, 0x9b59b6, 0x2ecc71, 0xff7f50, 0x00bcd4, 0xff4fa3].map((c) => new THREE.Color(c));
 const CAR_COLORS = [0xb03a2e, 0x1f618d, 0xd4ac0d, 0xeeeeee, 0x2c3e50, 0x7f8c8d, 0x117a65].map((c) => new THREE.Color(c));
 
 /** Une geometrías indexadas de caja en una sola (sin depender de BufferGeometryUtils). */
@@ -530,6 +532,7 @@ export class WorldRenderer {
     const scale = Math.max(1, this.camera.position.distanceTo(this.controls.target) / 70);
     let n = 0;
     let c = 0;
+    let costumes = 0;
     this.marker.visible = false;
     for (let i = 0; i < f.agentCount && n < MAX_AGENTS; i++) {
       const id = f.agentIds[i]!;
@@ -563,10 +566,14 @@ export class WorldRenderer {
       this.tmp.scale.setScalar(scale);
       this.tmp.updateMatrix();
       this.agents.setMatrixAt(n, this.tmp.matrix);
-      this.agents.setColorAt(n, ACTIVITY_COLORS[f.agentActivities[i]!] ?? ACTIVITY_COLORS[AgentActivity.Idle]!);
+      if (f.agentFlags[i]! & AgentFlag.Costumed) {
+        this.agents.setColorAt(n, COSTUME_COLORS[id % COSTUME_COLORS.length]!);
+        costumes++;
+      } else this.agents.setColorAt(n, ACTIVITY_COLORS[f.agentActivities[i]!] ?? ACTIVITY_COLORS[AgentActivity.Idle]!);
       n++;
     }
     this.agents.count = n;
+    this.liveCostumes = costumes;
     this.agents.instanceMatrix.needsUpdate = true;
     if (this.agents.instanceColor) this.agents.instanceColor.needsUpdate = true;
     this.cars.count = c;
@@ -669,6 +676,7 @@ export class WorldRenderer {
   }
 
   private liveSparks = 0;
+  private liveCostumes = 0;
 
   /** Pasos de procesión dibujados y chispas de fuegos en el aire (para el Visual Gate). */
   get visiblePasos(): number {
@@ -677,6 +685,11 @@ export class WorldRenderer {
 
   get visibleSparks(): number {
     return this.liveSparks;
+  }
+
+  /** Personas disfrazadas dibujadas en la calle (ADR-0048, para el Visual Gate). */
+  get visibleCostumes(): number {
+    return this.liveCostumes;
   }
 
   private updateAnimals(f: RenderFrame, now: number, scale: number): void {

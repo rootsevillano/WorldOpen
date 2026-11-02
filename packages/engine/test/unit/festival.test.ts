@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../src';
 import { activeFiesta, festivalDay, festivalHoliday, festivalVenues, fireworkSites, romeriaSite, verbena } from '../../src/agents/festival';
 import { Action } from '../../src';
+import { AgentFlag } from '@worldopen/contracts';
 import { inSchool, inShift } from '../../src/agents/environment';
 import { metric } from '../../src/metrics';
 import { manifest, setCriterion } from '../helpers';
@@ -110,6 +111,34 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
     const there = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.location[k] === site).length;
     expect(there).toBeGreaterThan(30);
     expect(Number(metric(sim, 'festival.romeria'))).toBe(there);
+  });
+
+  it('carnaval (ADR-0048): tres días desde el 12 de febrero, desfile de disfraces, baile y el martes festivo', () => {
+    expect(activeFiesta(at(2, 11, 12).world)).toBeNull();
+    expect(activeFiesta(at(2, 12, 12).world)).toMatchObject({ fiesta: { kind: 'carnaval' }, day: 1 });
+    expect(verbena(at(2, 13, 22).world)).toBe(true);
+    expect(verbena(at(2, 14, 22).world)).toBe(false);
+    expect(festivalHoliday(at(2, 13, 10).world)).toBe(false);
+    expect(festivalHoliday(at(2, 14, 10).world)).toBe(true);
+    expect(activeFiesta(at(2, 15, 12).world)).toBeNull();
+    // Se puede mover desde el Modo Dios.
+    expect(activeFiesta(at(3, 1, 12, { 'fiestas.r1.carnavalMonth': 3, 'fiestas.r1.carnavalDay': 1 }).world)?.fiesta.kind).toBe('carnaval');
+    // Desfile de disfraces a las 17:00 del primer día; la mitad del pueblo va disfrazada.
+    const sim = at(2, 12, 15, {}, 400, 5);
+    sim.step(2 * 12 + 2); // 17:10
+    const a = sim.world.agents;
+    const marching = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
+    expect(marching.length).toBeGreaterThan(20);
+    const f = sim.frame();
+    expect(f.pasoCount).toBe(1);
+    const costumes = Array.from(f.agentFlags).filter((x) => x & AgentFlag.Costumed).length;
+    expect(costumes).toBe(Number(metric(sim, 'festival.costumed')));
+    expect(costumes / a.count).toBeGreaterThan(0.35);
+    expect(costumes / a.count).toBeLessThan(0.65);
+    // Fuera de carnaval, nadie.
+    const after = at(2, 16, 12, {}, 100);
+    expect(Array.from(after.frame().agentFlags).some((x) => x & AgentFlag.Costumed)).toBe(false);
+    expect(metric(after, 'festival.costumed')).toBe(0);
   });
 });
 

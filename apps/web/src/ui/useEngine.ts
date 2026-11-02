@@ -319,7 +319,7 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
 }
 
 /** Fiestas en el registro (ADR-0046). */
-const FIESTA: Record<string, string> = { patronal: '🎉 Fiestas', romeria: '🌿 Romería', navidad: '🎄 Navidad' };
+const FIESTA: Record<string, string> = { patronal: '🎉 Fiestas', romeria: '🌿 Romería', navidad: '🎄 Navidad', carnaval: '🎭 Carnaval' };
 
 function newManifest(o: NewWorldOptions, pack?: MapPackManifest, packDwellings = 0): WorldManifest {
   const regions: RegionRef[] | undefined = pack

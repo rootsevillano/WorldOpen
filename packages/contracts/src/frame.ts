@@ -54,6 +54,8 @@ export const AgentFlag = {
   Driving: 2,
   /** Va en coche y está en un atasco de la carretera comarcal (ADR-0045): el render enciende las luces de freno. */
   Jammed: 4,
+  /** Va disfrazado en carnaval (ADR-0048): el render lo dibuja de colores. */
+  Costumed: 8,
 } as const;
 
 export const AgentActivity = {

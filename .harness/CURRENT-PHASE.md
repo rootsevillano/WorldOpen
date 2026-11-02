@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Fechas en el Modo Dios · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Carnaval · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Fechas en el Modo Dios — entregado (ADR-0047)
+## Carnaval — entregado (ADR-0048)
+- Tres días desde el 12 de febrero (se mueve por pueblo en el Modo Dios): desfile de disfraces el primero a las
+  17:00, baile de disfraces las dos primeras noches y el martes festivo. La mitad de los vecinos va disfrazada
+  (`AgentFlag.Costumed`, de colores en el render). Protocolo v20; motor 0.36.0. 26/26 en ambos mapas; 186 tests.
+
+## Fechas en el Modo Dios (anterior) — completado (ADR-0047)
 - Criterios `fiestas.<región>.…`: la romería de cada pueblo y las patronales de los vecinos (mes, día, duración,
   festivo). Por defecto, las fechas de su región. El Modo Dios las agrupa en «Fechas de fiestas por pueblo», con el
   nombre de cada pueblo. Protocolo v19; motor 0.35.0. 25/25 en ambos mapas; 185 tests.

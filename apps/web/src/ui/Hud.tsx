@@ -5,8 +5,8 @@ const SEASONS: Record<Season, string> = { winter: 'Invierno', spring: 'Primavera
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Nombre de cada tipo de fiesta (ADR-0046). */
-const FESTIVAL_LABEL = { patronal: '🎉 Fiestas del pueblo', romeria: '🌿 Romería', navidad: '🎄 Navidad' } as const;
-const FESTIVAL_ICON = { patronal: '🎉', romeria: '🌿', navidad: '🎄' } as const;
+const FESTIVAL_LABEL = { patronal: '🎉 Fiestas del pueblo', romeria: '🌿 Romería', navidad: '🎄 Navidad', carnaval: '🎭 Carnaval' } as const;
+const FESTIVAL_ICON = { patronal: '🎉', romeria: '🌿', navidad: '🎄', carnaval: '🎭' } as const;
 
 export function Hud({ manifest, status, population, economy }: { manifest: WorldManifest | null; status: EngineStatus | null; population: PopulationSummary | null; economy: EconomySummary | null }) {
   const region = manifest?.regions[0]?.displayName ?? '…';

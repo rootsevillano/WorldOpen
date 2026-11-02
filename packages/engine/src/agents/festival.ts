@@ -13,6 +13,8 @@ import { minuteOfDay } from './environment';
  *   según la región, de mayo a septiembre) (ADR-0047).
  * - Romería: un día festivo (`fiestas.<región>.romeria…`; por defecto, de abril o mayo según la región) en que parte
  *   de los vecinos pasa el día en el merendero del pueblo más alejado de la plaza.
+ * - Carnaval (`fiestas.<región>.carnaval…`, por defecto del 12 al 14 de febrero) (ADR-0048): tres días con disfraces;
+ *   el primero, desfile de disfraces a las 17:00; baile de disfraces las dos primeras noches; el martes, festivo.
  * - Navidad (todos los pueblos): del 24 de diciembre al 6 de enero; festivos el 25, el 1 y el 6; verbena y fuegos en
  *   Nochevieja (la noche del 30 de diciembre, último día del año de 360) y cabalgata de Reyes el 5 a las 18:00.
  * Verbena de 18:00 a 03:00 en la plaza (el local junto a la parada) y sus 2 locales más cercanos: se sale y se
@@ -20,7 +22,7 @@ import { minuteOfDay } from './environment';
  * fiestas. Todo se deriva de la fecha y del mapa: no hay estado.
  */
 
-export type FiestaKind = 'patronal' | 'romeria' | 'navidad';
+export type FiestaKind = 'patronal' | 'romeria' | 'navidad' | 'carnaval';
 
 export interface Fiesta {
   kind: FiestaKind;
@@ -57,6 +59,21 @@ const CHRISTMAS: Omit<Fiesta, 'kind'> = {
   outing: 0,
   visitors: 0.5,
 };
+/** Carnaval (ADR-0048): tres días; desfile de disfraces el primero a las 17:00, baile las dos primeras noches. */
+const CARNIVAL: Omit<Fiesta, 'kind' | 'first'> = {
+  length: 3,
+  holidays: [3],
+  verbenaDays: [1, 2],
+  procession: { day: 1, from: 17 * 60 },
+  fireworks: 0,
+  outing: 0,
+  visitors: 1,
+};
+/** Se disfraza la mitad de los vecinos (× `festivities`, máx. 90 %), de cualquier edad. */
+const COSTUME_SHARE = 0.5;
+/** Fecha del carnaval por defecto: el mismo fin de semana en toda la comarca. */
+const CARNIVAL_MONTH = 2;
+const CARNIVAL_DAY = 12;
 /** Romería: de 10:00 a 18:00 en el merendero; va un 40 % de los vecinos de 6 años o más (× `festivities`, máx. 80 %). */
 const ROMERIA_FROM = 10 * 60;
 const ROMERIA_TO = 18 * 60;
@@ -75,6 +92,7 @@ function unit(text: string, k: number): number {
  */
 export function defaultFiestaDates(regionId: string): {
   patronalMonth: number; patronalDay: number; patronalLength: number; patronalHoliday: number; romeriaMonth: number; romeriaDay: number;
+  carnavalMonth: number; carnavalDay: number;
 } {
   return {
     patronalMonth: 5 + Math.floor(unit(regionId, 1) * 5),
@@ -83,6 +101,8 @@ export function defaultFiestaDates(regionId: string): {
     patronalHoliday: 2,
     romeriaMonth: 4 + Math.floor(unit(regionId, 4) * 2),
     romeriaDay: 1 + Math.floor(unit(regionId, 5) * 28),
+    carnavalMonth: CARNIVAL_MONTH,
+    carnavalDay: CARNIVAL_DAY,
   };
 }
 
@@ -113,6 +133,8 @@ export function fiestaCriteria(regions: readonly Pick<RegionRef, 'id' | 'display
     defs.push(
       def('romeriaMonth', 'romería: mes', 1, 12, 'mes de la romería (1–12).'),
       def('romeriaDay', 'romería: día', 1, 30, 'día del mes de la romería, que es festivo.'),
+      def('carnavalMonth', 'carnaval: mes', 1, 12, 'mes del carnaval (1–12).'),
+      def('carnavalDay', 'carnaval: día', 1, 30, 'día del mes en que empieza el carnaval (tres días; el tercero, festivo).'),
     );
   });
   return defs;
@@ -158,7 +180,8 @@ export function fiestas(world: World, town = 0): Fiesta[] {
     outing: 1,
     visitors: 1,
   };
-  return [own, { kind: 'navidad', ...CHRISTMAS }, romeria];
+  const carnaval: Fiesta = { kind: 'carnaval', first: (date('carnavalMonth') - 1) * 30 + (date('carnavalDay') - 1), ...CARNIVAL };
+  return [own, { kind: 'navidad', ...CHRISTMAS }, carnaval, romeria];
 }
 
 function minutesSinceStart(world: World): number {
@@ -513,4 +536,25 @@ export function fireworkSites(world: World): Float32Array {
     out.push(c.x, 0, c.z);
   });
   return Float32Array.from(out);
+}
+
+/** ¿Va disfrazado `i`? En carnaval de su pueblo, la mitad de los vecinos (por hash del id: sin sorteo) (ADR-0048). */
+export function costumed(world: World, i: number, carnival: readonly boolean[]): boolean {
+  const a = world.agents;
+  if (a.occupation[i] === Occupation.Visitor || a.home[i]! < 0 || !carnival[world.map.townOfBuilding[a.home[i]!]!]) return false;
+  const share = Math.min(0.9, COSTUME_SHARE * festivities(world));
+  return (Math.imul(a.ids[i]! ^ 0x5bd1e995, 0x85ebca6b) >>> 0) / 0x100000000 < share;
+}
+
+/** Pueblos en carnaval ahora. */
+export function carnivalTowns(world: World): boolean[] {
+  return world.map.towns.map((_, t) => activeFiesta(world, t)?.fiesta.kind === 'carnaval');
+}
+
+/** Banderas del frame con `AgentFlag.Costumed` para quien va disfrazado (se deriva: no es estado). */
+export function costumeFlags(world: World, flags: Uint8Array): Uint8Array {
+  const carnival = carnivalTowns(world);
+  if (!carnival.includes(true)) return flags;
+  for (let i = 0; i < flags.length; i++) if (costumed(world, i, carnival)) flags[i] = flags[i]! | AgentFlag.Costumed;
+  return flags;
 }

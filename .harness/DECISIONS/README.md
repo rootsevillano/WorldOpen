@@ -52,3 +52,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0045](0045-stops-and-traffic.md) | Paradas, horarios según la demanda y atascos | Aceptada |
 | [0046](0046-festival-calendar.md) | Varias fiestas al año, con un calendario por pueblo | Aceptada |
 | [0047](0047-fiesta-dates-per-town.md) | Fechas de fiestas de cada pueblo en el Modo Dios | Aceptada |
+| [0048](0048-carnival.md) | Carnaval | Aceptada |

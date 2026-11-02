@@ -334,7 +334,7 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(values['fiestas.r1.romeriaDay']).toBe(27);
     // Las patronales del primer pueblo siguen en `society.festival…`.
     expect(criteria.some((c) => c.key === 'fiestas.r1.patronalMonth')).toBe(false);
-    expect(criteria.filter((c) => c.key.startsWith('fiestas.'))).toHaveLength(2 + 6 + 6);
+    expect(criteria.filter((c) => c.key.startsWith('fiestas.'))).toHaveLength(4 + 8 + 8);
     // Hoy es 21 de marzo: Dios pone aquí las fiestas del segundo pueblo y la romería del primero.
     expect(activeFiesta(sim.world, 1)).toBeNull();
     for (const [key, value] of [['fiestas.r2.patronalMonth', 3], ['fiestas.r2.patronalDay', 20], ['fiestas.r2.patronalLength', 3], ['fiestas.r1.romeriaMonth', 3], ['fiestas.r1.romeriaDay', 21]] as const) {

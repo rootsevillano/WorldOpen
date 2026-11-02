@@ -1,0 +1,29 @@
+{
+  "name": "carnival",
+  "description": "ADR-0048: carnaval en todos los pueblos desde el 12 de febrero: la mitad de los vecinos va disfrazada, desfile de disfraces a las 17:00 del primer día, baile de disfraces por la noche y el tercer día festivo.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 4,
+  "towns": 2,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": { "year": 1, "month": 2, "day": 12, "hour": 6, "minute": 0 }
+    },
+    "criteria": {
+      "society.initialPopulation": 400
+    }
+  },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "festival.kind", "op": "==", "value": "carnaval", "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.towns", "op": "==", "value": 2, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.costumed", "op": ">", "value": 100, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.pasos", "op": ">=", "value": 1, "at": { "day": 0, "hour": 17, "minute": 10 } },
+    { "kind": "metric", "metric": "festival.verbena", "op": "==", "value": 1, "at": { "day": 1, "hour": 23, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.holiday", "op": "==", "value": 1, "at": { "day": 2, "hour": 11, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.costumed", "op": "==", "value": 0, "at": { "day": 3, "hour": 4, "minute": 0 } }
+  ]
+}

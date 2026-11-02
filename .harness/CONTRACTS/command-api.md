@@ -50,6 +50,8 @@ Inspeccionar, seguir y el control del tiempo **no** son comandos (no mutan el mu
 | `society.festivities` | number | 0 … 3 | 1 | admin |
 | `fiestas.<región>.romeriaMonth` | number (entero) | 1 … 12 | según la región | admin |
 | `fiestas.<región>.romeriaDay` | number (entero) | 1 … 30 | según la región | admin |
+| `fiestas.<región>.carnavalMonth` | number (entero) | 1 … 12 | 2 | admin |
+| `fiestas.<región>.carnavalDay` | number (entero) | 1 … 30 | 12 | admin |
 | `fiestas.<región>.patronalMonth` (solo vecinos) | number (entero) | 1 … 12 | según la región | admin |
 | `fiestas.<región>.patronalDay` (solo vecinos) | number (entero) | 1 … 30 | según la región | admin |
 | `fiestas.<región>.patronalLength` (solo vecinos) | number (entero) | 1 … 10 | según la región | admin |

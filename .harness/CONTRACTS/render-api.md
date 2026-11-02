@@ -13,7 +13,8 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
   render los interpola desde su posición del frame anterior. `pick` devuelve `{ kind: 'animal', id }` para un animal
   visible (ADR-0029).
 - Paradas (protocolo v17, ADR-0045): `busStopCount`, `busStopPositions` (f32 × 3), `busStopHeadings`; marquesina
-  en la acera. `AgentFlag.Jammed` (4): coche en un atasco de la carretera comarcal (luces de freno).
+  en la acera. `AgentFlag.Jammed` (4): coche en un atasco de la carretera comarcal (luces de freno). `AgentFlag.Costumed` (8):
+  disfrazado en carnaval (ADR-0048); se deriva al construir el frame y el render lo pinta de colores vivos.
 - Fiestas (protocolo v16, ADR-0044): `pasoCount`, `pasoPositions` (f32 × 3), `pasoHeadings` (paso de cada
   procesión en curso; el render lo interpola) y `fireworkCount`, `fireworkSites` (f32 × 3, plazas con fuegos; el
   render anima las chispas con su propio reloj).

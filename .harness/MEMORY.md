@@ -173,3 +173,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) Para hacer configurable algo por pueblo, los criterios por región (`Ruleset.regionCriteria`) dan
   snapshot, hash, validación, comando y UI sin código nuevo. Por defecto, los valores que ya se derivaban: así no
   cambia ningún mundo existente.
+- (2026-11-02) Lo que solo se ve, como los disfraces, se deriva al construir el frame (`costumeFlags`) en vez de
+  guardarse en `a.flags`. Muchos sistemas reescriben `a.flags` y lo borrarían, y así no entra en el snapshot ni
+  en el hash.

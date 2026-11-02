@@ -126,5 +126,5 @@ export interface EconomySummary {
   hostal: { guests: number; rooms: number; price: number; building: string } | null;
 }
 
-/** Tipo de fiesta (ADR-0046): patronales, romería o Navidad. */
-export type FestivalKind = 'patronal' | 'romeria' | 'navidad';
+/** Tipo de fiesta (ADR-0046, ADR-0048): patronales, romería, Navidad o carnaval. */
+export type FestivalKind = 'patronal' | 'romeria' | 'navidad' | 'carnaval';

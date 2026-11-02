@@ -15,7 +15,7 @@ import {
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
 import { seedCash, seedWages } from './agents/money';
-import { fireworkSites, processionPasos } from './agents/festival';
+import { costumeFlags, fireworkSites, processionPasos } from './agents/festival';
 import { seedAnimals } from './agents/animals';
 import { buildRoad, busesNow, seedCommuters, busStops } from './agents/transit';
 import { populate } from './agents/population';
@@ -226,7 +226,7 @@ export class Simulation {
       agentPositions: a.positions.slice(0, n * 3),
       agentHeadings: a.headings.slice(0, n),
       agentActivities: a.activities.slice(0, n),
-      agentFlags: a.flags.slice(0, n),
+      agentFlags: costumeFlags(this.world, a.flags.slice(0, n)),
       buildingStates: this.world.buildings.state.slice(),
       animalCount: an.count,
       animalIds: an.ids.slice(0, an.count),

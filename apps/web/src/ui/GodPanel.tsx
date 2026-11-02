@@ -51,10 +51,10 @@ export function GodPanel({ client, catalog }: { client: EngineClient; catalog: C
   );
 }
 
-/** Orden de lectura de las fechas de un pueblo: fiestas (mes, día, días, festivo) y romería (mes, día). */
+/** Orden de lectura de las fechas de un pueblo: fiestas (mes, día, días, festivo), romería y carnaval (mes, día). */
 const DATE_ORDER: Record<string, number> = {
   festivalMonth: 0, festivalStartDay: 1, festivalLength: 2, festivalHoliday: 3,
-  patronalMonth: 0, patronalDay: 1, patronalLength: 2, patronalHoliday: 3, romeriaMonth: 4, romeriaDay: 5,
+  patronalMonth: 0, patronalDay: 1, patronalLength: 2, patronalHoliday: 3, romeriaMonth: 4, romeriaDay: 5, carnavalMonth: 6, carnavalDay: 7,
 };
 
 /**
