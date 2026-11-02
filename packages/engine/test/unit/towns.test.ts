@@ -3,7 +3,7 @@ import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, n
 import { festivalVenues } from '../../src/agents/festival';
 import { startAction } from '../../src/agents/systems';
 import { housePrice, housingDaily } from '../../src/agents/housing';
-import { hireAt, openings, rentIndex, rentNow, townRentIndices } from '../../src/agents/money';
+import { dailyWageAt, hireAt, openings, rentIndex, rentNow, townRentIndices, townSizeShares, townWageIndices } from '../../src/agents/money';
 import { hostal } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 
@@ -171,6 +171,52 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(a.workplace[i]).toBe(target);
     expect(a.occupation[i]).not.toBe(0);
     expect(sim.drainEvents().some((e) => e.type === 'job.hired' && (e.data as { search?: string }).search === 'otherTown')).toBe(true);
+  });
+
+  it('salarios por pueblo: los negocios de los pueblos grandes pagan más y se elige el trabajo por jornal neto (ADR-0042)', () => {
+    // Un solo pueblo: todos los negocios empiezan en 1.
+    const one = new Simulation(createManifest({ worldId: 'w', createdAt: 'x', seed: 3, criteria: { 'society.initialPopulation': 300 } }));
+    const ob = one.world.map.byUse;
+    expect([...ob.retail, ...ob.agriculture, ...ob.industrial].every((b) => one.world.buildings.wage[b] === 1)).toBe(true);
+
+    // Con vecinos mayores que el primero, el primero empieza pagando menos (0,8× … 1× según su tamaño).
+    const regions = neighbours('east', 4 * countDwellings(syntheticMap(3, SYNTHETIC_REGION)));
+    const sim = new Simulation(createManifest({ worldId: 'w', createdAt: 'x', seed: 3, regions: [SYNTHETIC_REGION, ...regions], criteria: { 'society.initialPopulation': 900 } }));
+    const world = sim.world;
+    const map = world.map;
+    const size = townSizeShares(world);
+    expect(Math.max(...size)).toBe(1);
+    for (const b of [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial]) {
+      expect(world.buildings.wage[b]).toBeCloseTo(0.8 + 0.2 * size[map.townOfBuilding[b]!]!, 5);
+    }
+    const wages = townWageIndices(world);
+    expect(wages[0]!).toBeLessThan(Math.max(...wages));
+
+    // Dos puestos libres: uno cerca y otro lejos que paga mucho más. Se va al que deja más jornal neto.
+    const a = world.agents;
+    const bs = world.buildings;
+    const businesses = [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial];
+    for (const b of businesses) bs.cash[b] = 0;
+    const i = Array.from({ length: a.count }, (_, k) => k).find((k) => a.age[k]! >= 20 && a.age[k]! < 60 && map.townOfBuilding[a.home[k]!] === 0 && a.location[k] === a.home[k])!;
+    const h = map.buildings[a.home[i]!]!.centroid;
+    const dist = (b: number) => Math.hypot(map.buildings[b]!.centroid.x - h.x, map.buildings[b]!.centroid.z - h.z);
+    const near = businesses.filter((b) => map.townOfBuilding[b] === 0).sort((x, y) => dist(x) - dist(y))[0]!;
+    const far = businesses.filter((b) => map.townOfBuilding[b] === 2)[0]!;
+    bs.cash[near] = 1e7;
+    bs.cash[far] = 1e7;
+    a.occupation[i] = 0;
+    a.workplace[i] = -1;
+    bs.wage[near] = 0.7;
+    bs.wage[far] = 1.5;
+    sim.step(1);
+    expect(dailyWageAt(world, far) - (2 * dist(far) * 2) / 1000).toBeGreaterThan(dailyWageAt(world, near) - (2 * dist(near) * 2) / 1000);
+    startAction(world, i, Action.SeekJob, a.home[i]!);
+    expect(a.target[i]).toBe(far);
+    // Con el mismo jornal, el cercano.
+    bs.wage[far] = 0.7;
+    a.searchedDay[i] = 0;
+    startAction(world, i, Action.SeekJob, a.home[i]!);
+    expect(a.target[i]).toBe(near);
   });
 });
 

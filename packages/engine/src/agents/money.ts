@@ -114,8 +114,59 @@ export function townRentIndices(world: World): number[] {
     seen.add(a.household[i]!);
     households[map.townOfBuilding[h]!]!++;
   }
-  const largest = Math.max(...dwellings);
-  return dwellings.map((d, t) => occupancyIndex(households[t]!, d) * (0.6 + (0.4 * d) / largest));
+  const size = townSizeShares(world);
+  return dwellings.map((d, t) => occupancyIndex(households[t]!, d) * (0.6 + 0.4 * size[t]!));
+}
+
+/** Viviendas de cada pueblo relativas a las del mayor (1 = el mayor). */
+export function townSizeShares(world: World): number[] {
+  const map = world.map;
+  const dwellings = map.towns.map((t) => t.homes.reduce((s, h) => s + Math.max(1, map.buildings[h]!.dwellings), 0));
+  const largest = Math.max(1, ...dwellings);
+  return dwellings.map((d) => d / largest);
+}
+
+/**
+ * Al crear el mundo (ADR-0042): los negocios de los pueblos grandes pagan más (de 0,8× a 1× según el tamaño del
+ * pueblo). Después, cada negocio sube o baja su salario según su caja y el paro, como siempre (ADR-0024). Con un solo
+ * pueblo no cambia nada.
+ */
+export function seedWages(world: World): void {
+  const map = world.map;
+  if (map.towns.length <= 1) return;
+  const size = townSizeShares(world);
+  for (const b of [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial]) {
+    world.buildings.wage[b] = WAGE_BASE_SMALL + (1 - WAGE_BASE_SMALL) * size[map.townOfBuilding[b]!]!;
+  }
+}
+
+const WAGE_BASE_SMALL = 0.8;
+
+/** Jornal medio de quien trabaja en los negocios de cada pueblo (el de referencia si no hay nadie) (ADR-0042). */
+export function townDailyWages(world: World): number[] {
+  const reference = DAILY_WAGE[Occupation.Shopkeeper]! * world.num('economy.wageLevel');
+  return byWorkplaceTown(world, (w) => dailyWageAt(world, w), reference);
+}
+
+/** Índice salarial de cada pueblo: el `wageIndex` de sus negocios (1 si no hay nadie) (ADR-0042). */
+export function townWageIndices(world: World): number[] {
+  return byWorkplaceTown(world, (w) => world.buildings.wage[w]!, 1);
+}
+
+/** Media de `value(puesto)` entre quienes trabajan en los negocios de cada pueblo. */
+function byWorkplaceTown(world: World, value: (w: number) => number, empty: number): number[] {
+  const a = world.agents;
+  const map = world.map;
+  const total = map.towns.map(() => 0);
+  const n = map.towns.map(() => 0);
+  for (let i = 0; i < a.count; i++) {
+    const w = a.workplace[i]!;
+    if (w < 0 || !isBusiness(world, w) || a.occupation[i] === Occupation.Student) continue;
+    const t = map.townOfBuilding[w]!;
+    total[t]! += value(w);
+    n[t]!++;
+  }
+  return total.map((s, t) => (n[t] === 0 ? empty : s / n[t]!));
 }
 
 /** Pueblo de la vivienda de un hogar (0 si no tiene). */

@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Buscar trabajo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Salarios por pueblo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Buscar trabajo — entregado (ADR-0041)
+## Salarios por pueblo — entregado (ADR-0042)
+- Los negocios empiezan con un salario de 0,8× a 1× según el tamaño de su pueblo. Quien busca trabajo elige el de más
+  jornal neto (descontado el desplazamiento). Métricas y HUD con jornal por pueblo. Protocolo v15; motor 0.30.0.
+  20/20 en ambos mapas; 177 tests.
+
+## Buscar trabajo (anterior) — completado (ADR-0041)
 - Acción `SeekJob`: en paro, en horario laboral y una vez al día, se va a pedir trabajo al negocio con puesto libre
   más cercano de su pueblo o, si no hay, de otro; si la plaza sigue libre, le contratan al llegar. Motor 0.29.0.
   20/20 en ambos mapas; 176 tests.

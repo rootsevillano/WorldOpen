@@ -19,7 +19,7 @@ import { AwayReason, Transit, hostal, hostalGuests, hostalRooms, nextArrival, ni
 import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
 import { ANIMAL_NAMES, Animal } from './world/animals';
-import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, townRentIndices, wageIndex } from './agents/money';
+import { dailyWageAt, isBusiness, marketPrice, positionsOf, priceAt, rentNow, townDailyWages, townRentIndices, wageIndex } from './agents/money';
 import type { World } from './world/world';
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -221,6 +221,7 @@ export function economySummary(world: World): EconomySummary {
   const bs = world.buildings;
   const u = world.map.byUse;
   const sum = (list: number[], col: Float32Array) => round(list.reduce((s, b) => s + col[b]!, 0));
+  const wages = townDailyWages(world);
   const a = world.agents;
   let queueing = 0;
   let money = 0;
@@ -261,6 +262,7 @@ export function economySummary(world: World): EconomySummary {
       population: residents(world, k),
       rent: round(rentNow(world, index)),
       housePrice: round(housePrice(world, index)),
+      wage: round(wages[k]!),
     })),
     festival: festivalDay(world) > 0 ? { day: festivalDay(world), days: festivalLength(world), verbena: verbena(world) } : null,
     hostal: hostal(world) >= 0

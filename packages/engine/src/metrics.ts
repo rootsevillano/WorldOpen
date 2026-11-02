@@ -4,7 +4,7 @@ import { allFestivalVenues, festivalDay, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
-import { MONEY_AGE, isBusiness, marketPrice, openings, priceOf, rentIndex, rentNow, wageIndex } from './agents/money';
+import { MONEY_AGE, isBusiness, marketPrice, openings, priceOf, rentIndex, rentNow, townDailyWages, townWageIndices, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
 import { Transit, busesNow, hostalGuests, hostalRooms, residents, visitorsNow } from './agents/transit';
@@ -73,12 +73,14 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     return n === 0 ? 0 : s / n;
   };
 
-  // Por pueblo (ADR-0036, ADR-0040): `town.<región>.population|rentIndex|rent|housePrice`.
-  const town = /^town\.(\w+)\.(population|rentIndex|rent|housePrice)$/.exec(name);
+  // Por pueblo (ADR-0036, ADR-0040, ADR-0042): `town.<región>.population|rentIndex|rent|housePrice|wage|wageIndex`.
+  const town = /^town\.(\w+)\.(population|rentIndex|rent|housePrice|wage|wageIndex)$/.exec(name);
   if (town) {
     const t = sim.world.map.towns.findIndex((x) => x.regionId === town[1]);
     if (t < 0) return undefined;
     if (town[2] === 'population') return residents(sim.world, t);
+    if (town[2] === 'wage') return townDailyWages(sim.world)[t];
+    if (town[2] === 'wageIndex') return townWageIndices(sim.world)[t];
     const index = rentIndex(sim.world, t);
     return town[2] === 'rentIndex' ? index : town[2] === 'rent' ? rentNow(sim.world, index) : housePrice(sim.world, index);
   }

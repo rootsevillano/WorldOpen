@@ -158,3 +158,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) Un escenario de algo que pasa «entre semana» puede no ocurrir nunca en el mapa real: la contratación
   de los lunes vacía el paro. Para provocar la situación, mejor un comando (`agent.spawn` con `atHour`) que forzar
   criterios.
+- (2026-11-02) Una media de jornales por pueblo refleja sobre todo la mezcla de oficios. Para medir el efecto de
+  una política salarial, usar el índice de cada negocio (`wageIndex`), no el jornal.

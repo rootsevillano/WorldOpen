@@ -14,7 +14,7 @@ import {
   type WorldManifest,
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
-import { seedCash } from './agents/money';
+import { seedCash, seedWages } from './agents/money';
 import { seedAnimals } from './agents/animals';
 import { buildRoad, busesNow, seedCommuters } from './agents/transit';
 import { populate } from './agents/population';
@@ -104,6 +104,7 @@ export class Simulation {
       populate(this.world, n);
       seedStocks(this.world);
       seedCommuters(this.world);
+      seedWages(this.world);
       seedCash(this.world);
       seedAnimals(this.world);
     }

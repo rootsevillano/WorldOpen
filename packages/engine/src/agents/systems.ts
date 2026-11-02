@@ -22,7 +22,7 @@ import {
 } from './economy';
 import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
-import { canAfford, hireAt, openings, payHarvest, spendLeisure } from './money';
+import { canAfford, dailyWageAt, hireAt, openings, payHarvest, spendLeisure } from './money';
 import { ticksPerDay } from '../time/clock';
 import { dogsToWalk } from './animals';
 import { allFestivalVenues, festivalDay, festivalVenues, festivities, verbena } from './festival';
@@ -359,35 +359,32 @@ function searchDay(world: World): number {
   return (Math.floor(world.tick / ticksPerDay(world.time)) + 1) & 0xffff;
 }
 
+/** Coste diario de ir y volver al trabajo por km de distancia en línea recta (tiempo y gasto) (ADR-0042). */
+const COMMUTE_COST_PER_KM = 2;
+
 /**
- * Negocio con un puesto libre al que ir a pedir trabajo: el más cercano de su pueblo y, si en su pueblo no hay
- * ninguno, el más cercano de otro (ADR-0041). −1 si no hay.
+ * Negocio con un puesto libre al que ir a pedir trabajo: el de mejor jornal neto (jornal menos lo que cuesta ir y
+ * volver desde casa), en su pueblo o en otro (ADR-0041, ADR-0042). Desempate: el más cercano. −1 si no hay.
  */
 function pickJob(world: World, i: number): number {
   const a = world.agents;
   const map = world.map;
-  const town = map.townOfBuilding[a.home[i]!];
-  const x = a.positions[i * 3]!;
-  const z = a.positions[i * 3 + 2]!;
-  let own = -1;
-  let ownD = Infinity;
-  let other = -1;
-  let otherD = Infinity;
+  const h = map.buildings[a.home[i]!]!.centroid;
+  let best = -1;
+  let bestNet = -Infinity;
+  let bestD = Infinity;
   for (const b of openings(world).open) {
     if (!usable(world, b)) continue;
     const c = map.buildings[b]!.centroid;
-    const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
-    if (map.townOfBuilding[b] === town) {
-      if (d < ownD) {
-        ownD = d;
-        own = b;
-      }
-    } else if (d < otherD) {
-      otherD = d;
-      other = b;
+    const d = Math.sqrt((c.x - h.x) * (c.x - h.x) + (c.z - h.z) * (c.z - h.z));
+    const net = dailyWageAt(world, b) - (2 * d * COMMUTE_COST_PER_KM) / 1000;
+    if (net > bestNet + 1e-9 || (net > bestNet - 1e-9 && d < bestD)) {
+      best = b;
+      bestNet = net;
+      bestD = d;
     }
   }
-  return own >= 0 ? own : other;
+  return best;
 }
 
 /** Casa (o refugio) o local más cercano en línea recta (desempate por índice). */
