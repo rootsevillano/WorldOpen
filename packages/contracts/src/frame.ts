@@ -38,6 +38,10 @@ export interface RenderFrame {
   /** Plazas con fuegos artificiales ahora (stride 3); el render anima los cohetes. */
   fireworkCount: number;
   fireworkSites: Float32Array;
+  /** Paradas del autobús (ADR-0045): marquesina de cada pueblo (posiciones stride 3 y rumbos de la carretera). */
+  busStopCount: number;
+  busStopPositions: Float32Array;
+  busStopHeadings: Float32Array;
 }
 
 export const AnimalKind = { Dog: 0, Sheep: 1, Hen: 2 } as const;
@@ -48,6 +52,8 @@ export const AgentFlag = {
   Indoors: 1,
   /** Va en coche: el render dibuja un coche en lugar de una persona (ADR-0025). */
   Driving: 2,
+  /** Va en coche y está en un atasco de la carretera comarcal (ADR-0045): el render enciende las luces de freno. */
+  Jammed: 4,
 } as const;
 
 export const AgentActivity = {
@@ -82,5 +88,7 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.pasoPositions.buffer,
     frame.pasoHeadings.buffer,
     frame.fireworkSites.buffer,
+    frame.busStopPositions.buffer,
+    frame.busStopHeadings.buffer,
   ] as ArrayBuffer[];
 }

@@ -1,4 +1,4 @@
-import type { BuildingUse, CriterionValue } from '@worldopen/contracts';
+import { AgentFlag, type BuildingUse, type CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
 import { allFestivalVenues, festivalDay, fireworkSites, processionPasos, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
@@ -6,7 +6,7 @@ import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
 import { MONEY_AGE, isBusiness, marketPrice, openings, priceOf, rentIndex, rentNow, townDailyWages, townWageIndices, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
-import { householdHasCar } from './agents/vehicles';
+import { householdHasCar, linkTraffic } from './agents/vehicles';
 import { Transit, busesNow, hostalGuests, hostalRooms, residents, visitorsNow } from './agents/transit';
 import { partnerId } from './agents/social';
 import type { Simulation } from './simulation';
@@ -116,6 +116,14 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.visitors': return visitorsNow(sim.world);
     // Pueblos (ADR-0036): cuántos hay y vecinos de cada uno (`town.<región>.population`).
     case 'towns.count': return sim.world.map.towns.length;
+    // Carretera comarcal (ADR-0045): coches en ella, el tramo más lento (factor de velocidad) y coches atascados.
+    case 'roads.carsOnLinks': return linkTraffic(sim.world).cars.reduce((s, n) => s + n, 0);
+    case 'roads.slowestLink': return Math.min(1, ...linkTraffic(sim.world).factor);
+    case 'agents.jammed': {
+      let n = 0;
+      for (let i = 0; i < a.count; i++) if (a.flags[i]! & AgentFlag.Jammed) n++;
+      return n;
+    }
     // Búsqueda de empleo (ADR-0041): quien va a pedir trabajo ahora y negocios con un puesto libre.
     case 'agents.seekingJob': {
       let n = 0;

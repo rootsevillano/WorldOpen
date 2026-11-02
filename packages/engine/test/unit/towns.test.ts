@@ -6,6 +6,8 @@ import { housePrice, housingDaily } from '../../src/agents/housing';
 import { dailyWageAt, hireAt, openings, positionsOf, rentIndex, rentNow, townRentIndices, townSizeShares, townWageIndices } from '../../src/agents/money';
 import { hostal } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
+import { JAMMED_BELOW, jamFactor, linkTraffic } from '../../src/agents/vehicles';
+import { busStops } from '../../src/agents/transit';
 
 const neighbours = (side?: TownSide, dwellings = countDwellings(syntheticMap(3, SYNTHETIC_REGION))) =>
   neighbourTowns({ seed: 3, count: 2, bounds: syntheticBounds(SYNTHETIC_REGION), dwellings, taken: [SYNTHETIC_REGION.displayName], ...(side ? { side } : {}) });
@@ -274,6 +276,48 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(sim.frame().fireworkCount).toBe(2);
     sim.step(6);
     expect(sim.frame().fireworkCount).toBe(0);
+  });
+
+  it('atascos en la carretera comarcal: muchos coches en un tramo van más despacio y se marcan (ADR-0045)', () => {
+    expect(jamFactor(0, 1500)).toBe(1);
+    expect(jamFactor(9, 1500)).toBeGreaterThan(0.8);
+    expect(jamFactor(20, 1500)).toBeLessThan(JAMMED_BELOW);
+    expect(jamFactor(500, 1500)).toBeCloseTo(0.15, 6);
+    const sim = threeTowns(300);
+    const world = sim.world;
+    const map = world.map;
+    const a = world.agents;
+    const [p, q] = map.links[0]!;
+    const px = map.nodeX[p]!;
+    const pz = map.nodeZ[p]!;
+    const dx = map.nodeX[q]! - px;
+    const dz = map.nodeZ[q]! - pz;
+    // 30 coches repartidos por el primer tramo, hacia el otro pueblo.
+    const drivers = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.age[k]! >= 18).slice(0, 30);
+    drivers.forEach((i, n) => {
+      const t = 0.1 + (0.8 * n) / drivers.length;
+      a.positions[i * 3] = px + dx * t;
+      a.positions[i * 3 + 2] = pz + dz * t;
+      a.driving[i] = 1;
+      a.location[i] = -1;
+      a.flags[i] = 2;
+      a.paths[i] = Float64Array.from([map.nodeX[q]!, map.nodeZ[q]!]);
+      a.pathPos[i] = 0;
+      a.target[i] = map.towns[1]!.homes[0]!;
+    });
+    const traffic = linkTraffic(world);
+    expect(traffic.cars[0]).toBe(30);
+    expect(traffic.factor[0]!).toBeLessThan(JAMMED_BELOW);
+    const before = drivers.map((i) => a.positions[i * 3]!);
+    sim.step(1);
+    expect(drivers.filter((i) => a.flags[i]! & 4).length).toBeGreaterThan(20);
+    expect(sim.drainEvents().some((e) => e.type === 'traffic.jam')).toBe(true);
+    // Avanzan menos de lo normal (400 m/min × 10 min sin atasco).
+    const moved = drivers.map((i, k) => Math.abs(a.positions[i * 3]! - before[k]!));
+    expect(Math.max(...moved)).toBeLessThan(400 * 10 * JAMMED_BELOW);
+    // Una marquesina por pueblo, junto al final de su carretera.
+    const stops = busStops(world);
+    expect(stops.headings).toHaveLength(3);
   });
 });
 

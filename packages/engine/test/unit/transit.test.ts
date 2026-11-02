@@ -2,7 +2,7 @@ import { AgentFlag } from '@worldopen/contracts';
 import { describe, expect, it } from 'vitest';
 import { Action, Occupation, Simulation } from '../../src';
 import { startAction } from '../../src/agents/systems';
-import { AwayReason, Transit, arrivals, buildRoad, busesNow, hostal, hostalRooms, leaveTown, season, seedCommuters } from '../../src/agents/transit';
+import { AwayReason, Transit, arrivals, buildRoad, busDemand, busesNow, hostal, hostalRooms, leaveTown, season, seedCommuters } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 import { manifest } from '../helpers';
 
@@ -24,7 +24,8 @@ describe('Transporte entre pueblos (ADR-0031)', () => {
   });
 
   it('el autobús llega cada hora de 07:00 a 21:00, entra por la carretera, para y se va', () => {
-    const sim = new Simulation(manifest(4, { criteria: { 'society.initialPopulation': 50 } }));
+    // Un pueblo mediano sin muchos viajeros: horario base (ADR-0045).
+    const sim = new Simulation(manifest(4, { criteria: { 'society.initialPopulation': 200, 'society.commuting': 0 } }));
     expect(arrivals(sim.world)).toHaveLength(15);
     sim.world.criteria['society.transit'] = 2;
     expect(arrivals(sim.world)).toHaveLength(29);
@@ -194,4 +195,46 @@ describe('Hostal y turismo (ADR-0033)', () => {
     resumed.step(12 * 18);
     expect(resumed.hash()).toBe(full.hash());
   });
+
+  it('horarios según la demanda: refuerzos en hora punta con muchos viajeros, menos en un pueblo pequeño (ADR-0045)', () => {
+    const base = new Simulation(manifest(4, { criteria: { 'society.initialPopulation': 200, 'society.commuting': 0 } }));
+    expect(arrivals(base.world)).toHaveLength(15);
+    // Pueblo pequeño: fuera de las horas punta, un autobús cada 2 horas.
+    const small = new Simulation(manifest(4, { criteria: { 'society.initialPopulation': 60, 'society.commuting': 0 } }));
+    expect(busDemand(small.world).residents[0]).toBeLessThan(150);
+    expect(arrivals(small.world).length).toBeLessThan(15);
+    // Muchos viajeros (sin coche y trabajando fuera): más autobuses en hora punta, como mucho cada 15 min.
+    const busy = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 900, 'society.carOwnership': 0, 'society.commuting': 1 } }));
+    expect(busDemand(busy.world).riders[0]).toBeGreaterThanOrEqual(15);
+    const times = arrivals(busy.world);
+    expect(times.length).toBeGreaterThan(15);
+    const morning = times.filter((t) => t >= 420 && t < 540);
+    expect(morning.length).toBeGreaterThan(2);
+    for (let k = 1; k < times.length; k++) expect(times[k]! - times[k - 1]!).toBeGreaterThanOrEqual(15);
+  });
+
+  it('cada autobús lleva 50 viajeros: quien no cabe espera al siguiente (ADR-0045)', () => {
+    const sim = new Simulation(manifest(5, { criteria: { 'society.initialPopulation': 300, 'society.commuting': 0 } }));
+    const a = sim.world.agents;
+    const next = arrivals(sim.world).find((t) => t >= 600)!;
+    const dt = sim.world.time.minutesPerTick;
+    atMinute(sim, next - dt);
+    const waiting = indices(sim).filter((i) => a.age[i]! >= 18).slice(0, 60);
+    for (const i of waiting) {
+      a.transit[i] = Transit.Waiting;
+      a.transitSince[i] = sim.world.tick * sim.world.time.minutesPerTick;
+      a.awayReason[i] = AwayReason.Trip;
+      a.awayUntil[i] = 1140;
+      a.money[i] = 100;
+      a.location[i] = -1;
+      a.paths[i] = null;
+    }
+    sim.drainEvents();
+    sim.step(2);
+    const away = waiting.filter((i) => a.transit[i] === Transit.Away).length;
+    expect(away).toBe(50);
+    expect(waiting.filter((i) => a.transit[i] === Transit.Waiting)).toHaveLength(10);
+    expect(sim.drainEvents().some((e) => e.type === 'bus.full' && e.data.leftBehind === 10)).toBe(true);
+  });
 });
+

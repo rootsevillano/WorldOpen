@@ -59,3 +59,57 @@ export function shouldDrive(world: World, i: number, length: number, busy: Set<n
     a.money[i]! >= fuelCost(world, 2 * length)
   );
 }
+
+/**
+ * Atascos en la carretera comarcal (ADR-0045): la velocidad de los coches de cada tramo baja con la densidad de coches
+ * en él (curva BPR: 1 / (1 + 0,15·r⁴), con r = coches / capacidad del tramo), hasta un 15 % de la normal. Capacidad de
+ * 6 coches por km: una carretera estrecha, de un carril por sentido. Por debajo del 60 % se considera atasco.
+ */
+const LINK_CARS_PER_KM = 6;
+const LINK_NEAR_M = 15;
+const JAM_FLOOR = 0.15;
+export const JAMMED_BELOW = 0.6;
+
+export function jamFactor(cars: number, lengthM: number): number {
+  const r = cars / Math.max(1, (LINK_CARS_PER_KM * lengthM) / 1000);
+  const r2 = r * r;
+  return Math.max(JAM_FLOOR, 1 / (1 + 0.15 * r2 * r2));
+}
+
+/** Tramo de la carretera comarcal por el que circula cada coche (−1 si ninguno) y factor de velocidad de cada tramo. */
+export function linkTraffic(world: World): { linkOf: Int32Array; factor: number[]; cars: number[] } {
+  const a = world.agents;
+  const map = world.map;
+  const links = map.links;
+  const linkOf = new Int32Array(a.count).fill(-1);
+  const cars = links.map(() => 0);
+  if (links.length > 0) {
+    for (let i = 0; i < a.count; i++) {
+      if (a.driving[i] !== 1 || !a.paths[i]) continue;
+      const x = a.positions[i * 3]!;
+      const z = a.positions[i * 3 + 2]!;
+      for (let k = 0; k < links.length; k++) {
+        const [p, q] = links[k]!;
+        const px = map.nodeX[p]!;
+        const pz = map.nodeZ[p]!;
+        const dx = map.nodeX[q]! - px;
+        const dz = map.nodeZ[q]! - pz;
+        const len2 = dx * dx + dz * dz;
+        const t = len2 > 0 ? ((x - px) * dx + (z - pz) * dz) / len2 : -1;
+        if (t <= 0 || t >= 1) continue;
+        const ex = px + dx * t - x;
+        const ez = pz + dz * t - z;
+        if (ex * ex + ez * ez > LINK_NEAR_M * LINK_NEAR_M) continue;
+        linkOf[i] = k;
+        cars[k]!++;
+        break;
+      }
+    }
+  }
+  const factor = links.map(([p, q], k) => {
+    const dx = map.nodeX[q]! - map.nodeX[p]!;
+    const dz = map.nodeZ[q]! - map.nodeZ[p]!;
+    return jamFactor(cars[k]!, Math.sqrt(dx * dx + dz * dz));
+  });
+  return { linkOf, factor, cars };
+}

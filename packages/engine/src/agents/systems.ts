@@ -28,7 +28,7 @@ import { dogsToWalk } from './animals';
 import { allFestivalVenues, festivalDay, festivalVenues, festivities, processionGathering, processionParticipant, processionPlaza, processionTime, verbena } from './festival';
 import { remember } from './social';
 import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
-import { DRIVE_SPEED, carsInUse, fuelCost, pathLength, shouldDrive } from './vehicles';
+import { DRIVE_SPEED, JAMMED_BELOW, carsInUse, fuelCost, linkTraffic, pathLength, shouldDrive } from './vehicles';
 
 /**
  * Sistemas de los agentes (ADR-0008): necesidades → decisión (Utility AI) → movimiento.
@@ -483,11 +483,31 @@ function arrive(world: World, i: number, target: number): void {
 export function movementSystem(world: World): void {
   const a = world.agents;
   const speed = WALK * world.time.minutesPerTick;
+  // Atascos en la carretera comarcal (ADR-0045): los coches de un tramo cargado van más despacio. Aviso cuando un tramo
+  // se atasca (ninguno de sus coches estaba marcado como atascado).
+  const traffic = world.map.links.length > 0 ? linkTraffic(world) : null;
+  if (traffic) {
+    const was = traffic.factor.map(() => false);
+    for (let i = 0; i < a.count; i++) if (traffic.linkOf[i]! >= 0 && a.flags[i]! & AgentFlag.Jammed) was[traffic.linkOf[i]!] = true;
+    traffic.factor.forEach((f, k) => {
+      if (f < JAMMED_BELOW && !was[k]) {
+        const [p, q] = world.map.links[k]!;
+        const name = (n: number) => world.townNames[world.map.townOfNode[n]!] ?? '';
+        world.emit('traffic.jam', { from: name(p), to: name(q), cars: traffic.cars[k] });
+      }
+    });
+  }
   for (let i = 0; i < a.count; i++) {
     const path = a.paths[i];
     if (!path) continue;
     const driving = a.driving[i] === 1;
     let budget = driving ? DRIVE_SPEED * world.time.minutesPerTick : a.action[i] === Action.SeekShelter ? speed * 1.3 : speed;
+    if (driving && traffic) {
+      const k = traffic.linkOf[i]!;
+      const factor = k >= 0 ? traffic.factor[k]! : 1;
+      budget *= factor;
+      a.flags[i] = factor < JAMMED_BELOW ? a.flags[i]! | AgentFlag.Jammed : a.flags[i]! & ~AgentFlag.Jammed;
+    }
     const start = budget;
     let x = a.positions[i * 3]!;
     let z = a.positions[i * 3 + 2]!;

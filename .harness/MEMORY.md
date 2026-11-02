@@ -165,3 +165,5 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) El frame se genera después de `tick++`. Lo que se calcula en el frame a partir de la hora (como el
   paso) debe usar la hora del último tick, o se desfasa respecto a lo que movieron los sistemas. En el navegador, con
   la pestaña oculta los temporizadores van lentos: para llegar a una hora exacta, `__worldopen.engine.step(n)`.
+- (2026-11-02) Con la pestaña del navegador oculta, `requestAnimationFrame` se para: los contadores del render
+  (`visibleStops`…) se quedan en el frame viejo. Hacer una captura activa la pestaña antes de leerlos.

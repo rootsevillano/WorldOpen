@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Procesión y fuegos · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Paradas y atascos · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Procesión y fuegos — entregado (ADR-0044)
+## Paradas y atascos — entregado (ADR-0045)
+- Horario del autobús por pueblo según la demanda (refuerzos en hora punta, menos en pueblos pequeños), 50 plazas
+  por autobús, atascos en la carretera comarcal (curva BPR, luces de freno) y marquesinas en las paradas. Protocolo
+  v17; motor 0.33.0. 22/22 en ambos mapas; 182 tests.
+
+## Procesión y fuegos (anterior) — completado (ADR-0044)
 - El día grande, los vecinos se reúnen en la plaza y a las 12:00 desfilan de dos en dos detrás del paso y vuelven; la
   última noche hay fuegos artificiales sobre cada plaza. Frame con pasos y fuegos (protocolo v16); motor 0.32.0.
   21/21 en ambos mapas; 179 tests.

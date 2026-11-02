@@ -1,0 +1,25 @@
+{
+  "name": "traffic",
+  "description": "ADR-0045: con tres pueblos y 3000 vecinos, en hora punta la carretera comarcal se atasca (los coches van más despacio y encienden las luces de freno); el autobús de cada pueblo tiene su horario según la demanda.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 1,
+  "towns": 3,
+  "townSide": "around",
+  "manifest": {
+    "time": {
+      "minutesPerTick": 2
+    },
+    "criteria": {
+      "society.initialPopulation": 3000
+    }
+  },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "events.traffic.jam", "op": ">=", "value": 1, "minPassRatio": 0.5 },
+    { "kind": "metric", "metric": "events.bus.arrived", "op": ">=", "value": 45 },
+    { "kind": "metric", "metric": "roads.slowestLink", "op": ">", "value": 0.9, "at": { "day": 1, "hour": 3, "minute": 0 } }
+  ]
+}

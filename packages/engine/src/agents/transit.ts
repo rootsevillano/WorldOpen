@@ -10,7 +10,7 @@ import { Rng } from '../math/rng';
 import { festivalDay, festivities } from './festival';
 import { forgetAgent } from './lifecycle';
 import { removeAgent } from './population';
-import { fuelCost, pathLength, shouldDrive } from './vehicles';
+import { fuelCost, householdHasCar, pathLength, shouldDrive } from './vehicles';
 
 /**
  * Transporte entre pueblos (ADR-0031). El mundo es un pueblo; los vecinos quedan fuera de la simulación. Un autobús
@@ -31,6 +31,18 @@ const DWELL = 3;
 export const FIRST_BUS = 420;
 export const LAST_BUS = 1260;
 const HEADWAY = 60;
+/**
+ * Horarios según la demanda (ADR-0045), por pueblo. En las horas punta (07:00–09:00 y 15:00–17:00) se añade un autobús
+ * por cada 15 viajeros (quien trabaja fuera y no tiene coche en casa), hasta 4 por hora y como mucho uno cada 15 min.
+ * En un pueblo de menos de 150 vecinos, fuera de las horas punta pasa la mitad. Cada autobús lleva 50 viajeros: quien
+ * no cabe espera al siguiente.
+ */
+const PEAKS: [number, number][] = [[420, 540], [900, 1020]];
+const RIDERS_PER_EXTRA = 15;
+const MAX_EXTRA = 3;
+const MIN_HEADWAY = 15;
+const QUIET_RESIDENTS = 150;
+export const BUS_CAPACITY = 50;
 /** Billete de ida (× `economy.priceLevel`) y espera máxima en la parada (min). */
 const FARE = 2;
 const MAX_WAIT = 70;
@@ -117,18 +129,54 @@ export function roadOf(world: World, b: number): Road | null {
   return b < 0 ? null : (world.busRoads[world.map.townOfBuilding[b]!] ?? null);
 }
 
-/** Llegadas del día a la parada (minuto del día). */
-export function arrivals(world: World): number[] {
-  if (!serviceOn(world)) return [];
+/** Demanda de cada pueblo (ADR-0045): vecinos y viajeros (trabajan fuera sin coche en casa). Se recalcula cada tick. */
+interface Demand {
+  world: World | null;
+  tick: number;
+  residents: number[];
+  riders: number[];
+}
+let demandCache: Demand = { world: null, tick: -1, residents: [], riders: [] };
+
+export function busDemand(world: World): Demand {
+  if (demandCache.world === world && demandCache.tick === world.tick) return demandCache;
+  const a = world.agents;
+  const map = world.map;
+  const res = map.towns.map(() => 0);
+  const riders = map.towns.map(() => 0);
+  for (let i = 0; i < a.count; i++) {
+    const h = a.home[i]!;
+    if (h < 0 || a.occupation[i] === Occupation.Visitor) continue;
+    const t = map.townOfBuilding[h]!;
+    res[t]!++;
+    if (a.occupation[i] === Occupation.Commuter && !householdHasCar(world, a.household[i]!)) riders[t]!++;
+  }
+  demandCache = { world, tick: world.tick, residents: res, riders };
+  return demandCache;
+}
+
+/** Minutos hasta el siguiente autobús de un pueblo a partir de `t`, según la hora y su demanda (ADR-0045). */
+function headwayAt(world: World, town: number, t: number): number {
+  const base = HEADWAY / world.num('society.transit');
+  const d = busDemand(world);
+  if (PEAKS.some(([from, to]) => t >= from && t < to)) {
+    const extra = Math.min(MAX_EXTRA, Math.floor((d.riders[town] ?? 0) / RIDERS_PER_EXTRA));
+    return Math.max(Math.min(base, MIN_HEADWAY), base / (1 + extra));
+  }
+  return (d.residents[town] ?? 0) < QUIET_RESIDENTS ? base * 2 : base;
+}
+
+/** Llegadas del día a la parada de un pueblo (minuto del día), según la demanda (ADR-0045). */
+export function arrivals(world: World, town = 0): number[] {
+  if (!serviceOn(world) || !world.busRoads[town]) return [];
   const out: number[] = [];
-  const headway = HEADWAY / world.num('society.transit');
-  for (let t = FIRST_BUS; t <= LAST_BUS; t += headway) out.push(Math.round(t));
+  for (let t = FIRST_BUS; t <= LAST_BUS + 1e-9; t += headwayAt(world, town, t)) out.push(Math.round(t));
   return out;
 }
 
-/** Próxima llegada a partir del minuto `m` (o `null`). */
-export function nextArrival(world: World, m: number): number | null {
-  for (const t of arrivals(world)) if (t >= m) return t;
+/** Próxima llegada a la parada de un pueblo a partir del minuto `m` (o `null`). */
+export function nextArrival(world: World, m: number, town = 0): number | null {
+  for (const t of arrivals(world, town)) if (t >= m) return t;
   return null;
 }
 
@@ -156,7 +204,7 @@ export function busesNow(world: World): { positions: Float32Array; headings: Flo
     if (!road) continue;
     const m = minuteOfDay(world);
     const drive = road.length / BUS_SPEED;
-    for (const ta of arrivals(world)) {
+    for (const ta of arrivals(world, road.town)) {
       let s = -1;
       let out = false;
       if (m >= ta - drive && m < ta) s = road.length - (ta - m) * BUS_SPEED;
@@ -216,9 +264,9 @@ export function leaveTown(world: World, i: number, reason: number, back: number)
     return true;
   }
   const m = minuteOfDay(world);
-  const next = nextArrival(world, m);
+  const next = nextArrival(world, m, road.town);
   const toStop = map.routeToNode(x, z, from, road.stopNode);
-  if (!toStop || next === null || next - m > MAX_WAIT || a.money[i]! < 2 * fare(world) || nextArrival(world, back) === null) return false;
+  if (!toStop || next === null || next - m > MAX_WAIT || a.money[i]! < 2 * fare(world) || nextArrival(world, back, road.town) === null) return false;
   begin(world, i, Transit.ToStop, toStop, reason, back, 0);
   return true;
 }
@@ -314,8 +362,11 @@ export function transitSystem(world: World): void {
     world.visitorsDay = day;
     world.visitorsToday = 0;
   }
-  // Llegadas del autobús en este tick (minuto del día en (m − dt, m]).
-  const due = arrivals(world).filter((t) => t > m - dt && t <= m);
+  // Llegadas del autobús de cada pueblo en este tick (minuto del día en (m − dt, m]) (ADR-0045).
+  const dues = world.busRoads.map((_, t) => arrivals(world, t).filter((ta) => ta > m - dt && ta <= m));
+  // Plazas libres de los autobuses que llegan ahora a cada parada; quien no cabe espera al siguiente.
+  const seats = dues.map((d) => d.length * BUS_CAPACITY);
+  const leftBehind = dues.map(() => 0);
   const price = fare(world);
   const leavers: number[] = [];
   for (let i = 0; i < a.count; i++) {
@@ -324,6 +375,7 @@ export function transitSystem(world: World): void {
     // Parada y borde del pueblo de cada cual (ADR-0036).
     const road = roadOf(world, a.home[i]!);
     if (!road) continue;
+    const due = dues[road.town]!;
     const stopX = world.map.nodeX[road.stopNode]!;
     const stopZ = world.map.nodeZ[road.stopNode]!;
     const edgeX = world.map.nodeX[road.edgeNode]!;
@@ -338,10 +390,15 @@ export function transitSystem(world: World): void {
       }
     } else if (stage === Transit.Waiting) {
       if (due.length > 0 && a.occupation[i] === Occupation.Visitor) {
+        // Los visitantes se van siempre (ocupan plaza, pero no se quedan en el pueblo).
+        seats[road.town]!--;
         leavers.push(a.ids[i]!);
-      } else if (due.length > 0 && a.money[i]! >= price) {
+      } else if (due.length > 0 && a.money[i]! >= price && seats[road.town]! > 0) {
+        seats[road.town]!--;
         a.money[i]! -= price;
         depart(world, i);
+      } else if (due.length > 0 && a.money[i]! >= price) {
+        leftBehind[road.town]!++;
       } else if (now - a.transitSince[i]! > MAX_WAIT || !serviceOn(world)) {
         comeBack(world, i, a.positions[i * 3]!, a.positions[i * 3 + 2]!);
       }
@@ -349,13 +406,19 @@ export function transitSystem(world: World): void {
   }
   for (const id of leavers) leave(world, id);
   visitorsSystem(world, m, now);
-  if (due.length > 0) {
+  leftBehind.forEach((n, t) => {
+    const road = world.busRoads[t];
+    if (n > 0 && road) world.emit('bus.full', { stop: world.map.buildings[road.stopBuilding]!.id, leftBehind: n });
+  });
+  {
     const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
     // En fiestas vienen muchos más de los pueblos vecinos (ADR-0034).
     const fiesta = festivalDay(world) > 0 ? 1 + 2 * festivities(world) : 1;
     // Cada pueblo recibe visitantes según sus vecinos (ADR-0036).
     for (const road of world.busRoads) {
       if (!road) continue;
+      const due = dues[road.town]!;
+      if (due.length === 0) continue;
       const expected = residents(world, road.town) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism') * fiesta;
       let visitors = 0;
       for (let v = 0; v < Math.floor(expected + hash(day + road.town * 7919, m)); v++) {
@@ -551,4 +614,23 @@ function visitorsSystem(world: World, m: number, now: number): void {
 function leave(world: World, id: number): void {
   forgetAgent(world, id, false);
   removeAgent(world, id, 'visitor.left');
+}
+
+/** Distancia de la marquesina al eje de la calle (m): en la acera (calles de 10 m). */
+const STOP_SIDE_M = 6.5;
+
+/** Marquesinas de las paradas (ADR-0045): en la acera, a un lado del final de la carretera de cada pueblo. */
+export function busStops(world: World): { positions: Float32Array; headings: Float32Array } {
+  const pos: number[] = [];
+  const head: number[] = [];
+  for (const road of world.busRoads) {
+    if (!road || road.x.length < 2) continue;
+    const n = road.x.length;
+    const dx = road.x[n - 1]! - road.x[n - 2]!;
+    const dz = road.z[n - 1]! - road.z[n - 2]!;
+    const len = Math.sqrt(dx * dx + dz * dz) || 1;
+    pos.push(road.x[n - 1]! - (dz / len) * STOP_SIDE_M, 0, road.z[n - 1]! + (dx / len) * STOP_SIDE_M);
+    head.push(headingOf(dx, dz));
+  }
+  return { positions: Float32Array.from(pos), headings: Float32Array.from(head) };
 }

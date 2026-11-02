@@ -1,6 +1,6 @@
 {
   "name": "towns",
-  "description": "ADR-0036/0037: un mundo con tres pueblos (vecinos a ambos lados, de tamaño proporcional) unidos por la carretera comarcal: cada uno tiene vecinos y su propio autobús; parte de la gente trabaja en otro pueblo y va y viene.",
+  "description": "ADR-0036/0037: un mundo con tres pueblos (vecinos a ambos lados, de tamaño proporcional) unidos por la carretera comarcal: cada uno tiene vecinos y su propio autobús (menos en horas valle si el pueblo es pequeño, ADR-0045); parte de la gente trabaja en otro pueblo y va y viene.",
   "seeds": [
     1,
     2
@@ -48,7 +48,7 @@
       "kind": "metric",
       "metric": "events.bus.arrived",
       "op": ">=",
-      "value": 45
+      "value": 30
     }
   ]
 }

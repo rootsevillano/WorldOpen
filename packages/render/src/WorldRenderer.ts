@@ -15,6 +15,7 @@ const SPARKS_PER_BURST = 80;
 const SPARK_LIFE_S = 1.8;
 const FIREWORK_COLORS = [0xff4d4d, 0xffd84d, 0x4dd2ff, 0x9dff4d, 0xff7dff, 0xffffff].map((c) => new THREE.Color(c));
 
+const JAMMED_COLOR = new THREE.Color(0xff2a1a);
 const CAR_COLORS = [0xb03a2e, 0x1f618d, 0xd4ac0d, 0xeeeeee, 0x2c3e50, 0x7f8c8d, 0x117a65].map((c) => new THREE.Color(c));
 
 /** Une geometrías indexadas de caja en una sola (sin depender de BufferGeometryUtils). */
@@ -97,6 +98,8 @@ export class WorldRenderer {
   private readonly animalAtInstance: number[][] = [[], [], []];
   /** Autobuses (ADR-0030). */
   private readonly buses: THREE.InstancedMesh;
+  /** Marquesinas de las paradas del autobús (ADR-0045). */
+  private readonly stops: THREE.InstancedMesh;
   /** Fiestas (ADR-0044): pasos de procesión y chispas de los fuegos artificiales. */
   private readonly pasos: THREE.InstancedMesh;
   private readonly sparks: THREE.Points;
@@ -205,6 +208,21 @@ export class WorldRenderer {
     this.buses.frustumCulled = false;
     this.buses.name = 'BUSES';
     this.scene.add(this.buses);
+    // Marquesina: tejadillo, panel trasero y poste con el cartel (largo en X, como la carretera).
+    this.stops = new THREE.InstancedMesh(
+      mergeBoxes(
+        new THREE.BoxGeometry(3.4, 0.12, 1.6).translate(0, 2.5, 0),
+        new THREE.BoxGeometry(3.4, 2.4, 0.08).translate(0, 1.3, 0.75),
+        new THREE.BoxGeometry(0.12, 2.9, 0.12).translate(2.0, 1.45, -0.6),
+        new THREE.BoxGeometry(0.7, 0.5, 0.06).translate(2.0, 2.85, -0.6),
+      ),
+      new THREE.MeshStandardMaterial({ color: 0x2e6fb0, roughness: 0.5, metalness: 0.3 }),
+      16,
+    );
+    this.stops.count = 0;
+    this.stops.frustumCulled = false;
+    this.stops.name = 'BUS_STOPS';
+    this.scene.add(this.stops);
     // Paso de procesión: andas doradas con la imagen encima (rumbo 0 = +X).
     this.pasos = new THREE.InstancedMesh(
       mergeBoxes(
@@ -534,7 +552,8 @@ export class WorldRenderer {
         this.tmp.scale.setScalar(Math.max(1, scale / 2));
         this.tmp.updateMatrix();
         this.cars.setMatrixAt(c, this.tmp.matrix);
-        this.cars.setColorAt(c, CAR_COLORS[id % CAR_COLORS.length]!);
+        // En un atasco, con las luces de freno encendidas (ADR-0045).
+        this.cars.setColorAt(c, f.agentFlags[i]! & AgentFlag.Jammed ? JAMMED_COLOR : CAR_COLORS[id % CAR_COLORS.length]!);
         c++;
         continue;
       }
@@ -556,7 +575,28 @@ export class WorldRenderer {
     this.updateAnimals(f, now, scale);
     this.updateBuses(f, scale);
     this.updatePasos(f, now, scale);
+    this.updateStops(f, scale);
     this.updateFireworks(f, now);
+  }
+
+  private updateStops(f: RenderFrame, scale: number): void {
+    const n = Math.min(f.busStopCount ?? 0, 16);
+    for (let k = 0; k < n; k++) {
+      const x = f.busStopPositions[k * 3]!;
+      const z = f.busStopPositions[k * 3 + 2]!;
+      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
+      this.tmp.rotation.set(0, f.busStopHeadings[k]!, 0);
+      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.updateMatrix();
+      this.stops.setMatrixAt(k, this.tmp.matrix);
+    }
+    this.stops.count = n;
+    this.stops.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Marquesinas dibujadas (para el Visual Gate). */
+  get visibleStops(): number {
+    return this.stops.count;
   }
 
   private updatePasos(f: RenderFrame, now: number, scale: number): void {
