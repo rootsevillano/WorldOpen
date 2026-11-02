@@ -45,3 +45,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0038](0038-town-migration.md) | Mudanzas entre pueblos | Aceptada |
 | [0039](0039-sell-to-move.md) | Vender para mudarse de pueblo | Aceptada |
 | [0040](0040-town-prices.md) | Precios de la vivienda por pueblo | Aceptada |
+| [0041](0041-job-search.md) | Buscar trabajo (también en otros pueblos) | Aceptada |

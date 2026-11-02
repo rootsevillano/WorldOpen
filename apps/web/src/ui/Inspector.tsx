@@ -8,7 +8,7 @@ const NEEDS_ES: Record<string, string> = {
 };
 const ACTIONS_ES: Record<string, string> = {
   stay: 'quedarse', goHome: 'volver a casa', goOut: 'salir', seekShelter: 'buscar cobijo', sleep: 'dormir',
-  provision: 'abastecerse', work: 'trabajar / estudiar', deliver: 'llevar la cosecha',
+  provision: 'abastecerse', work: 'trabajar / estudiar', deliver: 'llevar la cosecha', seekJob: 'buscar trabajo',
 };
 const OCCUPATIONS_ES: Record<string, string> = {
   unemployed: 'en paro', retired: 'jubilado/a', shopkeeper: 'comercio', farmer: 'campo', sawyer: 'aserradero',
@@ -17,7 +17,7 @@ const OCCUPATIONS_ES: Record<string, string> = {
 const MEMORY_ES: Record<string, string> = {
   foodEmpty: 'tienda sin comida', waterEmpty: 'fuente seca', woodEmpty: 'aserradero sin leña', fire: 'vio un incendio',
   newFriend: 'hizo un amigo', lostHome: 'perdió su casa en un incendio', grief: 'perdió a un ser querido',
-  newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa', broke: 'no pudo pagar',
+  newChild: 'nació un hijo en casa', partner: 'empezó una relación', moved: 'se mudó de casa', broke: 'no pudo pagar', newJob: 'encontró trabajo',
 };
 const AWAY_ES: Record<string, string> = {
   toStop: 'va a la parada del autobús', waiting: 'espera el autobús', away: 'fuera del pueblo', toEdge: 'sale del pueblo en coche',

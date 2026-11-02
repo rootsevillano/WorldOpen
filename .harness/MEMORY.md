@@ -155,3 +155,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   script con Write y ejecutarlo.
 - (2026-11-02) En Windows, Python con `open(..., 'w')` escribe CRLF; para tocar el final de un fichero, leer y
   escribir con `newline=''`. No meter `'\\n'` en cadenas de Python dentro de scripts: acaba como texto literal.
+- (2026-11-02) Un escenario de algo que pasa «entre semana» puede no ocurrir nunca en el mapa real: la contratación
+  de los lunes vacía el paro. Para provocar la situación, mejor un comando (`agent.spawn` con `atHour`) que forzar
+  criterios.

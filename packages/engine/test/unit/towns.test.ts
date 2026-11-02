@@ -3,7 +3,7 @@ import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, n
 import { festivalVenues } from '../../src/agents/festival';
 import { startAction } from '../../src/agents/systems';
 import { housePrice, housingDaily } from '../../src/agents/housing';
-import { rentIndex, rentNow, townRentIndices } from '../../src/agents/money';
+import { hireAt, openings, rentIndex, rentNow, townRentIndices } from '../../src/agents/money';
 import { hostal } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 
@@ -146,4 +146,31 @@ describe('Varios pueblos (ADR-0036)', () => {
     housingDaily(world, pool);
     expect(1e6 - pool.get(a.household[renter]!)![0]).toBeCloseTo(rentNow(world, index[2]), 6);
   });
+
+  it('buscar trabajo: si en su pueblo no hay puestos libres, va a pedirlo a otro pueblo y le contratan (ADR-0041)', () => {
+    const sim = threeTowns();
+    const world = sim.world;
+    const map = world.map;
+    const a = world.agents;
+    const bs = world.buildings;
+    // Un lunes laborable a las 09:00, con caja de sobra solo en un negocio del pueblo 1.
+    while (!(Math.floor(world.tick / 144) % 7 === 0 && world.tick % 144 === 54)) sim.step(1);
+    const businesses = [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial];
+    for (const b of businesses) bs.cash[b] = 0;
+    const target = businesses.find((b) => map.townOfBuilding[b] === 1)!;
+    bs.cash[target] = 1e7;
+    const i = Array.from({ length: a.count }, (_, k) => k).find((k) => a.age[k]! >= 20 && a.age[k]! < 60 && map.townOfBuilding[a.home[k]!] === 0 && a.location[k] === a.home[k])!;
+    a.occupation[i] = 0;
+    a.workplace[i] = -1;
+    sim.step(1);
+    expect(openings(world).open).toEqual([target]);
+    startAction(world, i, Action.SeekJob, a.home[i]!);
+    expect(a.target[i]).toBe(target);
+    expect(a.searchedDay[i]).toBeGreaterThan(0);
+    expect(hireAt(world, i, target)).toBe(true);
+    expect(a.workplace[i]).toBe(target);
+    expect(a.occupation[i]).not.toBe(0);
+    expect(sim.drainEvents().some((e) => e.type === 'job.hired' && (e.data as { search?: string }).search === 'otherTown')).toBe(true);
+  });
 });
+

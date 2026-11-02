@@ -4,7 +4,7 @@ import { allFestivalVenues, festivalDay, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
-import { MONEY_AGE, isBusiness, marketPrice, priceOf, rentIndex, rentNow, wageIndex } from './agents/money';
+import { MONEY_AGE, isBusiness, marketPrice, openings, priceOf, rentIndex, rentNow, wageIndex } from './agents/money';
 import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar } from './agents/vehicles';
 import { Transit, busesNow, hostalGuests, hostalRooms, residents, visitorsNow } from './agents/transit';
@@ -114,6 +114,13 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'agents.visitors': return visitorsNow(sim.world);
     // Pueblos (ADR-0036): cuántos hay y vecinos de cada uno (`town.<región>.population`).
     case 'towns.count': return sim.world.map.towns.length;
+    // Búsqueda de empleo (ADR-0041): quien va a pedir trabajo ahora y negocios con un puesto libre.
+    case 'agents.seekingJob': {
+      let n = 0;
+      for (let i = 0; i < a.count; i++) if (a.action[i] === Action.SeekJob) n++;
+      return n;
+    }
+    case 'jobs.open': return openings(sim.world).open.length;
     // Quien trabaja en un pueblo distinto del suyo (entre los que tienen puesto en el mundo).
     case 'agents.workInOtherTownRatio': {
       const map = sim.world.map;

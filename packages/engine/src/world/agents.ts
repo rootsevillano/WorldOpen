@@ -15,9 +15,11 @@ export const Action = {
   Work: 6,
   /** Llevar la cosecha de la huerta a una tienda (logística con agentes, ADR-0018). */
   Deliver: 7,
+  /** En paro: ir a un negocio con un puesto libre (en su pueblo o en otro) a pedir trabajo (ADR-0041). */
+  SeekJob: 8,
 } as const;
 export type Action = (typeof Action)[keyof typeof Action];
-export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work', 'deliver'] as const;
+export const ACTION_NAMES = ['stay', 'goHome', 'goOut', 'seekShelter', 'sleep', 'provision', 'work', 'deliver', 'seekJob'] as const;
 export const ACTION_COUNT = ACTION_NAMES.length;
 
 export const Occupation = {
@@ -63,8 +65,10 @@ export const Memory = {
   Moved: 10,
   /** No pudo pagar una compra (ADR-0022). */
   Broke: 11,
+  /** Encontró trabajo buscándolo (ADR-0041). */
+  NewJob: 12,
 } as const;
-export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome', 'grief', 'newChild', 'partner', 'moved', 'broke'] as const;
+export const MEMORY_NAMES = ['none', 'foodEmpty', 'waterEmpty', 'woodEmpty', 'fire', 'newFriend', 'lostHome', 'grief', 'newChild', 'partner', 'moved', 'broke', 'newJob'] as const;
 
 export const RelationKind = { None: 0, Family: 1, Acquaintance: 2, Friend: 3, Partner: 4 } as const;
 export const RELATION_NAMES = ['none', 'family', 'acquaintance', 'friend', 'partner'] as const;
@@ -146,6 +150,8 @@ export class AgentStore {
   readonly awayByCar: Uint8Array;
   /** Visitantes alojados en el hostal: noches que les quedan (0 = de paso en el día) (ADR-0033). */
   readonly stayNights: Uint8Array;
+  /** Último día (+1, módulo 65536) en que buscó trabajo: una vez al día (ADR-0041). */
+  readonly searchedDay: Uint16Array;
   /** Dinero propio (ADR-0022). Float64: se acumula durante años sin perder céntimos. */
   readonly money: Float64Array;
   /** Puntuaciones de la última decisión (stride `ACTION_COUNT`). */
@@ -214,6 +220,7 @@ export class AgentStore {
     this.awayUntil = new Uint16Array(c);
     this.awayByCar = new Uint8Array(c);
     this.stayNights = new Uint8Array(c);
+    this.searchedDay = new Uint16Array(c);
     this.scores = new Float32Array(c * ACTION_COUNT);
     this.memTick = new Uint32Array(c * MEMORY_SLOTS);
     this.memKind = new Uint8Array(c * MEMORY_SLOTS);
@@ -232,7 +239,7 @@ export class AgentStore {
       ['hunger', this.hunger, 1], ['thirst', this.thirst, 1], ['work', this.work, 1], ['health', this.health, 1],
       ['location', this.location, 1], ['target', this.target, 1], ['action', this.action, 1],
       ['pathPos', this.pathPos, 1], ['seeking', this.seeking, 1], ['carryKind', this.carryKind, 1],
-      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['renting', this.renting, 1], ['driving', this.driving, 1], ['arrears', this.arrears, 1], ['landlord', this.landlord, 1], ['mortgage', this.mortgage, 1], ['spare', this.spare, 1], ['transit', this.transit, 1], ['transitSince', this.transitSince, 1], ['awayReason', this.awayReason, 1], ['awayUntil', this.awayUntil, 1], ['awayByCar', this.awayByCar, 1], ['stayNights', this.stayNights, 1], ['scores', this.scores, ACTION_COUNT],
+      ['carryAmount', this.carryAmount, 1], ['busyLeft', this.busyLeft, 1], ['bedtime', this.bedtime, 1], ['birthDay', this.birthDay, 1], ['pregnantDays', this.pregnantDays, 1], ['household', this.household, 1], ['money', this.money, 1], ['workedToday', this.workedToday, 1], ['renting', this.renting, 1], ['driving', this.driving, 1], ['arrears', this.arrears, 1], ['landlord', this.landlord, 1], ['mortgage', this.mortgage, 1], ['spare', this.spare, 1], ['transit', this.transit, 1], ['transitSince', this.transitSince, 1], ['awayReason', this.awayReason, 1], ['awayUntil', this.awayUntil, 1], ['awayByCar', this.awayByCar, 1], ['stayNights', this.stayNights, 1], ['searchedDay', this.searchedDay, 1], ['scores', this.scores, ACTION_COUNT],
       ['memTick', this.memTick, MEMORY_SLOTS], ['memKind', this.memKind, MEMORY_SLOTS],
       ['memBuilding', this.memBuilding, MEMORY_SLOTS], ['memHead', this.memHead, 1],
       ['relId', this.relId, RELATION_SLOTS], ['relAffinity', this.relAffinity, RELATION_SLOTS],

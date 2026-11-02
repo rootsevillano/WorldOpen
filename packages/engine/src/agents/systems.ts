@@ -22,7 +22,8 @@ import {
 } from './economy';
 import { inShift, inSchool, inSleepWindow, minuteOfDay, minutesToBed, nightFactor, thermalDiscomfort } from './environment';
 import { LEISURE_SCALE_M, pickNearby } from './nearby';
-import { canAfford, payHarvest, spendLeisure } from './money';
+import { canAfford, hireAt, openings, payHarvest, spendLeisure } from './money';
+import { ticksPerDay } from '../time/clock';
 import { dogsToWalk } from './animals';
 import { allFestivalVenues, festivalDay, festivalVenues, festivities, verbena } from './festival';
 import { remember } from './social';
@@ -160,6 +161,9 @@ export function decisionSystem(world: World): void {
   const school = inSchool(world);
   const minute = minuteOfDay(world);
   const map = world.map;
+  // Buscar trabajo (ADR-0041): en horario laboral, si hay algún puesto libre en el mundo.
+  const jobsOpen = shift && openings(world).open.length > 0;
+  const today = searchDay(world);
 
   // Cuánta gente de cada edificio está ya abasteciéndose de cada recurso.
   // Recaderos en curso por edificio y recurso (índice edificio × 4 + recurso).
@@ -237,6 +241,10 @@ export function decisionSystem(world: World): void {
       }
       // Logística (ADR-0018): un agricultor en su huerta lleva la cosecha acumulada a la tienda más cercana.
       // Solo si alguna tienda tiene hueco (ADR-0021).
+      // En paro: una vez al día, ir a pedir trabajo a un negocio con un puesto libre (ADR-0041).
+      if (jobsOpen && occupation === Occupation.Unemployed && age >= 18 && age < 67 && a.searchedDay[i] !== today) {
+        consider(Action.SeekJob, 0.7 + (current === Action.SeekJob ? 0.2 : 0));
+      }
       if (occupation === Occupation.Farmer && loc >= 0 && loc === a.workplace[i] && world.buildings.food[loc]! >= DELIVERY_MIN && sourceOpen(world, Resource.Food) && nearestShop(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!) >= 0) {
         consider(Action.Deliver, 0.95);
       }
@@ -310,6 +318,10 @@ export function startAction(world: World, i: number, action: Action, home: numbe
       a.carryKind[i] = Resource.Food;
       a.carryAmount[i] = amount;
     }
+  } else if (action === Action.SeekJob) {
+    a.searchedDay[i] = searchDay(world);
+    target = pickJob(world, i);
+    if (target < 0) a.action[i] = Action.Stay;
   } else if (action === Action.SeekShelter) {
     target = nearestShelter(world, i, home);
     world.emit('agent.seekingShelter', { agentId: a.ids[i], name: a.names[i], building: map.buildings[target]!.id });
@@ -340,6 +352,42 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   a.location[i] = -1;
   a.flags[i] = a.driving[i] ? AgentFlag.Driving : 0;
   a.activities[i] = action === Action.SeekShelter ? AgentActivity.Fleeing : AgentActivity.Moving;
+}
+
+/** Día de hoy para `searchedDay` (+1: el 0 es «nunca»). */
+function searchDay(world: World): number {
+  return (Math.floor(world.tick / ticksPerDay(world.time)) + 1) & 0xffff;
+}
+
+/**
+ * Negocio con un puesto libre al que ir a pedir trabajo: el más cercano de su pueblo y, si en su pueblo no hay
+ * ninguno, el más cercano de otro (ADR-0041). −1 si no hay.
+ */
+function pickJob(world: World, i: number): number {
+  const a = world.agents;
+  const map = world.map;
+  const town = map.townOfBuilding[a.home[i]!];
+  const x = a.positions[i * 3]!;
+  const z = a.positions[i * 3 + 2]!;
+  let own = -1;
+  let ownD = Infinity;
+  let other = -1;
+  let otherD = Infinity;
+  for (const b of openings(world).open) {
+    if (!usable(world, b)) continue;
+    const c = map.buildings[b]!.centroid;
+    const d = (c.x - x) * (c.x - x) + (c.z - z) * (c.z - z);
+    if (map.townOfBuilding[b] === town) {
+      if (d < ownD) {
+        ownD = d;
+        own = b;
+      }
+    } else if (d < otherD) {
+      otherD = d;
+      other = b;
+    }
+  }
+  return own >= 0 ? own : other;
 }
 
 /** Casa (o refugio) o local más cercano en línea recta (desempate por índice). */
@@ -392,6 +440,7 @@ function arrive(world: World, i: number, target: number): void {
     return;
   }
   if (action === Action.GoOut) spendLeisure(world, i, target);
+  if (action === Action.SeekJob && hireAt(world, i, target)) remember(world, i, Memory.NewJob, target);
   if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
     a.busyLeft[i] = SERVICE_MINUTES;
   } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter) {

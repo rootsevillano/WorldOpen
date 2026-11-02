@@ -1,0 +1,47 @@
+{
+  "name": "job-search",
+  "description": "ADR-0041: en un mundo de tres pueblos, quien está en paro va a pedir trabajo a los negocios con puestos libres, primero en su pueblo y, si no hay, en otro; le contratan al llegar. Un martes de madrugada llegan 200 vecinos (parte en paro), para que haya quien busque entre semana también en el mapa real, donde el lunes se contrata a todo el paro.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 14,
+  "towns": 3,
+  "townSide": "around",
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10
+    },
+    "criteria": {
+      "society.initialPopulation": 800
+    }
+  },
+  "commands": [
+    { "type": "agent.spawn", "version": 1, "atHour": 164, "payload": { "count": 200 } }
+  ],
+  "assertions": [
+    {
+      "kind": "deterministic"
+    },
+    {
+      "kind": "metric",
+      "metric": "events.job.hired:search=ownTown",
+      "op": ">=",
+      "value": 1,
+      "minPassRatio": 0.5
+    },
+    {
+      "kind": "metric",
+      "metric": "events.job.hired:search=otherTown",
+      "op": ">=",
+      "value": 1,
+      "minPassRatio": 0.5
+    },
+    {
+      "kind": "metric",
+      "metric": "economy.unemploymentRate",
+      "op": "<",
+      "value": 0.15
+    }
+  ]
+}

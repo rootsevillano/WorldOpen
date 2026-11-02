@@ -482,3 +482,46 @@ export function moneySystem(world: World): void {
   dailyMoney(world);
   if (dayOfWeek(world) === 0) weeklyJobs(world);
 }
+
+/** Plantilla de cada negocio y negocios con un puesto libre (caja para contratar y plaza), por tick (ADR-0041). */
+interface Openings {
+  world: World | null;
+  tick: number;
+  staff: Int32Array;
+  open: number[];
+}
+let openingsCache: Openings = { world: null, tick: -1, staff: new Int32Array(0), open: [] };
+
+function hasOpening(world: World, b: number, staff: number): boolean {
+  return staff < positionsOf(world, b) && world.buildings.cash[b]! >= HIRE_WEEKS * (staff + 1) * weeklyWage(world, b);
+}
+
+export function openings(world: World): Openings {
+  if (openingsCache.world === world && openingsCache.tick === world.tick) return openingsCache;
+  const a = world.agents;
+  const map = world.map;
+  const staff = new Int32Array(map.buildings.length);
+  for (let i = 0; i < a.count; i++) {
+    const w = a.workplace[i]!;
+    if (w >= 0 && a.occupation[i] !== Occupation.Student && isBusiness(world, w)) staff[w]!++;
+  }
+  const open = [...map.byUse.retail, ...map.byUse.agriculture, ...map.byUse.industrial].sort((x, y) => x - y).filter((b) => hasOpening(world, b, staff[b]!));
+  openingsCache = { world, tick: world.tick, staff, open };
+  return openingsCache;
+}
+
+/** Quien llega pidiendo trabajo a un negocio con un puesto libre empieza en él (ADR-0041). Devuelve si le contratan. */
+export function hireAt(world: World, i: number, b: number): boolean {
+  const o = openings(world);
+  const k = o.open.indexOf(b);
+  if (k < 0 || !hasOpening(world, b, o.staff[b]!)) return false;
+  const a = world.agents;
+  a.occupation[i] = occupationFor(world, b);
+  a.workplace[i] = b;
+  o.staff[b]!++;
+  if (!hasOpening(world, b, o.staff[b]!)) o.open.splice(k, 1);
+  const map = world.map;
+  const otherTown = map.townOfBuilding[b] !== map.townOfBuilding[a.home[i]!];
+  world.emit('job.hired', { agentId: a.ids[i], name: a.names[i], building: map.buildings[b]!.id, search: otherTown ? 'otherTown' : 'ownTown' });
+  return true;
+}

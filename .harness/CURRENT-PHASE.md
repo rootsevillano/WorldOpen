@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Precios por pueblo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Buscar trabajo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Precios por pueblo — entregado (ADR-0040)
+## Buscar trabajo — entregado (ADR-0041)
+- Acción `SeekJob`: en paro, en horario laboral y una vez al día, se va a pedir trabajo al negocio con puesto libre
+  más cercano de su pueblo o, si no hay, de otro; si la plaza sigue libre, le contratan al llegar. Motor 0.29.0.
+  20/20 en ambos mapas; 176 tests.
+
+## Precios por pueblo (anterior) — completado (ADR-0040)
 - Índice de alquiler por pueblo: ocupación × recargo por tamaño (0,6×–1×). Alquiler, cuota, compra, inversores,
   emancipación y mudanzas usan el precio del pueblo. Protocolo v14; motor 0.28.0. 19/19 en ambos mapas; 175 tests.
 
