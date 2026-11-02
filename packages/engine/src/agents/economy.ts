@@ -3,6 +3,7 @@ import { ticksPerDay } from '../time/clock';
 import { Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import { harvestFactor, minuteOfDay, shopsOpen, temperature } from './environment';
+import { picnicSites } from './festival';
 import { WHOLESALE_PRICE, buy, cannotPay, clockWork, exportSurplus, priceAt, updatePrices } from './money';
 import { recalls, remember } from './social';
 
@@ -200,6 +201,7 @@ export function economySystem(world: World): void {
 
   // Comer y beber en casa (automático si hay existencias y el agente está despierto).
   const a = world.agents;
+  const picnic = picnicSites(world);
   for (let i = 0; i < a.count; i++) {
     const loc = a.location[i]!;
     // Los visitantes no comen de despensas del pueblo (su "casa" es la parada) (ADR-0032).
@@ -213,6 +215,20 @@ export function economySystem(world: World): void {
     if (loc >= 0 && loc === a.workplace[i] && map.buildings[loc]!.use === 'agriculture' && a.hunger[i]! < EAT_BELOW && bs.food[loc]! >= 1) {
       bs.food[loc]! -= 1;
       a.hunger[i] = Math.min(1, a.hunger[i]! + MEAL);
+    }
+    // Romería (ADR-0050): en la ermita se merienda lo que se ha traído de casa (sale de su despensa).
+    if (picnic.has(loc)) {
+      const home = a.home[i]!;
+      if (home < 0) continue;
+      if (a.thirst[i]! < DRINK_BELOW && bs.water[home]! >= 1) {
+        bs.water[home]! -= 1;
+        a.thirst[i] = Math.min(1, a.thirst[i]! + DRINK);
+      }
+      if (a.hunger[i]! < EAT_BELOW && bs.food[home]! >= 1) {
+        bs.food[home]! -= 1;
+        a.hunger[i] = Math.min(1, a.hunger[i]! + MEAL);
+      }
+      continue;
     }
     if (loc !== a.home[i] || a.action[i] === Action.Sleep || !usable(world, loc)) continue;
     if (a.thirst[i]! < DRINK_BELOW && bs.water[loc]! >= 1) {

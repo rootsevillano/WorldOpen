@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../src';
-import { activeFiesta, festivalDay, festivalHoliday, festivalVenues, fireworkSites, romeriaSite, verbena } from '../../src/agents/festival';
+import { activeFiesta, festivalDay, festivalHoliday, festivalVenues, fireworkSites, romeriaParticipant, romeriaSite, verbena } from '../../src/agents/festival';
 import { Action } from '../../src';
 import { AgentFlag } from '@worldopen/contracts';
 import { inSchool, inShift } from '../../src/agents/environment';
@@ -139,6 +139,28 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
     const after = at(2, 16, 12, {}, 100);
     expect(Array.from(after.frame().agentFlags).some((x) => x & AgentFlag.Costumed)).toBe(false);
     expect(metric(after, 'festival.costumed')).toBe(0);
+  });
+
+  it('romería (ADR-0050): a las 9:00 sale en procesión de la plaza a la ermita y los romeros se quedan allí', () => {
+    const sim = at(5, 27, 8, {}, 400, 5);
+    const a = sim.world.agents;
+    const all = () => Array.from({ length: a.count }, (_, k) => k);
+    const hermitage = sim.world.map.towns[0]!.hermitage;
+    sim.step(12 + 2); // 09:10
+    const marching = all().filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
+    expect(marching.length).toBeGreaterThan(30);
+    expect(sim.frame().pasoCount).toBe(1);
+    // Van quienes van a la romería.
+    expect(marching.every((k) => romeriaParticipant(sim.world, k))).toBe(true);
+    // Hacia la ermita: la cabeza se ha alejado de la plaza.
+    sim.step(12 * 2); // 11:10
+    expect(all().filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null)).toHaveLength(0);
+    expect(sim.frame().pasoCount).toBe(0);
+    const there = all().filter((k) => a.location[k] === hermitage);
+    expect(there.length).toBeGreaterThan(marching.length * 0.9);
+    // Y siguen allí a mediodía.
+    sim.step(12 * 2); // 13:10
+    expect(all().filter((k) => a.location[k] === hermitage).length).toBeGreaterThan(marching.length * 0.8);
   });
 });
 

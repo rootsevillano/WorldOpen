@@ -54,3 +54,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0047](0047-fiesta-dates-per-town.md) | Fechas de fiestas de cada pueblo en el Modo Dios | Aceptada |
 | [0048](0048-carnival.md) | Carnaval | Aceptada |
 | [0049](0049-hermitage.md) | Ermita en el campo para la romería | Aceptada |
+| [0050](0050-pilgrimage.md) | Procesión de la romería a la ermita | Aceptada |

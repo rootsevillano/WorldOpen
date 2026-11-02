@@ -1,8 +1,12 @@
 # CURRENT PHASE
 
-**Fase actual:** Ermita en el campo · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Procesión a la ermita · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Ermita en el campo — entregado (ADR-0049)
+## Procesión a la ermita — entregado (ADR-0050)
+- El día de la romería, a las 9:00 sale de la plaza una procesión hasta la ermita por el camino, con quienes van a la
+  romería. Allí se quedan y meriendan lo que llevan de casa. Motor 0.38.0. 26/26 en ambos mapas; 188 tests.
+
+## Ermita en el campo (anterior) — completado (ADR-0049)
 - Cada pueblo tiene una ermita 400 m más allá del casco, lejos de los demás pueblos, con un camino de tierra. La
   romería se hace allí y los romeros se ven en la pradera de alrededor. Motor 0.37.0. 26/26 en ambos mapas; 187 tests.
 

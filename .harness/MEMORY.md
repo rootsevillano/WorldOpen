@@ -179,3 +179,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) Algunos escenarios pasan por poco (p. ej., `traffic` en el mapa real: atasco en 1 de 2 semillas). Si
   falla tras un cambio que solo mueve la aleatoriedad, conviene medirlo con 6 semillas en un directorio temporal
   (`gate behavior <dir>`) antes de culpar al cambio, y después hacerlo robusto.
+- (2026-11-02) Para que los agentes pasen el día fuera de casa, hay que cubrir también el hambre y la sed (la
+  merienda de la romería). Si no, `GoHome` gana por la despensa y se van y vuelven. Conviene depurar con una
+  traza por tick de acciones y lugares de un grupo fijo de agentes.
