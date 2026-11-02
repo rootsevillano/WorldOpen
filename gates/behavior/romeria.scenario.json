@@ -1,0 +1,25 @@
+{
+  "name": "romeria",
+  "description": "ADR-0046: el día de la romería del pueblo (27 de mayo, según su región) es festivo y parte de los vecinos pasa el día en el merendero más alejado de la plaza; al anochecer vuelven.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 1,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": { "year": 1, "month": 5, "day": 27, "hour": 6, "minute": 0 }
+    },
+    "criteria": {
+      "society.initialPopulation": 400
+    }
+  },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "festival.kind", "op": "==", "value": "romeria", "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.holiday", "op": "==", "value": 1, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.romeria", "op": ">=", "value": 30, "at": { "day": 0, "hour": 13, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.romeria", "op": "<", "value": 30, "at": { "day": 0, "hour": 23, "minute": 0 } }
+  ]
+}

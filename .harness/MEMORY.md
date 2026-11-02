@@ -167,3 +167,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   la pestaña oculta los temporizadores van lentos: para llegar a una hora exacta, `__worldopen.engine.step(n)`.
 - (2026-11-02) Con la pestaña del navegador oculta, `requestAnimationFrame` se para: los contadores del render
   (`visibleStops`…) se quedan en el frame viejo. Hacer una captura activa la pestaña antes de leerlos.
+- (2026-11-02) Para que los agentes pasen horas en un sitio (romería), no basta con atraerlos: al llegar vuelven a
+  decidir y se van. Hay que dar peso a quedarse (`consider(Stay, …)` estando allí). Los menores de 14 no salen solos:
+  si deben ir con la familia, la consideración va fuera del bloque `!minor`.

@@ -50,3 +50,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0043](0043-job-switch.md) | Cambiar a un trabajo mejor por iniciativa propia | Aceptada |
 | [0044](0044-procession-fireworks.md) | Procesión y fuegos artificiales | Aceptada |
 | [0045](0045-stops-and-traffic.md) | Paradas, horarios según la demanda y atascos | Aceptada |
+| [0046](0046-festival-calendar.md) | Varias fiestas al año, con un calendario por pueblo | Aceptada |

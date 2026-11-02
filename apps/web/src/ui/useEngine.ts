@@ -318,6 +318,9 @@ export function useEngine(canvas: React.RefObject<HTMLCanvasElement | null>, ses
   };
 }
 
+/** Fiestas en el registro (ADR-0046). */
+const FIESTA: Record<string, string> = { patronal: '🎉 Fiestas', romeria: '🌿 Romería', navidad: '🎄 Navidad' };
+
 function newManifest(o: NewWorldOptions, pack?: MapPackManifest, packDwellings = 0): WorldManifest {
   const regions: RegionRef[] | undefined = pack
     ? [{ id: 'r1', displayName: pack.displayName, mapPack: { id: pack.id, version: pack.version }, offset: { x: 0, z: 0 } }]
@@ -382,9 +385,9 @@ function describeEvent(e: SimEvent): string {
     case 'home.let': return 'Un hogar del pueblo alquila una vivienda que tenía vacía';
     case 'bus.arrived': return `🚌 Llega el autobús de los pueblos vecinos${Number(d.visitors) > 0 ? `: ${String(d.visitors)} visitante(s)` : ''}`;
     case 'job.outside': return `💼 ${String(d.name)} encuentra trabajo en otro pueblo`;
-    case 'festival.started': return '🎉 Empiezan las fiestas del pueblo';
-    case 'festival.day': return d.holiday ? '🎆 Día grande de las fiestas: festivo' : `🎉 Fiestas: día ${String(d.day)}`;
-    case 'festival.ended': return 'Terminan las fiestas del pueblo';
+    case 'festival.started': return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: empiezan${d.holiday ? ' (festivo)' : ''}`;
+    case 'festival.day': return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: día ${String(d.day)}${d.holiday ? ', festivo' : ''}`;
+    case 'festival.ended': return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: terminan`;
     case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;
     case 'couple.formed': return `💞 ${String(d.name)} y ${String(d.partner)} empiezan una relación`;

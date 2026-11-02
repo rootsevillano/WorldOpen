@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Paradas y atascos · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Varias fiestas al año · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
 
-## Paradas y atascos — entregado (ADR-0045)
+## Varias fiestas al año — entregado (ADR-0046)
+- Calendario por pueblo: patronales (las del primero en el Modo Dios, las de los vecinos según su región), romería
+  (día festivo en el merendero) y Navidad (festivos, Nochevieja con verbena y fuegos, cabalgata de Reyes). Festivos,
+  verbena, procesión, fuegos y visitantes por pueblo. Protocolo v18; motor 0.34.0. 24/24 en ambos mapas; 184 tests.
+
+## Paradas y atascos (anterior) — completado (ADR-0045)
 - Horario del autobús por pueblo según la demanda (refuerzos en hora punta, menos en pueblos pequeños), 50 plazas
   por autobús, atascos en la carretera comarcal (curva BPR, luces de freno) y marquesinas en las paradas. Protocolo
   v17; motor 0.33.0. 22/22 en ambos mapas; 182 tests.

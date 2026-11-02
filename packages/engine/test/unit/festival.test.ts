@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../src';
-import { festivalDay, festivalHoliday, festivalVenues, verbena } from '../../src/agents/festival';
+import { activeFiesta, festivalDay, festivalHoliday, festivalVenues, fireworkSites, romeriaSite, verbena } from '../../src/agents/festival';
+import { Action } from '../../src';
 import { inSchool, inShift } from '../../src/agents/environment';
 import { metric } from '../../src/metrics';
 import { manifest, setCriterion } from '../helpers';
@@ -49,14 +50,17 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
   });
 
   it('el Modo Dios elige fecha, duración y día festivo; las fiestas pueden cruzar el cambio de año (ADR-0035)', () => {
-    const navidad = { 'society.festivalMonth': 12, 'society.festivalStartDay': 30, 'society.festivalLength': 3, 'society.festivalHoliday': 0 };
-    expect(festivalDay(at(12, 29, 12, navidad).world)).toBe(0);
-    expect(festivalDay(at(12, 30, 12, navidad).world)).toBe(1);
-    expect(festivalDay(at(1, 1, 12, navidad).world)).toBe(2);
-    expect(festivalDay(at(1, 2, 12, navidad).world)).toBe(3);
-    expect(festivalDay(at(1, 3, 12, navidad).world)).toBe(0);
-    // Sin día festivo: se trabaja todos los días de fiestas.
-    expect(festivalHoliday(at(1, 1, 10, navidad).world)).toBe(false);
+    // Fiestas patronales a fin de año: tienen prioridad sobre la Navidad, que sigue antes y después (ADR-0046).
+    const endOfYear = { 'society.festivalMonth': 12, 'society.festivalStartDay': 30, 'society.festivalLength': 3, 'society.festivalHoliday': 0 };
+    const kind = (month: number, day: number) => activeFiesta(at(month, day, 12, endOfYear).world)?.fiesta.kind;
+    expect(kind(12, 29)).toBe('navidad');
+    expect(festivalDay(at(12, 30, 12, endOfYear).world)).toBe(1);
+    expect(festivalDay(at(1, 1, 12, endOfYear).world)).toBe(2);
+    expect(festivalDay(at(1, 2, 12, endOfYear).world)).toBe(3);
+    expect(kind(1, 2)).toBe('patronal');
+    expect(kind(1, 3)).toBe('navidad');
+    // Sin día festivo en las patronales: ese 1 de enero se trabaja.
+    expect(festivalHoliday(at(1, 1, 10, endOfYear).world)).toBe(false);
     // Cambiar el criterio en marcha mueve las fiestas al momento.
     const sim = at(5, 10, 12);
     expect(festivalDay(sim.world)).toBe(0);
@@ -72,4 +76,40 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
     expect(sim.submit(setCriterion('society.festivalStartDay', 2.5))).toMatchObject({ ok: false, reason: 'invalid_payload' });
     expect(sim.submit(setCriterion('society.festivalMonth', 13))).toMatchObject({ ok: false, reason: 'invalid_payload' });
   });
+
+  it('Navidad (ADR-0046): festivos el 25, el 1 y el 6; verbena y fuegos en Nochevieja; cabalgata de Reyes el 5 a las 18:00', () => {
+    expect(activeFiesta(at(12, 24, 12).world)?.fiesta.kind).toBe('navidad');
+    expect(festivalHoliday(at(12, 25, 10).world)).toBe(true);
+    expect(inShift(at(12, 25, 10).world)).toBe(false);
+    expect(festivalHoliday(at(12, 26, 10).world)).toBe(false);
+    expect(festivalHoliday(at(1, 1, 10).world)).toBe(true);
+    expect(festivalHoliday(at(1, 6, 10).world)).toBe(true);
+    expect(activeFiesta(at(1, 7, 10).world)).toBeNull();
+    expect(verbena(at(12, 29, 22).world)).toBe(false);
+    expect(verbena(at(12, 30, 22).world)).toBe(true);
+    expect(fireworkSites(at(1, 1, 0, {}, 50, 10).world).length).toBe(3);
+    // Cabalgata: a las 18:10 del 5 de enero desfila parte del pueblo.
+    const sim = at(1, 5, 16, {}, 400, 5);
+    sim.step(26);
+    const a = sim.world.agents;
+    const marching = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
+    expect(marching.length).toBeGreaterThan(20);
+    expect(sim.frame().pasoCount).toBe(1);
+  });
+
+  it('romería (ADR-0046): el día es festivo y parte del pueblo pasa el día en el merendero', () => {
+    // La del primer pueblo (región r1) cae el 27 de mayo.
+    const sim = at(5, 27, 9, {}, 400, 10);
+    expect(activeFiesta(sim.world)?.fiesta.kind).toBe('romeria');
+    expect(festivalHoliday(sim.world)).toBe(true);
+    const site = romeriaSite(sim.world, 0);
+    expect(site).toBeGreaterThanOrEqual(0);
+    expect(site).not.toBe(festivalVenues(sim.world)[0]);
+    sim.step(6 * 4); // 13:00
+    const a = sim.world.agents;
+    const there = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.location[k] === site).length;
+    expect(there).toBeGreaterThan(30);
+    expect(Number(metric(sim, 'festival.romeria'))).toBe(there);
+  });
 });
+

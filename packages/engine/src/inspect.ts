@@ -14,7 +14,7 @@ import {
   Resource,
 } from './world/agents';
 import { householdHasCar } from './agents/vehicles';
-import { festivalDay, festivalLength, verbena } from './agents/festival';
+import { activeFiesta, festivalHoliday, verbena } from './agents/festival';
 import { AwayReason, Transit, hostal, hostalGuests, hostalRooms, nextArrival, nightPrice, residents, visitorsNow } from './agents/transit';
 import { minuteOfDay } from './agents/environment';
 import { housePrice } from './agents/housing';
@@ -263,8 +263,12 @@ export function economySummary(world: World): EconomySummary {
       rent: round(rentNow(world, index)),
       housePrice: round(housePrice(world, index)),
       wage: round(wages[k]!),
+      festival: activeFiesta(world, k)?.fiesta.kind ?? null,
     })),
-    festival: festivalDay(world) > 0 ? { day: festivalDay(world), days: festivalLength(world), verbena: verbena(world) } : null,
+    festival: (() => {
+      const f = activeFiesta(world);
+      return f ? { kind: f.fiesta.kind, day: f.day, days: f.fiesta.length, verbena: verbena(world), holiday: festivalHoliday(world) } : null;
+    })(),
     hostal: hostal(world) >= 0
       ? { guests: hostalGuests(world), rooms: hostalRooms(world), price: round(nightPrice(world)), building: world.map.buildings[hostal(world)]!.id }
       : null,

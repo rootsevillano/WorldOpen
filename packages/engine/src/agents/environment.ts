@@ -22,16 +22,16 @@ export function dayOfWeek(world: World): number {
   return Math.floor(totalMinutes(world) / MINUTES_PER_DAY) % 7;
 }
 
-/** Jornada laboral: días 0–4, de 08:00 a 15:00 (salvo el día festivo de las fiestas, ADR-0034). */
-export function inShift(world: World): boolean {
+/** Jornada laboral: días 0–4, de 08:00 a 15:00, salvo los festivos del pueblo (ADR-0034, ADR-0046). */
+export function inShift(world: World, town = 0): boolean {
   const m = minuteOfDay(world);
-  return dayOfWeek(world) < 5 && m >= 480 && m < 900 && !festivalHoliday(world);
+  return dayOfWeek(world) < 5 && m >= 480 && m < 900 && !festivalHoliday(world, town);
 }
 
-/** Horario escolar: días 0–4, de 09:00 a 14:00 (salvo el festivo de las fiestas). */
-export function inSchool(world: World): boolean {
+/** Horario escolar: días 0–4, de 09:00 a 14:00, salvo los festivos del pueblo. */
+export function inSchool(world: World, town = 0): boolean {
   const m = minuteOfDay(world);
-  return dayOfWeek(world) < 5 && m >= 540 && m < 840 && !festivalHoliday(world);
+  return dayOfWeek(world) < 5 && m >= 540 && m < 840 && !festivalHoliday(world, town);
 }
 
 /** Comercios abiertos de 08:00 a 21:00. */

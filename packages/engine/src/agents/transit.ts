@@ -7,7 +7,7 @@ import type { World } from '../world/world';
 import { dayOfWeek, minuteOfDay } from './environment';
 import { personName } from '../content/names';
 import { Rng } from '../math/rng';
-import { festivalDay, festivities } from './festival';
+import { festivalVisitors } from './festival';
 import { forgetAgent } from './lifecycle';
 import { removeAgent } from './population';
 import { fuelCost, householdHasCar, pathLength, shouldDrive } from './vehicles';
@@ -412,13 +412,12 @@ export function transitSystem(world: World): void {
   });
   {
     const weekend = dayOfWeek(world) >= 5 ? 2 : 1;
-    // En fiestas vienen muchos más de los pueblos vecinos (ADR-0034).
-    const fiesta = festivalDay(world) > 0 ? 1 + 2 * festivities(world) : 1;
-    // Cada pueblo recibe visitantes según sus vecinos (ADR-0036).
+    // Cada pueblo recibe visitantes según sus vecinos (ADR-0036) y sus fiestas (ADR-0034, ADR-0046).
     for (const road of world.busRoads) {
       if (!road) continue;
       const due = dues[road.town]!;
       if (due.length === 0) continue;
+      const fiesta = festivalVisitors(world, road.town);
       const expected = residents(world, road.town) * VISITORS_PER_PERSON * weekend * due.length * season(world) * world.num('society.tourism') * fiesta;
       let visitors = 0;
       for (let v = 0; v < Math.floor(expected + hash(day + road.town * 7919, m)); v++) {

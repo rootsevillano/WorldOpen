@@ -25,7 +25,7 @@ import { LEISURE_SCALE_M, pickNearby } from './nearby';
 import { SWITCH_PREMIUM, canAfford, dailyWageAt, hireAt, isBusiness, openings, payHarvest, spendLeisure } from './money';
 import { ticksPerDay } from '../time/clock';
 import { dogsToWalk } from './animals';
-import { allFestivalVenues, festivalDay, festivalVenues, festivities, processionGathering, processionParticipant, processionPlaza, processionTime, verbena } from './festival';
+import { festivalVenues, festivities, partyVenues, processionGathering, processionParticipant, processionPlaza, processionTime, romeriaParticipant, romeriaSite, romeriaTime, verbena, verbenaDay } from './festival';
 import { remember } from './social';
 import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
 import { DRIVE_SPEED, JAMMED_BELOW, carsInUse, fuelCost, linkTraffic, pathLength, shouldDrive } from './vehicles';
@@ -79,10 +79,11 @@ export function needsSystem(world: World): void {
   const night = nightFactor(world);
   const discomfort = thermalDiscomfort(world);
   const exposure = 1 + night + 1.5 * discomfort;
-  const shift = inShift(world);
-  const school = inSchool(world);
   const map = world.map;
-  const party = new Set(verbena(world) ? allFestivalVenues(world) : []);
+  // Jornada y colegio según los festivos de cada pueblo; fiesta en las verbenas y romerías en curso (ADR-0046).
+  const shiftT = map.towns.map((_, t) => inShift(world, t));
+  const schoolT = map.towns.map((_, t) => inSchool(world, t));
+  const party = partyVenues(world);
   for (let i = 0; i < a.count; i++) {
     // Los visitantes están de paso: su programa de visita no depende de necesidades (ADR-0032).
     if (a.occupation[i] === Occupation.Visitor) continue;
@@ -111,7 +112,7 @@ export function needsSystem(world: World): void {
       a.social[i] = clamp01(a.social[i]! - dt * SOCIAL_AT_HOME);
     }
 
-    if ((a.occupation[i] === Occupation.Student ? school : shift) && employed(world, i)) {
+    if ((a.occupation[i] === Occupation.Student ? schoolT : shiftT)[workTown(world, i)] && employed(world, i)) {
       a.work[i] = clamp01(a.work[i]! + dt * (loc === a.workplace[i] ? WORK_DONE : -WORK_MISSED));
     }
 
@@ -145,28 +146,37 @@ function provisionScore(world: World, i: number, r: number, night: number, outdo
   return s;
 }
 
+/** Pueblo cuyo calendario rige la jornada de `i`: el de su trabajo o colegio; si no tiene, el de su casa (ADR-0046). */
+function workTown(world: World, i: number): number {
+  const a = world.agents;
+  const b = a.workplace[i]! >= 0 ? a.workplace[i]! : a.home[i]!;
+  return b >= 0 ? world.map.townOfBuilding[b]! : 0;
+}
+
 export function decisionSystem(world: World): void {
   const a = world.agents;
   world.carsBusy = carsInUse(world);
   const walkDog = dogsToWalk(world);
-  // Fiestas (ADR-0034): la verbena atrae a todos (también de noche) y se trasnocha.
-  const party = verbena(world) ? 0.7 * festivities(world) : 0;
-  const fiesta = festivalDay(world) > 0;
+  const map = world.map;
+  // Fiestas de cada pueblo (ADR-0034, ADR-0046): la verbena atrae a todos (también de noche) y se trasnocha.
+  const partyT = map.towns.map((_, t) => (verbena(world, t) ? 0.7 * festivities(world) : 0));
+  const fiestaT = map.towns.map((_, t) => verbenaDay(world, t));
+  const romeriaT = map.towns.map((_, t) => romeriaTime(world, t));
   const rng = world.rng;
   const every = Math.max(1, Math.round(DECISION_MINUTES / world.time.minutesPerTick));
   const night = nightFactor(world);
   const discomfort = thermalDiscomfort(world);
   const outdoorAppeal = 1 - (discomfort > 1 ? 1 : discomfort);
-  const shift = inShift(world);
-  const school = inSchool(world);
+  const shiftT = map.towns.map((_, t) => inShift(world, t));
+  const schoolT = map.towns.map((_, t) => inSchool(world, t));
+  const shift = shiftT.some((s) => s);
   const minute = minuteOfDay(world);
-  const map = world.map;
   // Buscar trabajo (ADR-0041): en horario laboral, si hay algún puesto libre en el mundo.
   const jobsOpen = shift && openings(world).open.length > 0;
   const today = searchDay(world);
-  // Procesión del día grande (ADR-0044): quien va no decide hasta que vuelve; antes, se acerca a la plaza.
-  const procession = processionTime(world);
-  const gathering = procession && processionGathering(world);
+  // Procesión o cabalgata (ADR-0044, ADR-0046): quien va no decide hasta que vuelve; antes, se acerca a la plaza.
+  const processionT = map.towns.map((_, t) => processionTime(world, t));
+  const gatheringT = map.towns.map((_, t) => processionT[t]! && processionGathering(world, t));
   // Cambiar a un trabajo mejor (ADR-0043): los laborables al salir del trabajo (15:00–19:00), una vez por semana.
   const switchOpen = !shift && dayOfWeek(world) < 5 && minute >= SWITCH_WINDOW[0] && minute < SWITCH_WINDOW[1] && openings(world).open.length > 0;
 
@@ -182,7 +192,8 @@ export function decisionSystem(world: World): void {
     // Abasteciéndose (cola o servicio en curso) o comiendo: no se interrumpe.
     // Abasteciéndose, comiendo o en un viaje en autobús (ADR-0030): no se interrumpe.
     if (a.busyLeft[i]! > 0 || a.transit[i] || a.occupation[i] === Occupation.Visitor) continue;
-    if (procession && a.action[i] === Action.Procession) continue;
+    const town = a.home[i]! >= 0 ? map.townOfBuilding[a.home[i]!]! : 0;
+    if (processionT[town] && a.action[i] === Action.Procession) continue;
     const moving = a.paths[i] !== null;
     const due = (world.tick + a.ids[i]!) % every === 0;
     const stranded =
@@ -220,7 +231,9 @@ export function decisionSystem(world: World): void {
     const carrying = a.carryKind[i] !== Resource.None;
 
     const age = a.age[i]!;
-    const bedtime = fiesta && age >= 12 ? (a.bedtime[i]! + 150) % 1440 : a.bedtime[i]!;
+    const bedtime = fiestaT[town] && age >= 12 ? (a.bedtime[i]! + 150) % 1440 : a.bedtime[i]!;
+    const party = partyT[town]!;
+    const jobTown = workTown(world, i);
     const sleepTime = inSleepWindow(minute, bedtime, age);
     // Antes de acostarse se vuelve a casa (en la última hora, cada vez con más ganas).
     const toBed = minutesToBed(minute, bedtime);
@@ -242,7 +255,7 @@ export function decisionSystem(world: World): void {
     // Los menores de 14 ni salen solos ni hacen recados; los de 0–5 se quedan en casa.
     const minor = age < 14;
     if (!carrying && occupation !== Occupation.Child) {
-      if ((occupation === Occupation.Student ? school : shift) && employed(world, i)) {
+      if ((occupation === Occupation.Student ? schoolT : shiftT)[jobTown] && employed(world, i)) {
         consider(Action.Work, 0.55 + (1 - a.work[i]!) * 0.8 + (current === Action.Work ? 0.2 : 0));
       }
       // Logística (ADR-0018): un agricultor en su huerta lleva la cosecha acumulada a la tienda más cercana.
@@ -283,7 +296,12 @@ export function decisionSystem(world: World): void {
         if (best === Action.Provision) a.seeking[i] = bestR;
       }
     }
-    if (gathering && !carrying && !sleepTime && processionParticipant(world, i) && loc !== processionPlaza(world, i)) {
+    // Romería (ADR-0046): quien va (los niños, con su familia) pasa el día en el merendero.
+    if (romeriaT[town] && !carrying && !sleepTime && romeriaParticipant(world, i)) {
+      if (loc === romeriaSite(world, town)) consider(Action.Stay, 1.2);
+      else consider(Action.GoOut, 1.1);
+    }
+    if (gatheringT[town] && !carrying && !sleepTime && processionParticipant(world, i) && loc !== processionPlaza(world, i)) {
       consider(Action.Procession, 1.3);
     }
     if (loc < 0) {
@@ -313,7 +331,9 @@ export function startAction(world: World, i: number, action: Action, home: numbe
     // Un local cercano (y distinto del actual), con preferencia por la cercanía.
     // En su pueblo (ADR-0036): la verbena de su plaza o un local cercano.
     const town = map.townOfBuilding[a.home[i]!]!;
-    const venues = verbena(world) ? festivalVenues(world, town) : map.towns[town]!.venues;
+    // El día de la romería, quien va se queda en el merendero (ADR-0046).
+    const site = romeriaTime(world, town) && romeriaParticipant(world, i) ? romeriaSite(world, town) : -1;
+    const venues = site >= 0 ? [site] : verbena(world, town) ? festivalVenues(world, town) : map.towns[town]!.venues;
     target = pickNearby(world, a.positions[i * 3]!, a.positions[i * 3 + 2]!, venues, LEISURE_SCALE_M, (v) => usable(world, v) && v !== a.location[i]);
   } else if (action === Action.Provision) {
     target = chooseSource(world, i, a.seeking[i]!);

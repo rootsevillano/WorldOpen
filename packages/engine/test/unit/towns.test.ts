@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Action, Simulation, SYNTHETIC_REGION, countDwellings, createManifest, neighbourTowns, syntheticBounds, syntheticMap, type TownSide } from '../../src';
-import { festivalVenues } from '../../src/agents/festival';
+import { festivalVenues, fiestas } from '../../src/agents/festival';
 import { startAction } from '../../src/agents/systems';
 import { housePrice, housingDaily } from '../../src/agents/housing';
 import { dailyWageAt, hireAt, openings, positionsOf, rentIndex, rentNow, townRentIndices, townSizeShares, townWageIndices } from '../../src/agents/money';
@@ -260,8 +260,10 @@ describe('Varios pueblos (ADR-0036)', () => {
     const marching = () => Array.from({ length: a.count }, (_, k) => k).filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
     const now = marching();
     expect(now.length).toBeGreaterThan(20);
+    // Solo desfila el primer pueblo: el vecino tiene sus fiestas en otra fecha (ADR-0046).
     const f = sim.frame();
-    expect(f.pasoCount).toBe(2);
+    expect(f.pasoCount).toBe(1);
+    expect(fiestas(sim.world, 1)[0]!.first).not.toBe(fiestas(sim.world, 0)[0]!.first);
     // Desfilan por la calle (fuera de casa, sin trayecto propio), en filas cerca del paso de su pueblo.
     for (const i of now) expect(a.flags[i]).toBe(0);
     // Restaurar en mitad de la procesión da el mismo mundo.
@@ -271,9 +273,9 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(half.hash()).toBe(sim.hash());
     expect(marching()).toHaveLength(0);
     expect(sim.frame().pasoCount).toBe(0);
-    // Fuegos: la noche del 18 al 19, de 00:00 a 00:30, en las dos plazas.
+    // Fuegos: la noche del 18 al 19, de 00:00 a 00:30, en la plaza del primer pueblo.
     while (!(sim.frame().date.day === 19 && sim.frame().date.hour === 0 && sim.frame().date.minute === 10)) sim.step(1);
-    expect(sim.frame().fireworkCount).toBe(2);
+    expect(sim.frame().fireworkCount).toBe(1);
     sim.step(6);
     expect(sim.frame().fireworkCount).toBe(0);
   });

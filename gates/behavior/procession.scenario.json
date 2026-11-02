@@ -1,6 +1,6 @@
 {
   "name": "procession",
-  "description": "ADR-0044: el día grande de las fiestas (16 de agosto) los vecinos se reúnen en la plaza a las 11:00 y a las 12:00 desfilan detrás del paso, de dos en dos, por las calles y vuelven; la última noche (18 al 19) hay fuegos artificiales de 00:00 a 00:30.",
+  "description": "ADR-0044: el día grande de las fiestas (16 de agosto) los vecinos se reúnen en la plaza a las 11:00 y a las 12:00 desfilan detrás del paso, de dos en dos, por las calles y vuelven; la última noche (18 al 19) hay fuegos artificiales de 00:00 a 00:30. El pueblo vecino tiene sus fiestas en otra fecha (ADR-0046): solo hay fuegos en una plaza.",
   "seeds": [
     1,
     2
@@ -22,7 +22,7 @@
     { "kind": "metric", "metric": "festival.marching", "op": ">=", "value": 30, "at": { "day": 0, "hour": 12, "minute": 10 } },
     { "kind": "metric", "metric": "festival.pasos", "op": ">=", "value": 1, "at": { "day": 0, "hour": 12, "minute": 10 } },
     { "kind": "metric", "metric": "festival.marching", "op": "==", "value": 0, "at": { "day": 0, "hour": 14, "minute": 0 } },
-    { "kind": "metric", "metric": "festival.fireworks", "op": "==", "value": 2, "at": { "day": 3, "hour": 0, "minute": 15 } },
+    { "kind": "metric", "metric": "festival.fireworks", "op": "==", "value": 1, "at": { "day": 3, "hour": 0, "minute": 15 } },
     { "kind": "metric", "metric": "festival.fireworks", "op": "==", "value": 0, "at": { "day": 3, "hour": 1, "minute": 0 } }
   ]
 }

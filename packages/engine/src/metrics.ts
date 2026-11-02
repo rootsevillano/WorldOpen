@@ -1,6 +1,6 @@
 import { AgentFlag, type BuildingUse, type CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
-import { allFestivalVenues, festivalDay, fireworkSites, processionPasos, verbena } from './agents/festival';
+import { activeFiesta, allFestivalVenues, festivalDay, festivalHoliday, fireworkSites, processionPasos, romeriaSite, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
@@ -155,6 +155,16 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       return n;
     }
     case 'festival.pasos': return processionPasos(sim.world).headings.length;
+    // Calendario (ADR-0046): tipo de fiesta del primer pueblo ('none' si no hay), festivo y gente en los merenderos.
+    case 'festival.kind': return activeFiesta(sim.world)?.fiesta.kind ?? 'none';
+    case 'festival.holiday': return festivalHoliday(sim.world) ? 1 : 0;
+    case 'festival.towns': return sim.world.map.towns.filter((_, t) => activeFiesta(sim.world, t) !== null).length;
+    case 'festival.romeria': {
+      const sites = new Set(sim.world.map.towns.map((_, t) => romeriaSite(sim.world, t)));
+      let n = 0;
+      for (let i = 0; i < a.count; i++) if (resident(i) && sites.has(a.location[i]!)) n++;
+      return n;
+    }
     case 'festival.fireworks': return fireworkSites(sim.world).length / 3;
     case 'agents.atFestivalRatio': {
       const venues = new Set(allFestivalVenues(sim.world));

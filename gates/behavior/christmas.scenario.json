@@ -1,0 +1,28 @@
+{
+  "name": "christmas",
+  "description": "ADR-0046: Navidad en todos los pueblos: el 30 de diciembre (último día del año de 360) hay verbena de Nochevieja y a las 00:00 fuegos artificiales en cada plaza; el 1 de enero es festivo.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 2,
+  "towns": 2,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10,
+      "start": { "year": 1, "month": 12, "day": 30, "hour": 6, "minute": 0 }
+    },
+    "criteria": {
+      "society.initialPopulation": 400
+    }
+  },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "festival.kind", "op": "==", "value": "navidad", "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.verbena", "op": "==", "value": 1, "at": { "day": 0, "hour": 23, "minute": 0 } },
+    { "kind": "metric", "metric": "agents.atFestivalRatio", "op": ">", "value": 0.1, "at": { "day": 0, "hour": 23, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.fireworks", "op": "==", "value": 2, "at": { "day": 1, "hour": 0, "minute": 10 } },
+    { "kind": "metric", "metric": "festival.holiday", "op": "==", "value": 1, "at": { "day": 1, "hour": 11, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.towns", "op": "==", "value": 2, "at": { "day": 1, "hour": 11, "minute": 0 } }
+  ]
+}

@@ -4,6 +4,10 @@ import type { PopulationSummary } from './useEngine';
 const SEASONS: Record<Season, string> = { winter: 'Invierno', spring: 'Primavera', summer: 'Verano', autumn: 'Otoño' };
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** Nombre de cada tipo de fiesta (ADR-0046). */
+const FESTIVAL_LABEL = { patronal: '🎉 Fiestas del pueblo', romeria: '🌿 Romería', navidad: '🎄 Navidad' } as const;
+const FESTIVAL_ICON = { patronal: '🎉', romeria: '🌿', navidad: '🎄' } as const;
+
 export function Hud({ manifest, status, population, economy }: { manifest: WorldManifest | null; status: EngineStatus | null; population: PopulationSummary | null; economy: EconomySummary | null }) {
   const region = manifest?.regions[0]?.displayName ?? '…';
   const d = status?.date;
@@ -22,7 +26,7 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
           {population && (
             <div className="small" data-testid="population">
               {economy?.festival && (
-                <strong>🎉 Fiestas del pueblo · día {economy.festival.day}/{economy.festival.days}{economy.festival.verbena ? ' · ¡verbena!' : ''} · </strong>
+                <strong>{FESTIVAL_LABEL[economy.festival.kind]} · día {economy.festival.day}/{economy.festival.days}{economy.festival.holiday ? ' · festivo' : ''}{economy.festival.verbena ? ' · ¡verbena!' : ''} · </strong>
               )}
               {population.total - (economy?.bus?.visitorsNow ?? 0)} habitantes
               {(economy?.bus?.visitorsNow ?? 0) > 0 && ` · ${economy!.bus!.visitorsNow} de visita`} · {population.walking} en la calle · {population.working} trabajando · {population.sleeping} durmiendo
@@ -30,7 +34,7 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
             </div>
           )}
           {economy && economy.towns.length > 1 && (
-            <div className="small">{economy.towns.map((t) => `${t.name} ${t.population} (alquiler ${t.rent.toFixed(1)} · jornal ${t.wage.toFixed(0)})`).join(' · ')}</div>
+            <div className="small">{economy.towns.map((t) => `${t.name} ${t.population} (alquiler ${t.rent.toFixed(1)} · jornal ${t.wage.toFixed(0)}${t.festival ? ` · ${FESTIVAL_ICON[t.festival]}` : ''})`).join(' · ')}</div>
           )}
           {economy && (
             <div className="small muted" data-testid="economy">
