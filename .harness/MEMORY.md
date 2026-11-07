@@ -182,3 +182,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-02) Para que los agentes pasen el día fuera de casa, hay que cubrir también el hambre y la sed (la
   merienda de la romería). Si no, `GoHome` gana por la despensa y se van y vuelven. Conviene depurar con una
   traza por tick de acciones y lugares de un grupo fijo de agentes.
+- (2026-11-07) Las horas de los eventos deben caer en tick con todas las duraciones de tick que se usan (5, 10,
+  15, 30 min). Además, en un tick se decide antes de que corra `processionSystem`, así que la ventana que retiene a
+  la gente (p. ej. `romeriaTime`) debe cubrir también el tick en que la procesión la recoge.

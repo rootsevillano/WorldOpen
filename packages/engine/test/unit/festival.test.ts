@@ -162,5 +162,28 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
     sim.step(12 * 2); // 13:10
     expect(all().filter((k) => a.location[k] === hermitage).length).toBeGreaterThan(marching.length * 0.8);
   });
+
+  it('vuelta de la romería (ADR-0051): a las 17:30 vuelven en procesión de la ermita a la plaza y quedan libres', () => {
+    const sim = at(5, 27, 8, {}, 400, 5);
+    const a = sim.world.agents;
+    const all = () => Array.from({ length: a.count }, (_, k) => k);
+    const hermitage = sim.world.map.towns[0]!.hermitage;
+    const plaza = festivalVenues(sim.world)[0]!;
+    sim.step(12 * 9 + 6); // 17:30
+    const pilgrims = all().filter((k) => a.location[k] === hermitage);
+    expect(pilgrims.length).toBeGreaterThan(100);
+    sim.step(4); // 17:50
+    const marching = all().filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
+    expect(marching.length).toBeGreaterThan(pilgrims.length * 0.9);
+    expect(sim.frame().pasoCount).toBe(1);
+    expect(all().filter((k) => a.location[k] === hermitage).length).toBeLessThan(5);
+    // Al llegar a la plaza quedan libres: nadie sigue en la procesión y ya no queda nadie en la ermita.
+    sim.step(12 * 2); // 19:50
+    expect(all().filter((k) => a.action[k] === Action.Procession)).toHaveLength(0);
+    expect(sim.frame().pasoCount).toBe(0);
+    expect(all().filter((k) => a.location[k] === hermitage).length).toBeLessThan(5);
+    // Pasaron por la plaza: los que no han vuelto a casa siguen allí o por el pueblo.
+    expect(marching.some((k) => a.location[k] === plaza || a.paths[k] !== null || a.location[k] === a.home[k])).toBe(true);
+  });
 });
 

@@ -33,8 +33,8 @@ export interface Fiesta {
   holidays: number[];
   /** Días con verbena por la noche. */
   verbenaDays: number[];
-  /** Procesión o cabalgata: día y hora de salida (minuto del día), o null. */
-  procession: { day: number; from: number } | null;
+  /** Procesión o cabalgata: día y hora de salida (minuto del día) y, en la romería, de la vuelta; o null. */
+  procession: { day: number; from: number; back?: number } | null;
   /** Día cuya noche (00:00–00:30 del siguiente) tiene fuegos artificiales; 0 = ninguno. */
   fireworks: number;
   /** Día de la salida al campo de la romería; 0 = ninguno. */
@@ -78,8 +78,9 @@ const CARNIVAL_DAY = 12;
 const ROMERIA_FROM = 10 * 60;
 const ROMERIA_TO = 18 * 60;
 const ROMERIA_SHARE = 0.4;
-/** Salida de la procesión de la romería hacia la ermita (ADR-0050). */
+/** Salida de la procesión de la romería hacia la ermita (ADR-0050) y de la vuelta a la plaza (ADR-0051). */
 const PILGRIMAGE_FROM = 9 * 60;
+const PILGRIMAGE_BACK = ROMERIA_TO - 30;
 
 /** Hash de una cadena (FNV-1a) y valor en [0, 1) para la clave `k`. */
 function unit(text: string, k: number): number {
@@ -178,7 +179,7 @@ export function fiestas(world: World, town = 0): Fiesta[] {
     holidays: [1],
     verbenaDays: [],
     // Procesión de la plaza a la ermita (ADR-0050), si el pueblo la tiene.
-    procession: (world.map.towns[town]?.hermitage ?? -1) >= 0 ? { day: 1, from: PILGRIMAGE_FROM } : null,
+    procession: (world.map.towns[town]?.hermitage ?? -1) >= 0 ? { day: 1, from: PILGRIMAGE_FROM, back: PILGRIMAGE_BACK } : null,
     fireworks: 0,
     outing: 1,
     visitors: 1,
@@ -319,12 +320,16 @@ export function romeriaSite(world: World, town: number): number {
   return list[town] ?? -1;
 }
 
-/** ¿Hora de la romería en un pueblo (su día, de 10:00 a 18:00)? */
+/** ¿Hora de la romería en un pueblo (su día, de 10:00 a 18:00, o hasta la vuelta en procesión)? */
 export function romeriaTime(world: World, town = 0): boolean {
   const a = activeFiesta(world, town);
   if (!a || a.fiesta.outing !== a.day) return false;
   const m = minuteOfDay(world);
-  return m >= ROMERIA_FROM && m < ROMERIA_TO;
+  // Con vuelta en procesión (ADR-0051), el día de campo acaba cuando sale (incluido su tick, porque se decide antes de
+  // que la procesión recoja a la gente): después nadie va ya a la ermita.
+  const back = a.fiesta.procession?.back;
+  const to = back === undefined ? ROMERIA_TO : back + world.time.minutesPerTick;
+  return m >= ROMERIA_FROM && m < to;
 }
 
 /** ¿Va `i` a la romería? Una parte de los vecinos de 6 años o más. */
@@ -340,8 +345,9 @@ export function romeriaParticipant(world: World, i: number): boolean {
  * va a su plaza; a la hora de salida sale detrás del paso (o la carroza), de dos en dos y despacio, hasta un punto de
  * la calle a unos 250 m y vuelve. Quien desfila es un vecino real: el sistema lo coloca en la fila (sin trayecto propio)
  * hasta que vuelve a la plaza. Todo se deriva de la fecha, del mapa y de quién está en la plaza: no hay estado nuevo.
- * La de la romería (ADR-0050) va de la plaza a la ermita por el camino, sin vuelta, con quienes van a la romería: al
- * llegar se quedan en la ermita y no deciden hasta que acaba la procesión.
+ * La de la romería (ADR-0050) va de la plaza a la ermita por el camino con quienes van a la romería: al llegar se
+ * quedan en la ermita y no deciden hasta que acaba la procesión. A las 17:30 vuelve (ADR-0051) con todos los vecinos
+ * que estén en la ermita, sin reunión previa, y cada uno queda libre al llegar a la plaza.
  */
 const GATHER_BEFORE = 60;
 const PROCESSION_LASTS = 90;
@@ -357,8 +363,9 @@ const PROCESSION_SHARE = 0.2;
 const FIREWORKS_TO = 30;
 
 interface Route {
+  /** Donde sale: la plaza o, a la vuelta de la romería, la ermita. */
   plaza: number;
-  /** Donde se quedan al acabar: la plaza o, en la romería, la ermita. */
+  /** Donde se quedan al acabar: la plaza o, a la ida de la romería, la ermita. */
   end: number;
   x: Float64Array;
   z: Float64Array;
@@ -395,10 +402,13 @@ function buildRoute(world: World, town: number): Route | null {
   return null;
 }
 
-const pilgrimages = new WeakMap<World, (Route | null)[]>();
+const pilgrimages = new WeakMap<World, ({ out: Route; back: Route } | null)[]>();
 
-/** Ruta de la romería de un pueblo: de la plaza a su ermita por las calles y el camino, sin vuelta (o null). */
-export function pilgrimageRoute(world: World, town: number): Route | null {
+/**
+ * Rutas de la romería de un pueblo: de la plaza a su ermita por las calles y el camino (`out`) y el mismo camino al
+ * revés (`back`); o null.
+ */
+export function pilgrimageRoute(world: World, town: number): { out: Route; back: Route } | null {
   let list = pilgrimages.get(world);
   if (!list) {
     list = world.map.towns.map((t, k) => {
@@ -406,7 +416,7 @@ export function pilgrimageRoute(world: World, town: number): Route | null {
       if (plaza === undefined || t.hermitage < 0) return null;
       const nodes = world.map.nodePath(world.map.entranceNode[plaza]!, world.map.entranceNode[t.hermitage]!);
       if (!nodes || nodes.length < 2) return null;
-      return routeOf(world, plaza, t.hermitage, nodes);
+      return { out: routeOf(world, plaza, t.hermitage, nodes), back: routeOf(world, t.hermitage, plaza, [...nodes].reverse()) };
     });
     pilgrimages.set(world, list);
   }
@@ -422,16 +432,41 @@ function routeOf(world: World, plaza: number, end: number, nodes: number[]): Rou
   return { plaza, end, x, z, cum, length: cum[nodes.length - 1]! };
 }
 
-/** Ruta de la procesión de hoy en un pueblo: a la ermita el día de la romería; si no, la de la plaza. */
-function routeToday(world: World, town: number, offsetMinutes = 0): Route | null {
-  return activeFiesta(world, town, offsetMinutes)?.fiesta.kind === 'romeria' ? pilgrimageRoute(world, town) : processionRoute(world, town);
+/** Un tramo de procesión: salida, ruta, duración, si hay reunión antes y si al llegar se sigue en la procesión. */
+interface Leg {
+  from: number;
+  route: Route;
+  lasts: number;
+  gather: boolean;
+  hold: boolean;
 }
 
-/** Duración de la procesión de hoy (min): 90, o lo que tarde en llegar la última pareja a la ermita y media hora más. */
-function processionLasts(world: World, town: number, offsetMinutes = 0): number {
-  const route = routeToday(world, town, offsetMinutes);
-  if (!route || route.end === route.plaza) return PROCESSION_LASTS;
-  return Math.max(PROCESSION_LASTS, Math.ceil(route.length / PROCESSION_SPEED) + 30);
+/**
+ * Tramos de la procesión de hoy en un pueblo. Las fiestas: uno, de la plaza al punto de giro y vuelta (90 min). La
+ * romería: la ida a la ermita y la vuelta, cada una lo que tarde la última pareja y media hora más (mín. 90 min).
+ */
+function legsToday(world: World, town: number, offsetMinutes = 0): Leg[] {
+  const a = activeFiesta(world, town, offsetMinutes);
+  const p = a?.fiesta.procession;
+  if (!a || !p || p.day !== a.day) return [];
+  if (a.fiesta.kind === 'romeria') {
+    const r = pilgrimageRoute(world, town);
+    if (!r) return [];
+    const lasts = Math.max(PROCESSION_LASTS, Math.ceil(r.out.length / PROCESSION_SPEED) + 30);
+    const legs: Leg[] = [{ from: p.from, route: r.out, lasts, gather: true, hold: true }];
+    if (p.back !== undefined) legs.push({ from: p.back, route: r.back, lasts, gather: false, hold: false });
+    return legs;
+  }
+  const route = processionRoute(world, town);
+  return route ? [{ from: p.from, route, lasts: PROCESSION_LASTS, gather: true, hold: false }] : [];
+}
+
+/** Tramo en curso a la hora `m` (de la reunión, si la hay, hasta que acaba), o null. */
+function legAt(world: World, town: number, m: number, offsetMinutes = 0): Leg | null {
+  for (const leg of legsToday(world, town, offsetMinutes)) {
+    if (m >= leg.from - (leg.gather ? GATHER_BEFORE : 0) && m < leg.from + leg.lasts) return leg;
+  }
+  return null;
 }
 
 /** Punto, rumbo y dirección unitaria (ux, uz) de la ruta a `s` metros del inicio. */
@@ -446,19 +481,9 @@ function along(route: Route, s: number): [number, number, number, number, number
   return [route.x[k - 1]! + dx * f, route.z[k - 1]! + dz * f, headingOf(dx, dz), dx / len, dz / len];
 }
 
-/** Hora de salida de la procesión de hoy en un pueblo (minuto del día), o −1 si hoy no hay. */
-function processionFrom(world: World, town: number, offsetMinutes = 0): number {
-  const a = activeFiesta(world, town, offsetMinutes);
-  const p = a?.fiesta.procession;
-  return p && p.day === a!.day ? p.from : -1;
-}
-
 /** ¿Hora de la procesión en un pueblo (de la reunión en la plaza a la vuelta)? */
 export function processionTime(world: World, town = 0): boolean {
-  const from = processionFrom(world, town);
-  if (from < 0) return false;
-  const m = minuteOfDay(world);
-  return m >= from - GATHER_BEFORE && m < from + processionLasts(world, town);
+  return legAt(world, town, minuteOfDay(world)) !== null;
 }
 
 /**
@@ -475,12 +500,14 @@ export function processionParticipant(world: World, i: number): boolean {
 
 /** ¿Momento de ir a la plaza para la procesión de un pueblo? (antes de que salga). */
 export function processionGathering(world: World, town = 0): boolean {
-  return processionTime(world, town) && minuteOfDay(world) < processionFrom(world, town);
+  const m = minuteOfDay(world);
+  const leg = legAt(world, town, m);
+  return leg !== null && leg.gather && m < leg.from;
 }
 
-/** Plaza (salida de la procesión) del pueblo de `i`, o −1. */
+/** Salida de la procesión en curso del pueblo de `i` (la plaza), o −1. */
 export function processionPlaza(world: World, i: number): number {
-  return routeToday(world, world.map.townOfBuilding[world.agents.home[i]!]!)?.plaza ?? -1;
+  return legAt(world, world.map.townOfBuilding[world.agents.home[i]!]!, minuteOfDay(world))?.route.plaza ?? -1;
 }
 
 /** ¿Está `i` desfilando (fuera, sin trayecto propio, colocado por la procesión)? */
@@ -489,23 +516,26 @@ function marching(world: World, i: number): boolean {
   return a.action[i] === Action.Procession && a.location[i]! < 0 && a.paths[i] === null;
 }
 
-/** Cada tick: a la hora salen quienes esperan en la plaza; se colocan en la fila; vuelven a la plaza al acabar. */
+/**
+ * Cada tick: a la hora salen quienes esperan en la plaza (a la vuelta de la romería, todos los vecinos que están en la
+ * ermita); se colocan en la fila; al llegar se quedan donde acaba.
+ */
 export function processionSystem(world: World): void {
   const a = world.agents;
   const map = world.map;
   const m = minuteOfDay(world);
   map.towns.forEach((_, t) => {
-    if (!processionTime(world, t)) return;
-    const from = processionFrom(world, t);
-    if (m < from) return;
-    const route = routeToday(world, t);
-    if (!route) return;
-    const lasts = processionLasts(world, t);
+    const leg = legAt(world, t, m);
+    if (!leg || m < leg.from) return;
+    const { from, route, lasts } = leg;
     const starting = m < from + world.time.minutesPerTick;
     const elapsed = m - from;
     const ids: number[] = [];
     for (let i = 0; i < a.count; i++) {
-      if (a.action[i] !== Action.Procession || a.home[i]! < 0 || map.townOfBuilding[a.home[i]!] !== t) continue;
+      if (a.home[i]! < 0 || map.townOfBuilding[a.home[i]!] !== t || a.occupation[i] === Occupation.Visitor) continue;
+      // Sin reunión (vuelta de la romería): sale todo el que está allí.
+      if (!leg.gather && starting && a.location[i] === route.plaza && a.busyLeft[i] === 0) a.action[i] = Action.Procession;
+      if (a.action[i] !== Action.Procession) continue;
       if (a.location[i] === route.plaza) {
         if (starting) {
           a.location[i] = -1;
@@ -524,13 +554,13 @@ export function processionSystem(world: World): void {
       const i = a.indexOf(id);
       const s = elapsed * PROCESSION_SPEED - Math.floor(rank / 2) * PROCESSION_SPACING;
       if (s >= route.length || m + world.time.minutesPerTick >= from + lasts) {
-        // De vuelta en la plaza (o, en la romería, en la ermita): se queda allí. En la ermita sigue en la procesión
-        // hasta que acaba, para no volverse antes de que empiece el día de campo.
+        // Al llegar se queda allí. En la ermita sigue en la procesión hasta que acaba, para no volverse antes de que
+        // empiece el día de campo.
         a.location[i] = route.end;
         a.positions[i * 3] = end.x;
         a.positions[i * 3 + 2] = end.z;
         a.flags[i] = AgentFlag.Indoors;
-        if (route.end === route.plaza) a.action[i] = Action.Stay;
+        if (!leg.hold) a.action[i] = Action.Stay;
         a.activities[i] = AgentActivity.Socializing;
         return;
       }
@@ -555,10 +585,9 @@ export function processionPasos(world: World): { positions: Float32Array; headin
   const dt = world.time.minutesPerTick;
   const m = minuteOfDay(world) - dt;
   world.map.towns.forEach((_, t) => {
-    const from = processionFrom(world, t, -dt);
-    if (from < 0 || m < from || m >= from + processionLasts(world, t, -dt)) return;
-    const route = routeToday(world, t, -dt);
-    if (!route) return;
+    const leg = legAt(world, t, m, -dt);
+    if (!leg || m < leg.from) return;
+    const { from, route } = leg;
     let any = false;
     for (let i = 0; i < a.count && !any; i++) any = marching(world, i) && world.map.townOfBuilding[a.home[i]!] === t;
     const s = (m - from) * PROCESSION_SPEED + PASO_AHEAD;

@@ -1,8 +1,12 @@
 # CURRENT PHASE
 
-**Fase actual:** Procesión a la ermita · ✅ **completada** (2026-11-02) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Vuelta de la romería · ✅ **completada** (2026-11-07) · ⏸️ revisión del usuario (O3)
 
-## Procesión a la ermita — entregado (ADR-0050)
+## Vuelta de la romería — entregado (ADR-0051)
+- A las 17:30 vuelven en procesión de la ermita a la plaza todos los vecinos que estén allí; al llegar quedan libres.
+  La procesión se describe por tramos. Motor 0.39.0. 26/26 en ambos mapas; 189 tests.
+
+## Procesión a la ermita (anterior) — completado (ADR-0050)
 - El día de la romería, a las 9:00 sale de la plaza una procesión hasta la ermita por el camino, con quienes van a la
   romería. Allí se quedan y meriendan lo que llevan de casa. Motor 0.38.0. 26/26 en ambos mapas; 188 tests.
 

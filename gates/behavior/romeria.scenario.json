@@ -1,6 +1,6 @@
 {
   "name": "romeria",
-  "description": "ADR-0046: el día de la romería del pueblo (27 de mayo, según su región) es festivo y a las 9:00 sale en procesión de la plaza a la ermita del campo y parte de los vecinos pasa allí el día (ADR-0049, ADR-0050); al anochecer vuelven.",
+  "description": "ADR-0046: el día de la romería del pueblo (27 de mayo, según su región) es festivo y a las 9:00 sale en procesión de la plaza a la ermita del campo y parte de los vecinos pasa allí el día (ADR-0049, ADR-0050); a las 17:30 vuelven en procesión a la plaza (ADR-0051).",
   "seeds": [
     1,
     2
@@ -22,6 +22,7 @@
     { "kind": "metric", "metric": "festival.pasos", "op": "==", "value": 1, "at": { "day": 0, "hour": 9, "minute": 10 } },
     { "kind": "metric", "metric": "festival.romeria", "op": ">=", "value": 30, "at": { "day": 0, "hour": 11, "minute": 30 } },
     { "kind": "metric", "metric": "festival.romeria", "op": ">=", "value": 30, "at": { "day": 0, "hour": 13, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.pasos", "op": "==", "value": 1, "at": { "day": 0, "hour": 17, "minute": 50 } },
     { "kind": "metric", "metric": "festival.romeria", "op": "<", "value": 30, "at": { "day": 0, "hour": 23, "minute": 0 } }
   ]
 }
