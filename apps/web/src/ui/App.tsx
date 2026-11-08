@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Controls } from './Controls';
 import { EventLog } from './EventLog';
 import { GodPanel } from './GodPanel';
 import { Hud } from './Hud';
@@ -64,6 +65,7 @@ export function App({ session }: { session: AppSession }) {
             onSelect={engine.select}
           />
         )}
+        {engine.renderer && <Controls renderer={engine.renderer} />}
       </div>
       <div className="overlay right">
         {isAdmin && !readOnly && engine.client && engine.catalog && <GodPanel client={engine.client} catalog={engine.catalog} />}

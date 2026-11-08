@@ -2,11 +2,31 @@ import { AgentActivity, AgentFlag, BuildingState, type BuildingUse, type MapLogi
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Heights, buildFootprints, buildTrees, loadGlb, type FootprintMesh } from './realMap';
+import { HAIR, PANTS, PERSON, Pacer, SHIRTS, SKIN, animalParts, busParts, carParts, personParts, pickColor } from './figures';
 
 /** Latitud del mapa base, solo para la altura del sol (no se muestra en ningún sitio). */
 const LATITUDE_DEG = 37.3;
 const MAX_AGENTS = 10_000;
 const MAX_ANIMALS = 20_000;
+/**
+ * Paso visual (ADR-0056): velocidades creíbles en pantalla (m/s reales), sea cual sea el ritmo del tiempo, y distancia
+ * (m) a partir de la cual lo dibujado salta a su posición en la simulación.
+ */
+const PACE = {
+  walk: { speed: 1.4, snap: 20 },
+  car: { speed: 13, snap: 120 },
+  bus: { speed: 11, snap: 200 },
+  paso: { speed: 0.8, snap: 25 },
+  animals: [{ speed: 1.6, snap: 20 }, { speed: 0.9, snap: 8 }, { speed: 0.7, snap: 8 }],
+} as const;
+/** Separación (m) entre quienes comparten punto en la simulación. */
+const CROWD_SPREAD = 1.6;
+/** Balanceo de piernas y brazos al andar (rad). */
+const STRIDE_SWING = 0.55;
+/** Teclado (ADR-0056): desplazamiento (× distancia de la cámara por segundo), giro (rad/s) y zoom (por segundo). */
+const KEY_PAN = 0.7;
+const KEY_TURN = 1.4;
+const KEY_ZOOM = 1.3;
 
 /** Colores de coche (por id del conductor: estable entre frames). */
 /** Fuegos artificiales (ADR-0044): chispas que el render anima con su propio reloj (no son estado del mundo). */
@@ -86,6 +106,9 @@ const ACTIVITY_COLORS: Record<number, THREE.Color> = {
 const BURNING = new THREE.Color(0xff5a1f);
 const DAMAGED = new THREE.Color(0x3b3b3b);
 
+/** Teclas que mueven la cámara (ADR-0056). */
+const CAMERA_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE', 'KeyR', 'KeyF', 'Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract', 'BracketRight', 'ShiftLeft', 'ShiftRight']);
+
 export type Pick = { kind: 'agent'; id: number } | { kind: 'building'; id: string } | { kind: 'animal'; id: number } | null;
 
 /** Recursos de dibujo de una región con map-pack (rutas ya resueltas a URL). */
@@ -105,7 +128,23 @@ export class WorldRenderer {
   private readonly controls: OrbitControls;
   private readonly sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
   private readonly hemi = new THREE.HemisphereLight(0xbcd6ec, 0x5b5a3c, 1.0);
+  /** Torso de las personas (`AGENTS`); `people` son todas sus partes, en el mismo orden de instancias. */
   private readonly agents: THREE.InstancedMesh;
+  private readonly people: THREE.InstancedMesh[];
+  private readonly carDetails: THREE.InstancedMesh;
+  /** Paso visual (ADR-0056) de personas y coches, animales, autobuses y pasos de procesión. */
+  private readonly pacer = new Pacer();
+  private readonly animalPacer = new Pacer();
+  private readonly busPacer = new Pacer();
+  private readonly pasoPacer = new Pacer();
+  private lastDrawAt = 0;
+  /** Camisetas del color de la actividad (como antes) en vez de ropa variada. */
+  private activityColors = false;
+  /** Teclas pulsadas para mover la cámara (ADR-0056). */
+  private readonly keys = new Set<string>();
+  private readonly base = new THREE.Matrix4();
+  private readonly local = new THREE.Matrix4();
+  private readonly part = new THREE.Matrix4();
   private readonly candles: THREE.InstancedMesh;
   /** Coches en marcha (agentes con `AgentFlag.Driving`), ADR-0025. */
   private readonly cars: THREE.InstancedMesh;
@@ -186,18 +225,30 @@ export class WorldRenderer {
     this.ground = ground;
     this.scene.add(ground);
 
-    this.agents = new THREE.InstancedMesh(
-      new THREE.CapsuleGeometry(0.3, 1.1, 4, 8).translate(0, 0.85, 0),
-      new THREE.MeshStandardMaterial({ color: 0xffffff }),
-      MAX_AGENTS,
-    );
-    this.agents.count = 0;
-    this.agents.frustumCulled = false;
-    this.agents.name = 'AGENTS';
-    this.scene.add(this.agents);
+    // Personas de estilo vóxel (ADR-0056): torso, cabeza, pelo, dos piernas y dos brazos (estos se balancean al andar).
+    const parts = personParts();
+    const voxelMat = () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
+    const instanced = (geometry: THREE.BufferGeometry, count: number, name: string) => {
+      const m = new THREE.InstancedMesh(geometry, voxelMat(), count);
+      m.count = 0;
+      m.frustumCulled = false;
+      m.name = name;
+      this.scene.add(m);
+      return m;
+    };
+    this.agents = instanced(parts.torso, MAX_AGENTS, 'AGENTS');
+    this.people = [
+      this.agents,
+      instanced(parts.head, MAX_AGENTS, 'AGENT_HEADS'),
+      instanced(parts.hair, MAX_AGENTS, 'AGENT_HAIR'),
+      instanced(parts.leg, MAX_AGENTS, 'AGENT_LEGS_L'),
+      instanced(parts.leg, MAX_AGENTS, 'AGENT_LEGS_R'),
+      instanced(parts.arm, MAX_AGENTS, 'AGENT_ARMS_L'),
+      instanced(parts.arm, MAX_AGENTS, 'AGENT_ARMS_R'),
+    ];
     // Velas del cortejo del entierro de la sardina (ADR-0052): llama sin iluminación, para que se vea de noche.
     this.candles = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(0.12, 0.3, 0.12).translate(0.35, 1.3, 0),
+      new THREE.BoxGeometry(0.1, 0.3, 0.1).translate(0.3, 1.0, PERSON.armGap + 0.05),
       new THREE.MeshBasicMaterial({ color: 0xffd36b }),
       MAX_AGENTS,
     );
@@ -206,36 +257,19 @@ export class WorldRenderer {
     this.candles.name = 'CANDLES';
     this.scene.add(this.candles);
 
-    // Rumbo 0 = +X: el coche es largo en X. Carrocería y cabina en una sola malla.
-    const body = new THREE.BoxGeometry(4.2, 0.9, 1.8).translate(0, 0.65, 0);
-    const cabin = new THREE.BoxGeometry(2.2, 0.7, 1.6).translate(-0.2, 1.45, 0);
-    this.cars = new THREE.InstancedMesh(mergeBoxes(body, cabin), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2 }), MAX_AGENTS);
+    // Rumbo 0 = +X: el coche es largo en X. Carrocería (color de la instancia) y detalles fijos (ruedas, cristales, faros).
+    const car = carParts();
+    this.cars = new THREE.InstancedMesh(car.body, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.2 }), MAX_AGENTS);
     this.cars.count = 0;
     this.cars.frustumCulled = false;
     this.cars.name = 'CARS';
     this.scene.add(this.cars);
+    this.carDetails = instanced(car.details, MAX_AGENTS, 'CAR_DETAILS');
 
-    // Perro (marrón), oveja (blanca, lanuda) y gallina (pequeña): cuerpo y cabeza en +X (rumbo 0).
-    const animal = (body: [number, number, number], head: [number, number, number], color: number) =>
-      new THREE.InstancedMesh(
-        mergeBoxes(
-          new THREE.BoxGeometry(...body).translate(0, body[1] / 2 + 0.15, 0),
-          new THREE.BoxGeometry(...head).translate(body[0] / 2 + head[0] / 2 - 0.05, body[1] + 0.1, 0),
-        ),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.9 }),
-        MAX_ANIMALS,
-      );
-    this.animalMeshes = [
-      animal([0.8, 0.4, 0.3], [0.3, 0.3, 0.25], 0x8b5a2b),
-      animal([1.0, 0.65, 0.6], [0.3, 0.35, 0.3], 0xf2efe6),
-      animal([0.32, 0.28, 0.22], [0.12, 0.14, 0.1], 0xe8e2d0),
-    ];
-    // Autobús: caja alargada en X (rumbo 0) con franja de ventanas.
-    this.buses = new THREE.InstancedMesh(
-      mergeBoxes(new THREE.BoxGeometry(10, 2.4, 2.5).translate(0, 1.6, 0), new THREE.BoxGeometry(9.4, 0.7, 2.6).translate(0, 2.1, 0)),
-      new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: 0.6 }),
-      64,
-    );
+    // Perro, oveja y gallina de estilo vóxel, con la cabeza en +X (rumbo 0).
+    this.animalMeshes = animalParts().map((g) => new THREE.InstancedMesh(g, voxelMat(), MAX_ANIMALS));
+    // Autobús: caja alargada en X (rumbo 0), ventanas corridas, ruedas y faros.
+    this.buses = new THREE.InstancedMesh(busParts(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }), 64);
     this.buses.count = 0;
     this.buses.frustumCulled = false;
     this.buses.name = 'BUSES';
@@ -307,6 +341,9 @@ export class WorldRenderer {
     this.scene.add(this.marker);
 
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
     this.resize();
     this.loop();
   }
@@ -316,9 +353,10 @@ export class WorldRenderer {
     const rect = this.canvas.getBoundingClientRect();
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
-    // Los agentes se mueven: la esfera envolvente de las instancias se recalcula en cada selección.
-    this.agents.computeBoundingSphere();
-    const agentHit = this.raycaster.intersectObject(this.agents, false)[0];
+    // Los agentes se mueven: la esfera envolvente de las instancias se recalcula en cada selección. Vale cualquier
+    // parte del cuerpo (todas comparten el índice de instancia).
+    for (const m of this.people) m.computeBoundingSphere();
+    const agentHit = this.raycaster.intersectObjects(this.people, false)[0];
     if (agentHit?.instanceId !== undefined) {
       const id = this.agentAtInstance[agentHit.instanceId];
       if (id !== undefined) return { kind: 'agent', id };
@@ -344,6 +382,52 @@ export class WorldRenderer {
       if (hit?.faceIndex != null) return { kind: 'building', id: this.buildingIds[this.footprints.triangleBuilding[hit.faceIndex]!]! };
     }
     return null;
+  }
+
+  /** Ropa variada (por defecto) o camisetas del color de la actividad de cada persona. */
+  setActivityColors(on: boolean): void {
+    this.activityColors = on;
+  }
+
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    const t = e.target as HTMLElement | null;
+    if (e.ctrlKey || e.metaKey || e.altKey || (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)))) return;
+    if (!CAMERA_KEYS.has(e.code)) return;
+    this.keys.add(e.code);
+    if (e.code.startsWith('Arrow')) e.preventDefault();
+  };
+
+  private readonly onKeyUp = (e: KeyboardEvent): void => {
+    this.keys.delete(e.code);
+  };
+
+  private readonly onBlur = (): void => this.keys.clear();
+
+  /** Cámara con el teclado: WASD o flechas para desplazarse, Q/E para girar, R/F o +/− para acercar y alejar. */
+  private applyKeys(dt: number): void {
+    if (this.keys.size === 0 || dt <= 0) return;
+    const k = (...codes: string[]) => (codes.some((c) => this.keys.has(c)) ? 1 : 0);
+    const fast = k('ShiftLeft', 'ShiftRight') ? 3 : 1;
+    const target = this.controls.target;
+    const cam = this.camera.position;
+    const offset = cam.clone().sub(target);
+    const forward = k('KeyW', 'ArrowUp') - k('KeyS', 'ArrowDown');
+    const right = k('KeyD', 'ArrowRight') - k('KeyA', 'ArrowLeft');
+    if (forward || right) {
+      const f = new THREE.Vector3(-offset.x, 0, -offset.z).normalize();
+      const r = new THREE.Vector3(-f.z, 0, f.x);
+      const move = f.multiplyScalar(forward).add(r.multiplyScalar(right)).normalize().multiplyScalar(Math.max(10, offset.length()) * KEY_PAN * fast * dt);
+      target.add(move);
+      cam.add(move);
+    }
+    const turn = k('KeyE') - k('KeyQ');
+    if (turn) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), turn * KEY_TURN * dt);
+    const zoom = k('KeyF', 'Minus', 'NumpadSubtract') - k('KeyR', 'Equal', 'NumpadAdd', 'BracketRight');
+    if (zoom) {
+      const len = THREE.MathUtils.clamp(offset.length() * Math.exp(zoom * KEY_ZOOM * fast * dt), this.controls.minDistance, this.controls.maxDistance);
+      offset.setLength(len);
+    }
+    if (turn || zoom) cam.copy(target).add(offset);
   }
 
   select(p: Pick): void {
@@ -646,74 +730,119 @@ export class WorldRenderer {
     return [from[0] + (x - from[0]) * t, from[1] + (y - from[1]) * t, from[2] + (z - from[2]) * t];
   }
 
-  private updateAgents(now: number): void {
+  private updateAgents(now: number, dt: number): void {
     const f = this.frame;
     if (!f) return;
-    // Los monigotes crecen con la distancia para que se vean desde la vista aérea.
-    const scale = Math.max(1, this.camera.position.distanceTo(this.controls.target) / 70);
     let n = 0;
     let c = 0;
     let costumes = 0;
     let mourners = 0;
     this.marker.visible = false;
+    this.pacer.begin();
+    const [torso, head, hair, legL, legR, armL, armR] = this.people as [THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh, THREE.InstancedMesh];
     for (let i = 0; i < f.agentCount && n < MAX_AGENTS; i++) {
       const id = f.agentIds[i]!;
-      const indoors = (f.agentFlags[i]! & AgentFlag.Indoors) !== 0;
-      if (id === this.following || (this.selected?.kind === 'agent' && this.selected.id === id)) {
-        const [px, , pz] = this.interpolated(f, i, now);
-        if (id === this.following) this.moveTarget(px, pz);
-        if (this.selected?.kind === 'agent' && this.selected.id === id) {
-          this.marker.position.set(px, (this.heights?.at(px, pz) ?? 0) + 0.2, pz);
-          this.marker.scale.setScalar(scale);
-          this.marker.visible = true;
-        }
+      const flags = f.agentFlags[i]!;
+      const tracked = id === this.following || (this.selected?.kind === 'agent' && this.selected.id === id);
+      if (flags & AgentFlag.Indoors) {
+        // Dentro: no se dibuja; si es el seleccionado, el anillo y la cámara van a su posición en la simulación.
+        if (tracked) this.track(id, f.agentPositions[i * 3]!, f.agentPositions[i * 3 + 2]!);
+        continue;
       }
-      if (indoors) continue;
-      const [x, y, z] = this.interpolated(f, i, now);
-      if (f.agentFlags[i]! & AgentFlag.Driving) {
+      let [tx, ty, tz] = this.interpolated(f, i, now);
+      const driving = (flags & AgentFlag.Driving) !== 0;
+      if (!driving) {
+        // Quien comparte punto en la simulación (la cola de la parada, un corro en la plaza) no se dibuja encima de
+        // otro: cada persona se aparta un poco, siempre lo mismo (por su id).
+        const h = Math.imul(id ^ 0x5bd1e995, 0x27d4eb2d) >>> 0;
+        tx += ((h & 0xffff) / 0x10000 - 0.5) * CROWD_SPREAD;
+        tz += ((h >>> 16) / 0x10000 - 0.5) * CROWD_SPREAD;
+      }
+      // Paso visual (ADR-0056): a velocidad creíble hacia su posición en la simulación, sea cual sea el ritmo.
+      const pace = driving ? PACE.car : PACE.walk;
+      const s = this.pacer.step(id, tx, tz, f.agentHeadings[i]!, pace.speed, pace.snap, dt);
+      const x = s.x;
+      const z = s.z;
+      if (tracked) this.track(id, x, z);
+      const y = this.heights ? this.heights.at(x, z) : ty;
+      this.base.makeRotationY(s.heading).setPosition(x, y, z);
+      if (driving) {
         this.carAtInstance[c] = id;
-        this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : y, z);
-        this.tmp.rotation.set(0, f.agentHeadings[i]!, 0);
-        this.tmp.scale.setScalar(Math.max(1, scale / 2));
-        this.tmp.updateMatrix();
-        this.cars.setMatrixAt(c, this.tmp.matrix);
+        this.cars.setMatrixAt(c, this.base);
+        this.carDetails.setMatrixAt(c, this.base);
         // En un atasco, con las luces de freno encendidas (ADR-0045).
-        this.cars.setColorAt(c, f.agentFlags[i]! & AgentFlag.Jammed ? JAMMED_COLOR : CAR_COLORS[id % CAR_COLORS.length]!);
+        this.cars.setColorAt(c, flags & AgentFlag.Jammed ? JAMMED_COLOR : CAR_COLORS[id % CAR_COLORS.length]!);
         c++;
         continue;
       }
       this.agentAtInstance[n] = id;
-      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : y, z);
-      this.tmp.rotation.set(0, f.agentHeadings[i]!, 0);
-      this.tmp.scale.setScalar(scale);
-      this.tmp.updateMatrix();
-      this.agents.setMatrixAt(n, this.tmp.matrix);
-      if (f.agentFlags[i]! & AgentFlag.Costumed) {
-        this.agents.setColorAt(n, COSTUME_COLORS[id % COSTUME_COLORS.length]!);
+      torso.setMatrixAt(n, this.base);
+      head.setMatrixAt(n, this.base);
+      hair.setMatrixAt(n, this.base);
+      // Marcha: piernas y brazos se balancean al avanzar (en contra unos de otros).
+      const swing = Math.sin(s.phase) * STRIDE_SWING * s.moving;
+      const limb = (mesh: THREE.InstancedMesh, py: number, pz: number, angle: number) => {
+        this.local.makeRotationZ(angle).setPosition(0, py, pz);
+        this.part.multiplyMatrices(this.base, this.local);
+        mesh.setMatrixAt(n, this.part);
+      };
+      limb(legL, PERSON.hip, PERSON.legGap, swing);
+      limb(legR, PERSON.hip, -PERSON.legGap, -swing);
+      limb(armL, PERSON.shoulder, PERSON.armGap, -swing * 0.8);
+      limb(armR, PERSON.shoulder, -PERSON.armGap, swing * 0.8);
+      let shirt: THREE.Color;
+      let pants = pickColor(PANTS, id, 2);
+      if (flags & AgentFlag.Costumed) {
+        shirt = COSTUME_COLORS[id % COSTUME_COLORS.length]!;
+        pants = shirt;
         costumes++;
-      } else if (f.agentFlags[i]! & AgentFlag.Mourning) {
-        this.agents.setColorAt(n, MOURNING_COLOR);
-        this.candles.setMatrixAt(mourners, this.tmp.matrix);
+      } else if (flags & AgentFlag.Mourning) {
+        shirt = MOURNING_COLOR;
+        pants = MOURNING_COLOR;
+        this.candles.setMatrixAt(mourners, this.base);
         mourners++;
-      } else this.agents.setColorAt(n, ACTIVITY_COLORS[f.agentActivities[i]!] ?? ACTIVITY_COLORS[AgentActivity.Idle]!);
+      } else if (this.activityColors) shirt = ACTIVITY_COLORS[f.agentActivities[i]!] ?? ACTIVITY_COLORS[AgentActivity.Idle]!;
+      else shirt = pickColor(SHIRTS, id, 1);
+      torso.setColorAt(n, shirt);
+      armL.setColorAt(n, shirt);
+      armR.setColorAt(n, shirt);
+      legL.setColorAt(n, pants);
+      legR.setColorAt(n, pants);
+      head.setColorAt(n, pickColor(SKIN, id, 3));
+      hair.setColorAt(n, pickColor(HAIR, id, 4));
       n++;
     }
-    this.agents.count = n;
+    this.pacer.end();
+    for (const m of this.people) {
+      m.count = n;
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    }
     this.liveCostumes = costumes;
     this.liveMourners = mourners;
     this.candles.count = mourners;
     this.candles.instanceMatrix.needsUpdate = true;
-    this.agents.instanceMatrix.needsUpdate = true;
-    if (this.agents.instanceColor) this.agents.instanceColor.needsUpdate = true;
     this.cars.count = c;
+    this.carDetails.count = c;
     this.cars.instanceMatrix.needsUpdate = true;
+    this.carDetails.instanceMatrix.needsUpdate = true;
     if (this.cars.instanceColor) this.cars.instanceColor.needsUpdate = true;
-    this.updateAnimals(f, now, scale);
-    this.updateBuses(f, scale);
-    this.updatePasos(f, now, scale);
-    this.updateStops(f, scale);
+    this.updateAnimals(f, now, dt);
+    this.updateBuses(f, dt);
+    this.updatePasos(f, now, dt);
+    this.updateStops(f);
     this.updateFireworks(f, now);
     this.updateBonfires(f);
+  }
+
+  /** Anillo de selección y cámara que sigue, sobre la posición dibujada del agente. */
+  private track(id: number, x: number, z: number): void {
+    if (id === this.following) this.moveTarget(x, z);
+    if (this.selected?.kind === 'agent' && this.selected.id === id) {
+      this.marker.position.set(x, (this.heights?.at(x, z) ?? 0) + 0.2, z);
+      this.marker.scale.setScalar(0.6);
+      this.marker.visible = true;
+    }
   }
 
   private updateBonfires(f: RenderFrame): void {
@@ -741,14 +870,14 @@ export class WorldRenderer {
     this.bonfires.instanceMatrix.needsUpdate = true;
   }
 
-  private updateStops(f: RenderFrame, scale: number): void {
+  private updateStops(f: RenderFrame): void {
     const n = Math.min(f.busStopCount ?? 0, 16);
     for (let k = 0; k < n; k++) {
       const x = f.busStopPositions[k * 3]!;
       const z = f.busStopPositions[k * 3 + 2]!;
       this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
       this.tmp.rotation.set(0, f.busStopHeadings[k]!, 0);
-      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.scale.setScalar(1);
       this.tmp.updateMatrix();
       this.stops.setMatrixAt(k, this.tmp.matrix);
     }
@@ -761,9 +890,10 @@ export class WorldRenderer {
     return this.stops.count;
   }
 
-  private updatePasos(f: RenderFrame, now: number, scale: number): void {
+  private updatePasos(f: RenderFrame, now: number, dt: number): void {
     const n = Math.min(f.pasoCount ?? 0, 16);
     const t = THREE.MathUtils.clamp((now - this.tickArrivedAt) / this.tickDuration, 0, 1);
+    this.pasoPacer.begin();
     for (let k = 0; k < n; k++) {
       let x = f.pasoPositions[k * 3]!;
       let z = f.pasoPositions[k * 3 + 2]!;
@@ -771,12 +901,14 @@ export class WorldRenderer {
         x = this.prevPasos[k * 3]! + (x - this.prevPasos[k * 3]!) * t;
         z = this.prevPasos[k * 3 + 2]! + (z - this.prevPasos[k * 3 + 2]!) * t;
       }
-      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
+      const s = this.pasoPacer.step(k, x, z, f.pasoHeadings[k]!, PACE.paso.speed, PACE.paso.snap, dt);
+      this.tmp.position.set(s.x, this.heights ? this.heights.at(s.x, s.z) : 0, s.z);
       this.tmp.rotation.set(0, f.pasoHeadings[k]!, 0);
-      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.scale.setScalar(1);
       this.tmp.updateMatrix();
       this.pasos.setMatrixAt(k, this.tmp.matrix);
     }
+    this.pasoPacer.end();
     this.pasos.count = n;
     this.pasos.instanceMatrix.needsUpdate = true;
   }
@@ -857,12 +989,14 @@ export class WorldRenderer {
     return this.liveCostumes;
   }
 
-  private updateAnimals(f: RenderFrame, now: number, scale: number): void {
+  private updateAnimals(f: RenderFrame, now: number, dt: number): void {
     const counts = this.animalMeshes.map(() => 0);
     const t = THREE.MathUtils.clamp((now - this.tickArrivedAt) / this.tickDuration, 0, 1);
+    this.animalPacer.begin();
     for (let i = 0; i < f.animalCount; i++) {
       if (f.animalFlags[i]! & AgentFlag.Indoors) continue;
-      const mesh = this.animalMeshes[f.animalKinds[i]!];
+      const kind = f.animalKinds[i]!;
+      const mesh = this.animalMeshes[kind];
       if (!mesh) continue;
       let x = f.animalPositions[i * 3]!;
       let z = f.animalPositions[i * 3 + 2]!;
@@ -871,36 +1005,42 @@ export class WorldRenderer {
         x = from[0] + (x - from[0]) * t;
         z = from[2] + (z - from[2]) * t;
       }
+      const pace = PACE.animals[kind] ?? PACE.walk;
+      const s = this.animalPacer.step(f.animalIds[i]!, x, z, f.animalHeadings[i]!, pace.speed, pace.snap, dt);
+      x = s.x;
+      z = s.z;
       this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
-      this.tmp.rotation.set(0, f.animalHeadings[i]!, 0);
-      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      this.tmp.rotation.set(0, s.heading, 0);
+      this.tmp.scale.setScalar(1);
       this.tmp.updateMatrix();
-      const n = counts[f.animalKinds[i]!]!++;
+      const n = counts[kind]!++;
       mesh.setMatrixAt(n, this.tmp.matrix);
-      this.animalAtInstance[f.animalKinds[i]!]![n] = f.animalIds[i]!;
+      this.animalAtInstance[kind]![n] = f.animalIds[i]!;
       if (this.selected?.kind === 'animal' && this.selected.id === f.animalIds[i]) {
         this.marker.position.set(x, (this.heights?.at(x, z) ?? 0) + 0.2, z);
-        this.marker.scale.setScalar(Math.max(0.5, scale / 3));
+        this.marker.scale.setScalar(0.5);
         this.marker.visible = true;
       }
     }
+    this.animalPacer.end();
     for (const [k, m] of this.animalMeshes.entries()) {
       m.count = counts[k]!;
       m.instanceMatrix.needsUpdate = true;
     }
   }
 
-  private updateBuses(f: RenderFrame, scale: number): void {
+  private updateBuses(f: RenderFrame, dt: number): void {
     const n = Math.min(f.busCount, 64);
+    this.busPacer.begin();
     for (let k = 0; k < n; k++) {
-      const x = f.busPositions[k * 3]!;
-      const z = f.busPositions[k * 3 + 2]!;
-      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
-      this.tmp.rotation.set(0, f.busHeadings[k]!, 0);
-      this.tmp.scale.setScalar(Math.max(1, scale / 3));
+      const s = this.busPacer.step(k, f.busPositions[k * 3]!, f.busPositions[k * 3 + 2]!, f.busHeadings[k]!, PACE.bus.speed, PACE.bus.snap, dt);
+      this.tmp.position.set(s.x, this.heights ? this.heights.at(s.x, s.z) : 0, s.z);
+      this.tmp.rotation.set(0, s.heading, 0);
+      this.tmp.scale.setScalar(1);
       this.tmp.updateMatrix();
       this.buses.setMatrixAt(k, this.tmp.matrix);
     }
+    this.busPacer.end();
     this.buses.count = n;
     this.buses.instanceMatrix.needsUpdate = true;
   }
@@ -970,14 +1110,21 @@ export class WorldRenderer {
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
+    const now = performance.now();
+    const dt = this.lastDrawAt === 0 ? 0 : Math.min(0.1, Math.max(0, (now - this.lastDrawAt) / 1000));
+    this.lastDrawAt = now;
+    this.applyKeys(dt);
     this.controls.update();
-    this.updateAgents(performance.now());
+    this.updateAgents(now, dt);
     this.renderer.render(this.scene, this.camera);
   };
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
     this.controls.dispose();
     this.renderer.dispose();
   }

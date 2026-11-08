@@ -1,5 +1,6 @@
 import type { EconomySummary, EngineStatus, Season, WorldManifest } from '@worldopen/contracts';
 import type { PopulationSummary } from './useEngine';
+import { usePanelOpen } from './usePanelOpen';
 
 const SEASONS: Record<Season, string> = { winter: 'Invierno', spring: 'Primavera', summer: 'Verano', autumn: 'Otoño' };
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -11,10 +12,17 @@ const FESTIVAL_ICON = { patronal: '🎉', romeria: '🌿', navidad: '🎄', carn
 export function Hud({ manifest, status, population, economy }: { manifest: WorldManifest | null; status: EngineStatus | null; population: PopulationSummary | null; economy: EconomySummary | null }) {
   const region = manifest?.regions[0]?.displayName ?? '…';
   const d = status?.date;
+  // Plegable (ADR-0056): plegado, solo el reloj y la fecha.
+  const [open, setOpen] = usePanelOpen('hud', true);
   return (
     <section className="panel hud" aria-label="Estado del mundo">
-      <h1>{region}</h1>
-      {manifest && <div className="muted small">{manifest.name}</div>}
+      <header>
+        <h1>{region}</h1>
+        <button type="button" className="link" onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? 'Ocultar' : 'Mostrar'}
+        </button>
+      </header>
+      {open && manifest && <div className="muted small">{manifest.name}</div>}
       {d ? (
         <>
           <div className="clock" data-testid="clock">
@@ -23,6 +31,8 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
           <div className="muted">
             Día {d.day}/{d.month} · Año {d.year} · {SEASONS[d.season]}
           </div>
+          {open && (
+          <>
           {population && (
             <div className="small" data-testid="population">
               {economy?.festival && (
@@ -54,6 +64,8 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
           <div className="muted small">
             Tick <span data-testid="tick">{status.tick}</span> · {status.measuredTps} ticks/s
           </div>
+          </>
+          )}
         </>
       ) : (
         <div className="muted">Arrancando el motor…</div>
