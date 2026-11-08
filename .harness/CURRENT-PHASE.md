@@ -1,8 +1,12 @@
 # CURRENT PHASE
 
-**Fase actual:** Vuelta de la romería · ✅ **completada** (2026-11-07) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Entierro de la sardina · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
 
-## Vuelta de la romería — entregado (ADR-0051)
+## Entierro de la sardina — entregado (ADR-0052)
+- Cuarto día del carnaval: cortejo de luto con velas a las 20:00, quema de la sardina en la plaza a las 21:30 (hoguera
+  en el frame) y baile. Varias procesiones por fiesta. Protocolo v21; motor 0.40.0. 26/26 en ambos mapas; 190 tests.
+
+## Vuelta de la romería (anterior) — completado (ADR-0051)
 - A las 17:30 vuelven en procesión de la ermita a la plaza todos los vecinos que estén allí; al llegar quedan libres.
   La procesión se describe por tramos. Motor 0.39.0. 26/26 en ambos mapas; 189 tests.
 

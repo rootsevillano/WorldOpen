@@ -13,8 +13,10 @@ import { minuteOfDay } from './environment';
  *   según la región, de mayo a septiembre) (ADR-0047).
  * - Romería: un día festivo (`fiestas.<región>.romeria…`; por defecto, de abril o mayo según la región) en que parte
  *   de los vecinos pasa el día en el merendero del pueblo más alejado de la plaza.
- * - Carnaval (`fiestas.<región>.carnaval…`, por defecto del 12 al 14 de febrero) (ADR-0048): tres días con disfraces;
- *   el primero, desfile de disfraces a las 17:00; baile de disfraces las dos primeras noches; el martes, festivo.
+ * - Carnaval (`fiestas.<región>.carnaval…`, por defecto del 12 al 15 de febrero) (ADR-0048, ADR-0052): tres días con
+ *   disfraces; el primero, desfile de disfraces a las 17:00; baile de disfraces las dos primeras noches; el martes,
+ *   festivo. El cuarto, miércoles de ceniza, entierro de la sardina: cortejo de luto a las 20:00, quema de la sardina
+ *   en la plaza a las 21:30 y baile.
  * - Navidad (todos los pueblos): del 24 de diciembre al 6 de enero; festivos el 25, el 1 y el 6; verbena y fuegos en
  *   Nochevieja (la noche del 30 de diciembre, último día del año de 360) y cabalgata de Reyes el 5 a las 18:00.
  * Verbena de 18:00 a 03:00 en la plaza (el local junto a la parada) y sus 2 locales más cercanos: se sale y se
@@ -33,8 +35,10 @@ export interface Fiesta {
   holidays: number[];
   /** Días con verbena por la noche. */
   verbenaDays: number[];
-  /** Procesión o cabalgata: día y hora de salida (minuto del día) y, en la romería, de la vuelta; o null. */
-  procession: { day: number; from: number; back?: number } | null;
+  /** Procesiones, cabalgatas o cortejos: día y hora de salida (minuto del día) y, en la romería, de la vuelta. */
+  processions: { day: number; from: number; back?: number }[];
+  /** Hoguera en la plaza (ADR-0052): día, hora de encendido y minutos que arde; o null. */
+  bonfire: { day: number; from: number; minutes: number } | null;
   /** Día cuya noche (00:00–00:30 del siguiente) tiene fuegos artificiales; 0 = ninguno. */
   fireworks: number;
   /** Día de la salida al campo de la romería; 0 = ninguno. */
@@ -54,17 +58,23 @@ const CHRISTMAS: Omit<Fiesta, 'kind'> = {
   length: 13,
   holidays: [2, 8, 13],
   verbenaDays: [7],
-  procession: { day: 12, from: 18 * 60 },
+  processions: [{ day: 12, from: 18 * 60 }],
+  bonfire: null,
   fireworks: 7,
   outing: 0,
   visitors: 0.5,
 };
-/** Carnaval (ADR-0048): tres días; desfile de disfraces el primero a las 17:00, baile las dos primeras noches. */
+/**
+ * Carnaval (ADR-0048): tres días; desfile de disfraces el primero a las 17:00, baile las dos primeras noches. El
+ * cuarto, entierro de la sardina (ADR-0052): cortejo a las 20:00, quema en la plaza a las 21:30 (una hora) y baile.
+ */
+const BURIAL_DAY = 4;
 const CARNIVAL: Omit<Fiesta, 'kind' | 'first'> = {
-  length: 3,
+  length: 4,
   holidays: [3],
-  verbenaDays: [1, 2],
-  procession: { day: 1, from: 17 * 60 },
+  verbenaDays: [1, 2, BURIAL_DAY],
+  processions: [{ day: 1, from: 17 * 60 }, { day: BURIAL_DAY, from: 20 * 60 }],
+  bonfire: { day: BURIAL_DAY, from: 21 * 60 + 30, minutes: 60 },
   fireworks: 0,
   outing: 0,
   visitors: 1,
@@ -152,7 +162,8 @@ function patronal(month: number, day: number, length: number, holiday: number): 
     length,
     holidays: big ? [big] : [],
     verbenaDays: Array.from({ length }, (_, k) => k + 1),
-    procession: big ? { day: big, from: 12 * 60 } : null,
+    processions: big ? [{ day: big, from: 12 * 60 }] : [],
+    bonfire: null,
     fireworks: length,
     outing: 0,
     visitors: 2,
@@ -179,7 +190,8 @@ export function fiestas(world: World, town = 0): Fiesta[] {
     holidays: [1],
     verbenaDays: [],
     // Procesión de la plaza a la ermita (ADR-0050), si el pueblo la tiene.
-    procession: (world.map.towns[town]?.hermitage ?? -1) >= 0 ? { day: 1, from: PILGRIMAGE_FROM, back: PILGRIMAGE_BACK } : null,
+    processions: (world.map.towns[town]?.hermitage ?? -1) >= 0 ? [{ day: 1, from: PILGRIMAGE_FROM, back: PILGRIMAGE_BACK }] : [],
+    bonfire: null,
     fireworks: 0,
     outing: 1,
     visitors: 1,
@@ -327,7 +339,7 @@ export function romeriaTime(world: World, town = 0): boolean {
   const m = minuteOfDay(world);
   // Con vuelta en procesión (ADR-0051), el día de campo acaba cuando sale (incluido su tick, porque se decide antes de
   // que la procesión recoja a la gente): después nadie va ya a la ermita.
-  const back = a.fiesta.procession?.back;
+  const back = a.fiesta.processions.find((p) => p.back !== undefined)?.back;
   const to = back === undefined ? ROMERIA_TO : back + world.time.minutesPerTick;
   return m >= ROMERIA_FROM && m < to;
 }
@@ -447,8 +459,8 @@ interface Leg {
  */
 function legsToday(world: World, town: number, offsetMinutes = 0): Leg[] {
   const a = activeFiesta(world, town, offsetMinutes);
-  const p = a?.fiesta.procession;
-  if (!a || !p || p.day !== a.day) return [];
+  const p = a?.fiesta.processions.find((q) => q.day === a.day);
+  if (!a || !p) return [];
   if (a.fiesta.kind === 'romeria') {
     const r = pilgrimageRoute(world, town);
     if (!r) return [];
@@ -623,17 +635,57 @@ export function costumed(world: World, i: number, carnival: readonly boolean[]):
   return (Math.imul(a.ids[i]! ^ 0x5bd1e995, 0x85ebca6b) >>> 0) / 0x100000000 < share;
 }
 
-/** Pueblos en carnaval ahora. */
+/** Pueblos en los días de disfraces del carnaval (del primero al tercero; el cuarto es el entierro). */
 export function carnivalTowns(world: World): boolean[] {
-  return world.map.towns.map((_, t) => activeFiesta(world, t)?.fiesta.kind === 'carnaval');
+  return world.map.towns.map((_, t) => {
+    const a = activeFiesta(world, t);
+    return a?.fiesta.kind === 'carnaval' && a.day < BURIAL_DAY;
+  });
 }
 
-/** Banderas del frame con `AgentFlag.Costumed` para quien va disfrazado (se deriva: no es estado). */
+/** Pueblos en el día del entierro de la sardina (ADR-0052). */
+export function burialTowns(world: World): boolean[] {
+  return world.map.towns.map((_, t) => {
+    const a = activeFiesta(world, t);
+    return a?.fiesta.kind === 'carnaval' && a.day === BURIAL_DAY;
+  });
+}
+
+/** ¿Va de luto `i`? En el entierro de la sardina, quien desfila en el cortejo de su pueblo (ADR-0052). */
+export function mourning(world: World, i: number, burial: readonly boolean[]): boolean {
+  const a = world.agents;
+  return a.home[i]! >= 0 && burial[world.map.townOfBuilding[a.home[i]!]!] === true && marching(world, i);
+}
+
+/**
+ * Banderas del frame: `AgentFlag.Costumed` para quien va disfrazado y `AgentFlag.Mourning` para el cortejo del entierro
+ * de la sardina (se deriva: no es estado).
+ */
 export function costumeFlags(world: World, flags: Uint8Array): Uint8Array {
   const carnival = carnivalTowns(world);
-  if (!carnival.includes(true)) return flags;
-  for (let i = 0; i < flags.length; i++) if (costumed(world, i, carnival)) flags[i] = flags[i]! | AgentFlag.Costumed;
+  const burial = burialTowns(world);
+  if (!carnival.includes(true) && !burial.includes(true)) return flags;
+  for (let i = 0; i < flags.length; i++) {
+    if (costumed(world, i, carnival)) flags[i] = flags[i]! | AgentFlag.Costumed;
+    else if (mourning(world, i, burial)) flags[i] = flags[i]! | AgentFlag.Mourning;
+  }
   return flags;
+}
+
+/** Hogueras en la plaza ahora (la quema de la sardina, ADR-0052): junto a la entrada de la plaza, para el render. */
+export function bonfireSites(world: World): Float32Array {
+  const m = minuteOfDay(world);
+  const out: number[] = [];
+  world.map.towns.forEach((_, t) => {
+    const a = activeFiesta(world, t);
+    const b = a?.fiesta.bonfire;
+    if (!a || !b || b.day !== a.day || m < b.from || m >= b.from + b.minutes) return;
+    const plaza = festivalVenues(world, t)[0];
+    if (plaza === undefined) return;
+    const node = world.map.entranceNode[plaza]!;
+    out.push(world.map.nodeX[node]!, 0, world.map.nodeZ[node]!);
+  });
+  return Float32Array.from(out);
 }
 
 /** Pradera de la ermita (ADR-0049): de 12 a 40 m del centro, fuera del edificio. */

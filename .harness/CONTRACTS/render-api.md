@@ -14,7 +14,8 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
   visible (ADR-0029).
 - Paradas (protocolo v17, ADR-0045): `busStopCount`, `busStopPositions` (f32 × 3), `busStopHeadings`; marquesina
   en la acera. `AgentFlag.Jammed` (4): coche en un atasco de la carretera comarcal (luces de freno). Durante la romería, quien está en la ermita sale en el frame
-  sin `Indoors` y colocado en la pradera de alrededor (ADR-0049). `AgentFlag.Costumed` (8):
+  sin `Indoors` y colocado en la pradera de alrededor (ADR-0049). `AgentFlag.Mourning` (16): cortejo del entierro de la
+  sardina (ADR-0052), de morado y con vela. `bonfireCount`/`bonfireSites`: hogueras (la quema, en la plaza). `AgentFlag.Costumed` (8):
   disfrazado en carnaval (ADR-0048); se deriva al construir el frame y el render lo pinta de colores vivos.
 - Fiestas (protocolo v16, ADR-0044): `pasoCount`, `pasoPositions` (f32 × 3), `pasoHeadings` (paso de cada
   procesión en curso; el render lo interpola) y `fireworkCount`, `fireworkSites` (f32 × 3, plazas con fuegos; el

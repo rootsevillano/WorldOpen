@@ -38,6 +38,9 @@ export interface RenderFrame {
   /** Plazas con fuegos artificiales ahora (stride 3); el render anima los cohetes. */
   fireworkCount: number;
   fireworkSites: Float32Array;
+  /** Hogueras ahora (stride 3): la quema de la sardina en la plaza (ADR-0052). */
+  bonfireCount: number;
+  bonfireSites: Float32Array;
   /** Paradas del autobús (ADR-0045): marquesina de cada pueblo (posiciones stride 3 y rumbos de la carretera). */
   busStopCount: number;
   busStopPositions: Float32Array;
@@ -56,6 +59,8 @@ export const AgentFlag = {
   Jammed: 4,
   /** Va disfrazado en carnaval (ADR-0048): el render lo dibuja de colores. */
   Costumed: 8,
+  /** Va de luto en el cortejo del entierro de la sardina (ADR-0052): el render lo dibuja de morado. */
+  Mourning: 16,
 } as const;
 
 export const AgentActivity = {
@@ -90,6 +95,7 @@ export function frameTransferables(frame: RenderFrame): ArrayBuffer[] {
     frame.pasoPositions.buffer,
     frame.pasoHeadings.buffer,
     frame.fireworkSites.buffer,
+    frame.bonfireSites.buffer,
     frame.busStopPositions.buffer,
     frame.busStopHeadings.buffer,
   ] as ArrayBuffer[];

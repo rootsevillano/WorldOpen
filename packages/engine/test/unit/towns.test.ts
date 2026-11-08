@@ -351,7 +351,7 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(sim.submit(setCriterion('fiestas.r9.romeriaDay', 3))).toMatchObject({ ok: false, reason: 'invalid_payload' });
     // También desde el manifiesto: sin día festivo, el tercer pueblo no tiene procesión.
     const quiet = threeTowns(50, { 'fiestas.r3.patronalHoliday': 0 });
-    expect(fiestas(quiet.world, 2)[0]).toMatchObject({ holidays: [], procession: null });
+    expect(fiestas(quiet.world, 2)[0]).toMatchObject({ holidays: [], processions: [] });
   });
 
   it('cada pueblo tiene su ermita en el campo, con un camino, y allí va la romería (ADR-0049)', () => {

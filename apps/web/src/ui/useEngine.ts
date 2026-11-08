@@ -386,7 +386,9 @@ function describeEvent(e: SimEvent): string {
     case 'bus.arrived': return `🚌 Llega el autobús de los pueblos vecinos${Number(d.visitors) > 0 ? `: ${String(d.visitors)} visitante(s)` : ''}`;
     case 'job.outside': return `💼 ${String(d.name)} encuentra trabajo en otro pueblo`;
     case 'festival.started': return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: empiezan${d.holiday ? ' (festivo)' : ''}`;
-    case 'festival.day': return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: día ${String(d.day)}${d.holiday ? ', festivo' : ''}`;
+    case 'festival.day':
+      if (d.kind === 'carnaval' && d.day === 4) return `⚰️ Entierro de la sardina en ${String(d.town)}`;
+      return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: día ${String(d.day)}${d.holiday ? ', festivo' : ''}`;
     case 'festival.ended': return `${FIESTA[String(d.kind)] ?? '🎉 Fiestas'} en ${String(d.town)}: terminan`;
     case 'job.lost': return `${String(d.name)} pierde su trabajo en ${String(d.building)}`;
     case 'purchase.unaffordable': return `${String(d.name)} no puede pagar en ${String(d.building)}`;

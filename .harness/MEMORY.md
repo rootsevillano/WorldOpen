@@ -185,3 +185,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-07) Las horas de los eventos deben caer en tick con todas las duraciones de tick que se usan (5, 10,
   15, 30 min). Además, en un tick se decide antes de que corra `processionSystem`, así que la ventana que retiene a
   la gente (p. ej. `romeriaTime`) debe cubrir también el tick en que la procesión la recoge.
+- (2026-11-08) De noche la escena es muy oscura: un color oscuro en los agentes no se ve. Para que algo se lea de
+  noche hace falta un elemento sin iluminación (`MeshBasicMaterial`, como las velas) o emisivo. Y las chispas
+  aditivas se saturan si se emiten cada fotograma: mejor con probabilidad.

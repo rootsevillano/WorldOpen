@@ -1,6 +1,6 @@
 import { AgentFlag, type BuildingUse, type CriterionValue } from '@worldopen/contracts';
 import { storageCap } from './agents/economy';
-import { activeFiesta, allFestivalVenues, carnivalTowns, costumed, festivalDay, festivalHoliday, fireworkSites, processionPasos, romeriaSite, verbena } from './agents/festival';
+import { activeFiesta, allFestivalVenues, bonfireSites, burialTowns, carnivalTowns, costumed, mourning, festivalDay, festivalHoliday, fireworkSites, processionPasos, romeriaSite, verbena } from './agents/festival';
 import { housePrice } from './agents/housing';
 import { DOG_WALK_MINUTES } from './agents/animals';
 import { Animal } from './world/animals';
@@ -165,6 +165,14 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       for (let i = 0; i < a.count; i++) if (costumed(sim.world, i, carnival)) n++;
       return n;
     }
+    // Entierro de la sardina (ADR-0052): cortejo de luto y hogueras encendidas.
+    case 'festival.mourners': {
+      const burial = burialTowns(sim.world);
+      let n = 0;
+      for (let i = 0; i < a.count; i++) if (mourning(sim.world, i, burial)) n++;
+      return n;
+    }
+    case 'festival.bonfires': return bonfireSites(sim.world).length / 3;
     case 'festival.towns': return sim.world.map.towns.filter((_, t) => activeFiesta(sim.world, t) !== null).length;
     case 'festival.romeria': {
       const sites = new Set(sim.world.map.towns.map((_, t) => romeriaSite(sim.world, t)));

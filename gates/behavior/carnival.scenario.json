@@ -1,6 +1,6 @@
 {
   "name": "carnival",
-  "description": "ADR-0048: carnaval en todos los pueblos desde el 12 de febrero: la mitad de los vecinos va disfrazada, desfile de disfraces a las 17:00 del primer día, baile de disfraces por la noche y el tercer día festivo.",
+  "description": "ADR-0048: carnaval en todos los pueblos desde el 12 de febrero: la mitad de los vecinos va disfrazada, desfile de disfraces a las 17:00 del primer día, baile de disfraces por la noche y el tercer día festivo. El cuarto (ADR-0052), entierro de la sardina: cortejo de luto a las 20:00, quema en cada plaza a las 21:30 y baile.",
   "seeds": [
     1,
     2
@@ -24,6 +24,9 @@
     { "kind": "metric", "metric": "festival.pasos", "op": ">=", "value": 1, "at": { "day": 0, "hour": 17, "minute": 10 } },
     { "kind": "metric", "metric": "festival.verbena", "op": "==", "value": 1, "at": { "day": 1, "hour": 23, "minute": 0 } },
     { "kind": "metric", "metric": "festival.holiday", "op": "==", "value": 1, "at": { "day": 2, "hour": 11, "minute": 0 } },
-    { "kind": "metric", "metric": "festival.costumed", "op": "==", "value": 0, "at": { "day": 3, "hour": 4, "minute": 0 } }
+    { "kind": "metric", "metric": "festival.costumed", "op": "==", "value": 0, "at": { "day": 3, "hour": 4, "minute": 0 } },
+    { "kind": "metric", "metric": "festival.mourners", "op": ">", "value": 20, "at": { "day": 3, "hour": 20, "minute": 10 } },
+    { "kind": "metric", "metric": "festival.bonfires", "op": "==", "value": 2, "at": { "day": 3, "hour": 21, "minute": 40 } },
+    { "kind": "metric", "metric": "festival.verbena", "op": "==", "value": 1, "at": { "day": 3, "hour": 23, "minute": 0 } }
   ]
 }

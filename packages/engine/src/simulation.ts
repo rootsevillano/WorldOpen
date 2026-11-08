@@ -15,7 +15,7 @@ import {
 } from '@worldopen/contracts';
 import { seedStocks } from './agents/economy';
 import { seedCash, seedWages } from './agents/money';
-import { costumeFlags, fireworkSites, meadowFrame, processionPasos } from './agents/festival';
+import { bonfireSites, costumeFlags, fireworkSites, meadowFrame, processionPasos } from './agents/festival';
 import { seedAnimals } from './agents/animals';
 import { buildRoad, busesNow, seedCommuters, busStops } from './agents/transit';
 import { populate } from './agents/population';
@@ -221,6 +221,7 @@ export class Simulation {
     const buses = busesNow(this.world);
     const pasos = processionPasos(this.world);
     const fireworks = fireworkSites(this.world);
+    const bonfires = bonfireSites(this.world);
     const stops = busStops(this.world);
     const n = a.count;
     const agentPositions = a.positions.slice(0, n * 3);
@@ -250,6 +251,8 @@ export class Simulation {
       pasoHeadings: pasos.headings,
       fireworkCount: fireworks.length / 3,
       fireworkSites: fireworks,
+      bonfireCount: bonfires.length / 3,
+      bonfireSites: bonfires,
       busStopCount: stops.headings.length,
       busStopPositions: stops.positions,
       busStopHeadings: stops.headings,

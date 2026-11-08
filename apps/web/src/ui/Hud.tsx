@@ -26,7 +26,7 @@ export function Hud({ manifest, status, population, economy }: { manifest: World
           {population && (
             <div className="small" data-testid="population">
               {economy?.festival && (
-                <strong>{FESTIVAL_LABEL[economy.festival.kind]} · día {economy.festival.day}/{economy.festival.days}{economy.festival.holiday ? ' · festivo' : ''}{economy.festival.verbena ? ' · ¡verbena!' : ''} · </strong>
+                <strong>{FESTIVAL_LABEL[economy.festival.kind]} · día {economy.festival.day}/{economy.festival.days}{economy.festival.kind === 'carnaval' && economy.festival.day === 4 ? ' · ⚰️ entierro de la sardina' : ''}{economy.festival.holiday ? ' · festivo' : ''}{economy.festival.verbena ? ' · ¡verbena!' : ''} · </strong>
               )}
               {population.total - (economy?.bus?.visitorsNow ?? 0)} habitantes
               {(economy?.bus?.visitorsNow ?? 0) > 0 && ` · ${economy!.bus!.visitorsNow} de visita`} · {population.walking} en la calle · {population.working} trabajando · {population.sleeping} durmiendo

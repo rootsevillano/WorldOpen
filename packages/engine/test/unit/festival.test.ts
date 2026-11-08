@@ -120,7 +120,9 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
     expect(verbena(at(2, 14, 22).world)).toBe(false);
     expect(festivalHoliday(at(2, 13, 10).world)).toBe(false);
     expect(festivalHoliday(at(2, 14, 10).world)).toBe(true);
-    expect(activeFiesta(at(2, 15, 12).world)).toBeNull();
+    // El cuarto día es el entierro de la sardina (ADR-0052); el 16 ya no hay fiesta.
+    expect(activeFiesta(at(2, 15, 12).world)).toMatchObject({ fiesta: { kind: 'carnaval' }, day: 4 });
+    expect(activeFiesta(at(2, 16, 12).world)).toBeNull();
     // Se puede mover desde el Modo Dios.
     expect(activeFiesta(at(3, 1, 12, { 'fiestas.r1.carnavalMonth': 3, 'fiestas.r1.carnavalDay': 1 }).world)?.fiesta.kind).toBe('carnaval');
     // Desfile de disfraces a las 17:00 del primer día; la mitad del pueblo va disfrazada.
@@ -184,6 +186,36 @@ describe('Fiestas del pueblo (ADR-0034)', () => {
     expect(all().filter((k) => a.location[k] === hermitage).length).toBeLessThan(5);
     // Pasaron por la plaza: los que no han vuelto a casa siguen allí o por el pueblo.
     expect(marching.some((k) => a.location[k] === plaza || a.paths[k] !== null || a.location[k] === a.home[k])).toBe(true);
+  });
+
+  it('entierro de la sardina (ADR-0052): el miércoles, cortejo de luto a las 20:00, quema en la plaza a las 21:30 y baile', () => {
+    // Ya no hay disfraces; no es festivo.
+    const day = at(2, 15, 12, {}, 100);
+    expect(Array.from(day.frame().agentFlags).some((x) => x & AgentFlag.Costumed)).toBe(false);
+    expect(festivalHoliday(at(2, 15, 10).world)).toBe(false);
+    expect(verbena(at(2, 15, 22).world)).toBe(true);
+    // Cortejo: a las 20:10 desfilan de luto detrás de la sardina.
+    const sim = at(2, 15, 18, {}, 400, 5);
+    sim.step(2 * 12 + 2); // 20:10
+    const a = sim.world.agents;
+    const marching = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.action[k] === Action.Procession && a.location[k]! < 0 && a.paths[k] === null);
+    expect(marching.length).toBeGreaterThan(20);
+    const f = sim.frame();
+    expect(f.pasoCount).toBe(1);
+    const mourners = Array.from(f.agentFlags).filter((x) => x & AgentFlag.Mourning).length;
+    expect(mourners).toBe(marching.length);
+    expect(Number(metric(sim, 'festival.mourners'))).toBe(mourners);
+    expect(f.bonfireCount).toBe(0);
+    // Quema: de 21:30 a 22:30, junto a la plaza.
+    sim.step(12 + 6); // 21:40
+    const g = sim.frame();
+    expect(g.bonfireCount).toBe(1);
+    const plaza = festivalVenues(sim.world)[0]!;
+    const c = sim.world.map.buildings[plaza]!.centroid;
+    expect(Math.hypot(g.bonfireSites[0]! - c.x, g.bonfireSites[2]! - c.z)).toBeLessThan(60);
+    expect(Number(metric(sim, 'agents.atFestivalRatio'))).toBeGreaterThan(0.1);
+    sim.step(12); // 22:40
+    expect(sim.frame().bonfireCount).toBe(0);
   });
 });
 

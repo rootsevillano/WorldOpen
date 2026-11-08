@@ -17,6 +17,8 @@ const FIREWORK_COLORS = [0xff4d4d, 0xffd84d, 0x4dd2ff, 0x9dff4d, 0xff7dff, 0xfff
 
 const JAMMED_COLOR = new THREE.Color(0xff2a1a);
 /** Disfraces de carnaval (ADR-0048): colores vivos, uno por persona. */
+/** Luto del entierro de la sardina (ADR-0052): morado de Cuaresma (el negro no se ve de noche en la calle). */
+const MOURNING_COLOR = new THREE.Color(0x6a4c93);
 const COSTUME_COLORS = [0xe74c3c, 0xf1c40f, 0x9b59b6, 0x2ecc71, 0xff7f50, 0x00bcd4, 0xff4fa3].map((c) => new THREE.Color(c));
 const CAR_COLORS = [0xb03a2e, 0x1f618d, 0xd4ac0d, 0xeeeeee, 0x2c3e50, 0x7f8c8d, 0x117a65].map((c) => new THREE.Color(c));
 
@@ -94,6 +96,7 @@ export class WorldRenderer {
   private readonly sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
   private readonly hemi = new THREE.HemisphereLight(0xbcd6ec, 0x5b5a3c, 1.0);
   private readonly agents: THREE.InstancedMesh;
+  private readonly candles: THREE.InstancedMesh;
   /** Coches en marcha (agentes con `AgentFlag.Driving`), ADR-0025. */
   private readonly cars: THREE.InstancedMesh;
   private carAtInstance: number[] = [];
@@ -108,6 +111,7 @@ export class WorldRenderer {
   private readonly stops: THREE.InstancedMesh;
   /** Fiestas (ADR-0044): pasos de procesión y chispas de los fuegos artificiales. */
   private readonly pasos: THREE.InstancedMesh;
+  private readonly bonfires: THREE.InstancedMesh;
   private readonly sparks: THREE.Points;
   private readonly sparkPos = new Float32Array(MAX_SPARKS * 3);
   private readonly sparkVel = new Float32Array(MAX_SPARKS * 3);
@@ -179,6 +183,16 @@ export class WorldRenderer {
     this.agents.frustumCulled = false;
     this.agents.name = 'AGENTS';
     this.scene.add(this.agents);
+    // Velas del cortejo del entierro de la sardina (ADR-0052): llama sin iluminación, para que se vea de noche.
+    this.candles = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(0.12, 0.3, 0.12).translate(0.35, 1.3, 0),
+      new THREE.MeshBasicMaterial({ color: 0xffd36b }),
+      MAX_AGENTS,
+    );
+    this.candles.count = 0;
+    this.candles.frustumCulled = false;
+    this.candles.name = 'CANDLES';
+    this.scene.add(this.candles);
 
     // Rumbo 0 = +X: el coche es largo en X. Carrocería y cabina en una sola malla.
     const body = new THREE.BoxGeometry(4.2, 0.9, 1.8).translate(0, 0.65, 0);
@@ -243,6 +257,16 @@ export class WorldRenderer {
     this.pasos.frustumCulled = false;
     this.pasos.name = 'PASOS';
     this.scene.add(this.pasos);
+    // Hoguera de la quema de la sardina (ADR-0052): llama emisiva que parpadea (escala al azar: solo render).
+    this.bonfires = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(1.6, 4.5, 7).translate(0, 2.25, 0),
+      new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5a00, emissiveIntensity: 1.6, roughness: 0.6 }),
+      16,
+    );
+    this.bonfires.count = 0;
+    this.bonfires.frustumCulled = false;
+    this.bonfires.name = 'BONFIRES';
+    this.scene.add(this.bonfires);
     // Chispas de los fuegos: puntos aditivos (brillan sobre el cielo nocturno).
     const sparkGeometry = new THREE.BufferGeometry();
     for (let k = 0; k < MAX_SPARKS; k++) this.sparkPos[k * 3 + 1] = -1e4;
@@ -537,6 +561,7 @@ export class WorldRenderer {
     let n = 0;
     let c = 0;
     let costumes = 0;
+    let mourners = 0;
     this.marker.visible = false;
     for (let i = 0; i < f.agentCount && n < MAX_AGENTS; i++) {
       const id = f.agentIds[i]!;
@@ -573,11 +598,18 @@ export class WorldRenderer {
       if (f.agentFlags[i]! & AgentFlag.Costumed) {
         this.agents.setColorAt(n, COSTUME_COLORS[id % COSTUME_COLORS.length]!);
         costumes++;
+      } else if (f.agentFlags[i]! & AgentFlag.Mourning) {
+        this.agents.setColorAt(n, MOURNING_COLOR);
+        this.candles.setMatrixAt(mourners, this.tmp.matrix);
+        mourners++;
       } else this.agents.setColorAt(n, ACTIVITY_COLORS[f.agentActivities[i]!] ?? ACTIVITY_COLORS[AgentActivity.Idle]!);
       n++;
     }
     this.agents.count = n;
     this.liveCostumes = costumes;
+    this.liveMourners = mourners;
+    this.candles.count = mourners;
+    this.candles.instanceMatrix.needsUpdate = true;
     this.agents.instanceMatrix.needsUpdate = true;
     if (this.agents.instanceColor) this.agents.instanceColor.needsUpdate = true;
     this.cars.count = c;
@@ -588,6 +620,32 @@ export class WorldRenderer {
     this.updatePasos(f, now, scale);
     this.updateStops(f, scale);
     this.updateFireworks(f, now);
+    this.updateBonfires(f);
+  }
+
+  private updateBonfires(f: RenderFrame): void {
+    const n = Math.min(f.bonfireCount ?? 0, 16);
+    for (let k = 0; k < n; k++) {
+      const x = f.bonfireSites[k * 3]!;
+      const z = f.bonfireSites[k * 3 + 2]!;
+      this.tmp.position.set(x, this.heights ? this.heights.at(x, z) : 0, z);
+      this.tmp.rotation.set(0, Math.random() * Math.PI, 0);
+      const flicker = 0.85 + Math.random() * 0.3;
+      this.tmp.scale.set(flicker, 0.8 + Math.random() * 0.45, flicker);
+      this.tmp.updateMatrix();
+      this.bonfires.setMatrixAt(k, this.tmp.matrix);
+      // Pavesas: suben despacio desde la llama (usan las chispas de los fuegos).
+      if (Math.random() < 0.3) {
+        const j = this.sparkNext;
+        this.sparkNext = (this.sparkNext + 1) % MAX_SPARKS;
+        this.sparkPos.set([x + (Math.random() - 0.5) * 1.5, this.tmp.position.y + 3 + Math.random(), z + (Math.random() - 0.5) * 1.5], j * 3);
+        this.sparkVel.set([(Math.random() - 0.5) * 4, 7 + Math.random() * 5, (Math.random() - 0.5) * 4], j * 3);
+        this.sparkBase.set([1, 0.45 + Math.random() * 0.25, 0.1], j * 3);
+        this.sparkLife[j] = 0.8 + Math.random() * 0.6;
+      }
+    }
+    this.bonfires.count = n;
+    this.bonfires.instanceMatrix.needsUpdate = true;
   }
 
   private updateStops(f: RenderFrame, scale: number): void {
@@ -681,6 +739,7 @@ export class WorldRenderer {
 
   private liveSparks = 0;
   private liveCostumes = 0;
+  private liveMourners = 0;
 
   /** Pasos de procesión dibujados y chispas de fuegos en el aire (para el Visual Gate). */
   get visiblePasos(): number {
@@ -689,6 +748,15 @@ export class WorldRenderer {
 
   get visibleSparks(): number {
     return this.liveSparks;
+  }
+
+  /** Cortejo de luto dibujado y hogueras encendidas (ADR-0052, para el Visual Gate). */
+  get visibleMourners(): number {
+    return this.liveMourners;
+  }
+
+  get visibleBonfires(): number {
+    return this.bonfires.count;
   }
 
   /** Personas disfrazadas dibujadas en la calle (ADR-0048, para el Visual Gate). */
