@@ -30,8 +30,8 @@ export function gardenHours(world: World): boolean {
   return GARDEN_WINDOWS.some(([from, to]) => m >= from && m < to);
 }
 
-/** Despensa que puede llenar el huerto de la casa `b`. */
-function gardenCap(world: World, b: number): number {
+/** Despensa que pueden llenar el huerto y el corral (ADR-0055) de la casa `b`. */
+export function gardenCap(world: World, b: number): number {
   return Math.max(1, world.buildings.residents[b]!) * GARDEN_PANTRY;
 }
 

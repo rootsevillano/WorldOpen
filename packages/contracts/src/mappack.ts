@@ -42,6 +42,16 @@ export type BuildingUse =
   | 'publicServices'
   | 'unknown';
 
+/** Rectángulo en el suelo centrado en (x, z): `length` m a lo largo del vector unitario (dirX, dirZ), `width` de ancho. */
+export interface GroundPlot {
+  x: number;
+  z: number;
+  length: number;
+  width: number;
+  dirX: number;
+  dirZ: number;
+}
+
 export interface BuildingRecord {
   /** Id opaco (`b000123`); el render lo usa para localizar la malla del edificio. */
   id: string;
@@ -65,7 +75,9 @@ export interface BuildingRecord {
    * Huerto anejo (casas de campo, ADR-0054): rectángulo de cultivo centrado en (x, z), de `length` m a lo largo del
    * vector unitario (dirX, dirZ) y `width` m de ancho. Su cota es la del edificio (`baseY`).
    */
-  garden?: { x: number; z: number; length: number; width: number; dirX: number; dirZ: number };
+  garden?: GroundPlot;
+  /** Corral anejo (casas de campo, ADR-0055): gallinas y ovejas de la casa. Misma forma que el huerto. */
+  pen?: GroundPlot;
 }
 
 export interface StreetGraph {

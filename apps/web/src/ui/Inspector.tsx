@@ -33,6 +33,8 @@ const ANIMALS_ES: Record<AnimalDetail['kind'], string> = { dog: 'Perro', sheep: 
 const ANIMAL_STATES_ES: Record<AnimalDetail['state'], string> = {
   home: 'en casa', walking: 'de paseo', waiting: 'esperando fuera de un local', penned: 'recogido en la nave', grazing: 'fuera, junto a la nave',
 };
+/** Ganado de un cortijo (ADR-0055): en el corral de la casa de campo. */
+const PEN_STATES_ES: Partial<Record<AnimalDetail['state'], string>> = { penned: 'recogido en el corral', grazing: 'por el corral' };
 
 /** Inspector del Modo Dios (G1): consulta el motor cada medio segundo mientras hay selección. */
 export function Inspector(props: {
@@ -163,7 +165,7 @@ export function Inspector(props: {
       {selection.kind === 'animal' && animal && (
         <>
           <div className="muted small">
-            {animal.age} {animal.age === 1 ? 'año' : 'años'} · {ANIMAL_STATES_ES[animal.state]}
+            {animal.age} {animal.age === 1 ? 'año' : 'años'} · {(animal.farmhouse && PEN_STATES_ES[animal.state]) || ANIMAL_STATES_ES[animal.state]}
           </div>
           {animal.owner && (
             <div className="small">
@@ -184,7 +186,14 @@ export function Inspector(props: {
               Paseo: {animal.walked.today} min hoy · {animal.walked.yesterday} min ayer{animal.walked.yesterday < 20 ? ' (se quedó sin pasear)' : ''}
             </div>
           )}
-          {animal.farm && (
+          {animal.farm && animal.farmhouse && (
+            <div className="small">
+              Del corral de la casa de campo{' '}
+              <button type="button" className="link inline" onClick={() => onSelect({ kind: 'building', id: animal.farm! })}>{animal.farm}</button>
+              {` · da ${animal.dailyFood} ración(es) al día a la despensa de casa`}
+            </div>
+          )}
+          {animal.farm && !animal.farmhouse && (
             <div className="small">
               De la huerta{' '}
               <button type="button" className="link inline" onClick={() => onSelect({ kind: 'building', id: animal.farm! })}>{animal.farm}</button>

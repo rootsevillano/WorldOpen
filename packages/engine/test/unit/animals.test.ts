@@ -1,7 +1,7 @@
 import { AgentFlag } from '@worldopen/contracts';
 import { describe, expect, it } from 'vitest';
 import { Action, Simulation } from '../../src';
-import { animalSystem, dogHousehold } from '../../src/agents/animals';
+import { animalSystem, dogHousehold, penFlock } from '../../src/agents/animals';
 import { Animal } from '../../src/world/animals';
 import { metric } from '../../src/metrics';
 import { manifest } from '../helpers';
@@ -26,6 +26,13 @@ describe('Animales (ADR-0027)', () => {
       hens += Math.floor(sim.world.map.buildings[f]!.grossFloorAreaM2 / 20);
       sheep += Math.floor(sim.world.map.buildings[f]!.grossFloorAreaM2 / 100);
     }
+    // Y el de los corrales de las casas de campo (ADR-0055).
+    sim.world.map.buildings.forEach((b, k) => {
+      if (b.pen === undefined) return;
+      const [h, s] = penFlock(sim.world, k);
+      hens += h;
+      sheep += s;
+    });
     expect([metric(sim, 'animals.hens'), metric(sim, 'animals.sheep')]).toEqual([hens, sheep]);
     // Sin ganado: a medianoche se retira.
     sim.world.criteria['economy.livestock'] = 0;

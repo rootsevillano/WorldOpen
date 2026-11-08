@@ -346,6 +346,20 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     case 'animals.dogs': return countAnimals(sim, Animal.Dog);
     case 'animals.sheep': return countAnimals(sim, Animal.Sheep);
     case 'animals.hens': return countAnimals(sim, Animal.Hen);
+    // Animales del cortijo (ADR-0055): cuántos hay en los corrales de las casas de campo y qué parte anda fuera.
+    case 'animals.farmhouse':
+    case 'animals.farmhouseOutdoorsRatio': {
+      const an = sim.world.animals;
+      let n = 0;
+      let out = 0;
+      for (let i = 0; i < an.count; i++) {
+        if (an.kind[i] === Animal.Dog || sim.world.map.buildings[an.farm[i]!]?.pen === undefined) continue;
+        n++;
+        if (!(an.flags[i]! & 1)) out++;
+      }
+      if (name === 'animals.farmhouse') return n;
+      return n === 0 ? 0 : out / n;
+    }
     case 'animals.dogsWalkedRatio': {
       const an = sim.world.animals;
       let dogs = 0;

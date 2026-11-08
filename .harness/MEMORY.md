@@ -196,3 +196,8 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
   un map-pack se comprueba entero en el navegador (raycast contra `TERRAIN` de cada pieza), no mirando dos o tres: el
   terreno solo cubre el término. Con el panel del navegador oculto no hay rAF: forzar el dibujado con
   `renderer.loop()`. Para probar la colocación sin recargar el mundo: `import('/@fs/C:/…/rural.ts?t=…')` en la página.
+- (2026-11-08) Para dar algo a las casas de campo sin tocar las decisiones, mejor un sistema sin acción nueva (el
+  ganado del corral produce si vive alguien): una acción nueva consume PRNG en cada `consider()` y cambia todo el mundo.
+  Y cualquier rectángulo nuevo junto a la casa debe pasar `clear()` y entrar en `taken`, lo que mueve casas: volver a
+  comprobar en el navegador que caen todas sobre el terreno. El inspector puede responder «Ya no está en el pueblo» un
+  instante tras avanzar el motor en pausa: reintentar antes de buscar un fallo.

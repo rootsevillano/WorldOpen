@@ -11,7 +11,8 @@ import { regionNodeBase } from './mappack';
  * con la cota de ese nodo.
  *
  * Cada casa tiene a un lado su huerto (ADR-0054): un rectángulo de `GARDEN_LENGTH` × `GARDEN_WIDTH` m, alineado con la
- * dirección del pueblo, que se aparta de los demás edificios como la propia casa.
+ * dirección del pueblo, que se aparta de los demás edificios como la propia casa. Al otro lado, su corral (ADR-0055):
+ * `PEN_LENGTH` × `PEN_WIDTH` m, para sus gallinas y ovejas.
  */
 
 export const FARMHOUSE_ROLE = 'farmhouse';
@@ -51,6 +52,9 @@ const PACK_ATTEMPTS = 40;
 const GARDEN_LENGTH = 24;
 const GARDEN_WIDTH = 16;
 const GARDEN_GAP = 3;
+/** Corral (ADR-0055): largo y ancho (m); va al otro lado de la casa, con la misma separación. */
+const PEN_LENGTH = 14;
+const PEN_WIDTH = 10;
 /** Ids de nodo de las casas dentro del espacio de su región. */
 const NODE_OFFSET = 998_000;
 
@@ -99,7 +103,10 @@ export function withFarmhouses(maps: MapLogic[], share: number): MapLogic[] {
         const off = Math.sqrt(HOUSE_FOOTPRINT) / 2 + GARDEN_GAP + GARDEN_WIDTH / 2;
         const gx = x - dz * side * off;
         const gz = z + dx * side * off;
-        if (!far || !clear(x, z) || !clear(gx, gz)) continue;
+        const poff = Math.sqrt(HOUSE_FOOTPRINT) / 2 + GARDEN_GAP + PEN_WIDTH / 2;
+        const px = x + dz * side * poff;
+        const pz = z - dx * side * poff;
+        if (!far || !clear(x, z) || !clear(gx, gz) || !clear(px, pz)) continue;
         // En un map-pack, junto a un camino del propio mapa y dentro del término (ADR-0054): el terreno solo cubre el
         // término, no todo el rectángulo de sus límites, y los caminos salen fuera de él. Dentro del término = hay
         // edificios del mapa (del catastro) a menos de PACK_SURROUND_M en los cuatro cuadrantes alrededor.
@@ -131,9 +138,10 @@ export function withFarmhouses(maps: MapLogic[], share: number): MapLogic[] {
           entrances: [{ x: ex, z: ez, streetNodeId: id }],
           baseY: near.y,
           garden: { x: gx, z: gz, length: GARDEN_LENGTH, width: GARDEN_WIDTH, dirX: dx, dirZ: dz },
+          pen: { x: px, z: pz, length: PEN_LENGTH, width: PEN_WIDTH, dirX: dx, dirZ: dz },
         };
         buildings.push(house);
-        taken.push(house.centroid, { x: gx, z: gz });
+        taken.push(house.centroid, { x: gx, z: gz }, { x: px, z: pz });
         nodes.push({ id, x: ex, z: ez, y: near.y });
         edges.push({ id: nextEdge++, from: near.id, to: id, lengthM: Math.sqrt(nearD), kind: 'track', oneway: false, name: FARMHOUSE_TRACK });
         break;

@@ -9,7 +9,8 @@ Código: `packages/contracts/src/frame.ts`. Consumidor: `packages/render/src/Wor
   positivo hacia −Z = Norte), `agentActivities` (u8, `AgentActivity`), `agentFlags` (u8, `AgentFlag`; `Indoors` = dentro
   de un edificio: el render no lo dibuja; `Driving` = va en coche: el render dibuja un coche, ADR-0025).
 - Animales (protocolo v5, ADR-0027): `animalCount`, `animalIds` (u32), `animalPositions` (f32 × 3), `animalHeadings`,
-  `animalKinds` (u8, `AnimalKind`: perro, oveja, gallina) y `animalFlags` (`Indoors` = recogido: no se dibuja). El
+  `animalKinds` (u8, `AnimalKind`: perro, oveja, gallina) y `animalFlags` (`Indoors` = recogido: no se dibuja). Las
+  gallinas y ovejas de una casa de campo andan dentro de su corral (`BuildingRecord.pen`, ADR-0055). El
   render los interpola desde su posición del frame anterior. `pick` devuelve `{ kind: 'animal', id }` para un animal
   visible (ADR-0029).
 - Paradas (protocolo v17, ADR-0045): `busStopCount`, `busStopPositions` (f32 × 3), `busStopHeadings`; marquesina

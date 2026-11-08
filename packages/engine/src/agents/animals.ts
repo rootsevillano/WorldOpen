@@ -5,12 +5,17 @@ import { Action, Occupation } from '../world/agents';
 import { Animal } from '../world/animals';
 import type { World } from '../world/world';
 import { storageCap } from './economy';
+import { gardenCap } from './garden';
 import { minuteOfDay, nightFactor } from './environment';
 
 /**
  * Animales (ADR-0027). Perros de los hogares (`society.petOwnership`) que salen con quien vaya a pie por la calle, y
  * ganado de las huertas (`economy.livestock`): gallinas y ovejas que deambulan junto a la nave, se recogen de noche y
  * dan huevos y leche los días en que se trabaja la huerta. Sin PRNG: los sorteos son hashes (id, día o tick).
+ *
+ * Animales del cortijo (ADR-0055): cada casa de campo tiene en su corral unas gallinas y alguna oveja. De día andan
+ * por el corral y de noche se recogen. Si vive alguien en la casa, sus huevos y su leche van a la despensa de casa,
+ * hasta el mismo tope que el huerto.
  */
 
 /** Gallinas y ovejas por m² construido de la huerta (× `economy.livestock`). */
@@ -21,6 +26,9 @@ const DAILY_FOOD: Record<number, number> = { [Animal.Hen]: 0.5, [Animal.Sheep]: 
 /** Velocidad al deambular (m por minuto) y radio alrededor de la nave (m, además de su tamaño). */
 const WANDER_SPEED: Record<number, number> = { [Animal.Hen]: 4, [Animal.Sheep]: 6 };
 const WANDER_MARGIN = 12;
+/** Cortijo (ADR-0055): gallinas (de 4 a 8) y ovejas (de 1 a 3) por corral, según un hash de la casa (× `economy.livestock`). */
+const PEN_HENS = [4, 5] as const;
+const PEN_SHEEP = [1, 3] as const;
 /** Perros: paseo mínimo diario (min), edad desde la que puede morir (años), adopción diaria y comida diaria. */
 export const DOG_WALK_MINUTES = 20;
 const DOG_OLD_AGE = 10;
@@ -51,7 +59,16 @@ function addDog(world: World, household: number, home: number, born: number): vo
   world.animals.flags[i] = AgentFlag.Indoors;
 }
 
-/** Ganado de cada huerta según su superficie y el criterio: añade o retira hasta la cifra objetivo. */
+/** Ganado del corral de un cortijo: [gallinas, ovejas] (ADR-0055). */
+export function penFlock(world: World, b: number): [number, number] {
+  const level = world.num('economy.livestock');
+  return [
+    Math.floor((PEN_HENS[0] + Math.floor(hash(b, 91) * PEN_HENS[1])) * level),
+    Math.floor((PEN_SHEEP[0] + Math.floor(hash(b, 92) * PEN_SHEEP[1])) * level),
+  ];
+}
+
+/** Ganado de cada huerta según su superficie y el criterio, y el de cada corral: añade o retira hasta la cifra objetivo. */
 function balanceLivestock(world: World): void {
   const an = world.animals;
   const level = world.num('economy.livestock');
@@ -64,11 +81,17 @@ function balanceLivestock(world: World): void {
     have.set(key, list);
   }
   const remove: number[] = [];
-  for (const f of world.map.byUse.agriculture) {
+  const pens: number[] = [];
+  world.map.buildings.forEach((b, k) => {
+    if (b.pen !== undefined) pens.push(k);
+  });
+  for (const f of [...world.map.byUse.agriculture, ...pens]) {
     const area = world.map.buildings[f]!.grossFloorAreaM2;
-    const c = world.map.buildings[f]!.centroid;
+    const pen = world.map.buildings[f]!.pen;
+    const c = pen ?? world.map.buildings[f]!.centroid;
+    const flock = pen ? penFlock(world, f) : null;
     for (const [kind, perM2] of [[Animal.Hen, HENS_PER_M2], [Animal.Sheep, SHEEP_PER_M2]] as const) {
-      const target = Math.floor(area * perM2 * level);
+      const target = flock ? flock[kind === Animal.Hen ? 0 : 1] : Math.floor(area * perM2 * level);
       const list = have.get(`${f}:${kind}`) ?? [];
       for (let k = list.length; k < target; k++) {
         const i = an.add(kind, c.x, c.z);
@@ -114,7 +137,10 @@ function daily(world: World): void {
     if (an.kind[i] !== Animal.Dog) {
       const f = an.farm[i]!;
       // Escala con la abundancia de comida (pasto y pienso; 0,7 es el valor por defecto): sin abundancia, no producen (ADR-0032).
-      if (cared.has(f)) bs.food[f] = Math.min(storageCap(world, f), bs.food[f]! + DAILY_FOOD[an.kind[i]!]! * abundance);
+      // En un cortijo (ADR-0055), si vive alguien: a la despensa de casa, hasta el tope del huerto.
+      if (world.map.buildings[f]!.pen !== undefined) {
+        if (bs.residents[f]! > 0) bs.food[f] = Math.max(bs.food[f]!, Math.min(gardenCap(world, f), bs.food[f]! + DAILY_FOOD[an.kind[i]!]! * abundance));
+      } else if (cared.has(f)) bs.food[f] = Math.min(storageCap(world, f), bs.food[f]! + DAILY_FOOD[an.kind[i]!]! * abundance);
       continue;
     }
     const hh = an.household[i]!;
@@ -228,13 +254,14 @@ export function animalSystem(world: World): void {
       an.aim[i * 2 + 1] = oz;
       continue;
     }
-    // Ganado: de noche, recogido; de día, deambula hacia un punto al azar (por hash) cerca de su nave.
+    // Ganado: de noche, recogido; de día, deambula hacia un punto al azar (por hash) cerca de su nave o por su corral.
     const f = an.farm[i]!;
     const b = world.map.buildings[f]!;
+    const pen = b.pen;
     if (night || world.buildings.state[f] !== 0) {
       an.flags[i] = AgentFlag.Indoors;
-      an.positions[i * 3] = b.centroid.x;
-      an.positions[i * 3 + 2] = b.centroid.z;
+      an.positions[i * 3] = pen ? pen.x : b.centroid.x;
+      an.positions[i * 3 + 2] = pen ? pen.z : b.centroid.z;
       continue;
     }
     an.flags[i] = 0;
@@ -249,9 +276,19 @@ export function animalSystem(world: World): void {
     if (dist <= step) {
       an.positions[i * 3] = tx;
       an.positions[i * 3 + 2] = tz;
-      const r = Math.sqrt(b.grossFloorAreaM2) / 2 + WANDER_MARGIN;
-      tx = b.centroid.x + (hash(an.ids[i]!, world.tick) * 2 - 1) * r;
-      tz = b.centroid.z + (hash(an.ids[i]!, world.tick + 7919) * 2 - 1) * r;
+      const u = hash(an.ids[i]!, world.tick) * 2 - 1;
+      const v = hash(an.ids[i]!, world.tick + 7919) * 2 - 1;
+      if (pen) {
+        // Dentro del corral, a un metro de la cerca.
+        const along = u * (pen.length / 2 - 1);
+        const across = v * (pen.width / 2 - 1);
+        tx = pen.x + pen.dirX * along - pen.dirZ * across;
+        tz = pen.z + pen.dirZ * along + pen.dirX * across;
+      } else {
+        const r = Math.sqrt(b.grossFloorAreaM2) / 2 + WANDER_MARGIN;
+        tx = b.centroid.x + u * r;
+        tz = b.centroid.z + v * r;
+      }
       an.aim[i * 2] = tx;
       an.aim[i * 2 + 1] = tz;
     } else {

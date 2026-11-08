@@ -59,3 +59,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0052](0052-sardine-burial.md) | Entierro de la sardina | Aceptada |
 | [0053](0053-farmhouses.md) | Casas de campo | Aceptada |
 | [0054](0054-gardens.md) | Huertos en el campo | Aceptada |
+| [0055](0055-farmhouse-animals.md) | Animales del cortijo | Aceptada |

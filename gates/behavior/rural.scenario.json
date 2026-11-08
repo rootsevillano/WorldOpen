@@ -1,6 +1,6 @@
 {
   "name": "rural",
-  "description": "ADR-0053: cada pueblo tiene casas sueltas en el campo, unidas por caminos de tierra; viven hogares en ellas y tienen más coche que la media. ADR-0054: en junio, por la mañana y al caer la tarde, cuidan el huerto de casa y su despensa se llena.",
+  "description": "ADR-0053: cada pueblo tiene casas sueltas en el campo, unidas por caminos de tierra; viven hogares en ellas y tienen más coche que la media. ADR-0054: en junio, por la mañana y al caer la tarde, cuidan el huerto de casa y su despensa se llena. ADR-0055: cada una tiene su corral con gallinas y ovejas, que andan por él de día y se recogen de noche.",
   "seeds": [
     1,
     2
@@ -21,6 +21,9 @@
     { "kind": "metric", "metric": "households.ruralCarRatio", "op": ">=", "value": 0.6, "at": { "day": 0, "hour": 12, "minute": 0 } },
     { "kind": "metric", "metric": "households.gardeners", "op": ">=", "value": 3, "at": { "day": 1, "hour": 19, "minute": 0 } },
     { "kind": "metric", "metric": "households.gardeners", "op": "==", "value": 0, "at": { "day": 1, "hour": 15, "minute": 0 } },
-    { "kind": "metric", "metric": "households.gardenPantry", "op": ">=", "value": 5, "at": { "day": 2, "hour": 23, "minute": 0 } }
+    { "kind": "metric", "metric": "households.gardenPantry", "op": ">=", "value": 5, "at": { "day": 2, "hour": 23, "minute": 0 } },
+    { "kind": "metric", "metric": "animals.farmhouse", "op": ">=", "value": 20, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "animals.farmhouseOutdoorsRatio", "op": "==", "value": 1, "at": { "day": 1, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "animals.farmhouseOutdoorsRatio", "op": "==", "value": 0, "at": { "day": 1, "hour": 2, "minute": 0 } }
   ]
 }

@@ -79,6 +79,7 @@ export function animalDetail(world: World, id: number): AnimalDetail | null {
     age: Math.max(0, Math.floor((day - an.born[i]!) / 360)),
     owner,
     farm: an.farm[i]! >= 0 ? b[an.farm[i]!]!.id : null,
+    farmhouse: an.farm[i]! >= 0 && b[an.farm[i]!]!.pen !== undefined,
     walker: w >= 0 ? { agentId: a.ids[w]!, name: a.names[w]! } : null,
     state,
     walked: dog ? { today: an.walkedToday[i]!, yesterday: an.walkedYesterday[i]! } : null,

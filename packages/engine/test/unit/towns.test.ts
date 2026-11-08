@@ -10,6 +10,7 @@ import { metric } from '../../src/metrics';
 import { JAMMED_BELOW, jamFactor, linkTraffic } from '../../src/agents/vehicles';
 import { busStops } from '../../src/agents/transit';
 import { gardenSystem } from '../../src/agents/garden';
+import { Animal } from '../../src/world/animals';
 
 const neighbours = (side?: TownSide, dwellings = countDwellings(syntheticMap(3, SYNTHETIC_REGION))) =>
   neighbourTowns({ seed: 3, count: 2, bounds: syntheticBounds(SYNTHETIC_REGION), dwellings, taken: [SYNTHETIC_REGION.displayName], ...(side ? { side } : {}) });
@@ -468,6 +469,54 @@ describe('Varios pueblos (ADR-0036)', () => {
     // A media tarde no hay nadie en el huerto.
     sim.step(6 * 6); // 15:30
     expect(Number(metric(sim, 'households.gardeners'))).toBe(0);
+  });
+
+  it('cada casa de campo tiene su corral con gallinas y ovejas; andan por él de día y dan comida a la casa (ADR-0055)', () => {
+    const sim = threeTowns(900);
+    const map = sim.world.map;
+    const an = sim.world.animals;
+    const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+    const houses = map.towns.flatMap((t) => t.farmhouses);
+    expect(houses.length).toBeGreaterThan(5);
+    for (const h of houses) {
+      const b = map.buildings[h]!;
+      const p = b.pen!;
+      // Al otro lado de la casa que el huerto, sin pisar ningún otro edificio.
+      expect(dist(p, b.centroid)).toBeCloseTo(Math.sqrt(110) / 2 + 3 + p.width / 2, 5);
+      expect((p.x - b.centroid.x) * (b.garden!.x - b.centroid.x) + (p.z - b.centroid.z) * (b.garden!.z - b.centroid.z)).toBeLessThan(0);
+      for (let k = 0; k < map.buildings.length; k++) if (k !== h) expect(dist(map.buildings[k]!.centroid, p)).toBeGreaterThanOrEqual(39.9);
+    }
+    expect(map.buildings.filter((b) => b.pen !== undefined).length).toBe(houses.length);
+    const flock = (h: number, kind: number) => Array.from({ length: an.count }, (_, k) => k).filter((k) => an.farm[k] === h && an.kind[k] === kind).length;
+    for (const h of houses) {
+      expect(flock(h, Animal.Hen)).toBeGreaterThanOrEqual(4);
+      expect(flock(h, Animal.Hen)).toBeLessThanOrEqual(8);
+      expect(flock(h, Animal.Sheep)).toBeGreaterThanOrEqual(1);
+      expect(flock(h, Animal.Sheep)).toBeLessThanOrEqual(3);
+    }
+    // De noche, recogidos; a mediodía, por el corral (dentro de la cerca).
+    expect(Number(metric(sim, 'animals.farmhouseOutdoorsRatio'))).toBe(0);
+    sim.step(6 * 12); // 12:00
+    expect(Number(metric(sim, 'animals.farmhouseOutdoorsRatio'))).toBe(1);
+    sim.step(6 * 2);
+    for (let k = 0; k < an.count; k++) {
+      const p = map.buildings[an.farm[k]!]?.pen;
+      if (an.kind[k] === Animal.Dog || !p) continue;
+      const dx = an.positions[k * 3]! - p.x;
+      const dz = an.positions[k * 3 + 2]! - p.z;
+      expect(Math.abs(dx * p.dirX + dz * p.dirZ)).toBeLessThanOrEqual(p.length / 2);
+      expect(Math.abs(-dx * p.dirZ + dz * p.dirX)).toBeLessThanOrEqual(p.width / 2);
+    }
+    // A medianoche, sus huevos y su leche van a la despensa de las casas habitadas, sin pasar del tope del huerto.
+    const lived = houses.filter((h) => sim.world.buildings.residents[h]! > 0);
+    expect(lived.length).toBeGreaterThan(5);
+    for (const h of lived) sim.world.buildings.food[h] = 0;
+    sim.step(6 * 10); // 00:00
+    for (const h of lived) {
+      expect(sim.world.buildings.food[h]!).toBeGreaterThan(0);
+      expect(sim.world.buildings.food[h]!).toBeLessThanOrEqual(sim.world.buildings.residents[h]! * 12);
+    }
+    expect(Number(metric(sim, 'animals.farmhouse'))).toBeGreaterThan(houses.length * 5);
   });
 });
 

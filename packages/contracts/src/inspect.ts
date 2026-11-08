@@ -59,15 +59,17 @@ export interface AnimalDetail {
   age: number;
   /** Perros: hogar dueño (el adulto de más edad) y su casa. */
   owner: { name: string; agentId: number; home: string } | null;
-  /** Ganado: huerta a la que pertenece. */
+  /** Ganado: huerta o casa de campo (corral, ADR-0055) a la que pertenece. */
   farm: string | null;
+  /** Ganado de un cortijo: vive en el corral de una casa de campo (ADR-0055). */
+  farmhouse?: boolean;
   /** Quien lo pasea ahora (perros). */
   walker: { agentId: number; name: string } | null;
   /** En casa · paseando · esperando fuera de un local · recogido · fuera, junto a la nave. */
   state: 'home' | 'walking' | 'waiting' | 'penned' | 'grazing';
   /** Perros: minutos de paseo hoy y ayer. */
   walked: { today: number; yesterday: number } | null;
-  /** Ganado: raciones diarias que da los días en que se trabaja la huerta. */
+  /** Ganado: raciones diarias que da los días en que se trabaja la huerta (en un cortijo, si vive alguien). */
   dailyFood: number;
   position: { x: number; y: number; z: number };
 }

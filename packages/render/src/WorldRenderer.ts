@@ -55,6 +55,11 @@ const GARDEN_SOIL = 0x6b4a2e;
 const GARDEN_CROP = 0x5e9a3a;
 const GARDEN_ROW_SPACING = 1.6;
 const GARDEN_DEPTH = 3;
+/** Corrales de las casas de campo (ADR-0055): cerca de madera y un cobertizo en un extremo. */
+const PEN_FENCE = 0x8a6a45;
+const PEN_SHED = 0xa08f78;
+const PEN_FENCE_HEIGHT = 1;
+const PEN_SHED_SIZE = { length: 3.5, width: 4, height: 2.4 };
 const colorOf = (b: { use: BuildingUse; role?: string }): number => (b.role !== undefined ? ROLE_COLORS[b.role] : undefined) ?? USE_COLORS[b.use];
 
 const USE_COLORS: Record<BuildingUse, number> = {
@@ -424,13 +429,19 @@ export class WorldRenderer {
 
   /**
    * Huertos de las casas de campo (ADR-0054): una parcela de tierra labrada con surcos verdes a lo largo, sobre la cota
-   * de la casa.
+   * de la casa. Y sus corrales (ADR-0055): una cerca baja de madera y un cobertizo pegado al extremo más lejano del pueblo.
    */
   private addGardens(buildings: MapLogic['buildings']): void {
     if (this.gardens) for (const m of this.gardens.meshes) this.mapGroup.remove(m);
     this.gardens = null;
     const gardens = buildings.filter((b) => b.garden !== undefined);
     if (gardens.length === 0) return;
+    /** Con relieve, el punto más alto del rectángulo; si no, la cota de la casa. */
+    const topOf = (b: MapLogic['buildings'][number], g: NonNullable<typeof b.garden>) => Math.max(...([[-1, -1], [-1, 1], [1, -1], [1, 1], [0, 0]] as const).map(([u, v]) => {
+      const px = g.x + g.dirX * u * (g.length / 2) - g.dirZ * v * (g.width / 2);
+      const pz = g.z + g.dirZ * u * (g.length / 2) + g.dirX * v * (g.width / 2);
+      return this.heights?.at(px, pz) ?? b.baseY ?? 0;
+    }));
     const rowsOf = (w: number) => Math.max(1, Math.floor(w / GARDEN_ROW_SPACING));
     const rowCount = gardens.reduce((n, b) => n + rowsOf(b.garden!.width), 0);
     const plot = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: GARDEN_SOIL, roughness: 1 }), gardens.length);
@@ -442,12 +453,7 @@ export class WorldRenderer {
       const g = b.garden!;
       // Con relieve (map-pack), sobre el punto más alto del huerto; la parcela baja hasta GARDEN_DEPTH m por debajo
       // para no dejar huecos en la parte baja de la pendiente.
-      const corners = ([[-1, -1], [-1, 1], [1, -1], [1, 1], [0, 0]] as const).map(([u, v]) => {
-        const px = g.x + g.dirX * u * (g.length / 2) - g.dirZ * v * (g.width / 2);
-        const pz = g.z + g.dirZ * u * (g.length / 2) + g.dirX * v * (g.width / 2);
-        return this.heights?.at(px, pz) ?? b.baseY ?? 0;
-      });
-      const y = Math.max(...corners) + 0.05;
+      const y = topOf(b, g) + 0.05;
       const yaw = -Math.atan2(g.dirZ, g.dirX);
       this.tmp.rotation.set(0, yaw, 0);
       this.tmp.position.set(g.x, y + 0.12 - GARDEN_DEPTH, g.z);
@@ -463,8 +469,37 @@ export class WorldRenderer {
         rows.setMatrixAt(r++, this.tmp.matrix);
       }
     });
-    this.mapGroup.add(plot, rows);
-    this.gardens = { buildings, meshes: [plot, rows] };
+    // Corrales: cuatro tramos de cerca y el cobertizo. La cerca baja hasta GARDEN_DEPTH para no flotar en la pendiente.
+    const pens = buildings.filter((b) => b.pen !== undefined);
+    const box = () => new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+    const fence = new THREE.InstancedMesh(box(), new THREE.MeshStandardMaterial({ color: PEN_FENCE, roughness: 1 }), pens.length * 4);
+    const shed = new THREE.InstancedMesh(box(), new THREE.MeshStandardMaterial({ color: PEN_SHED, roughness: 0.9 }), pens.length);
+    fence.name = 'PEN_FENCES';
+    shed.name = 'PEN_SHEDS';
+    pens.forEach((b, k) => {
+      const p = b.pen!;
+      const y = topOf(b, p) + 0.05;
+      const yaw = -Math.atan2(p.dirZ, p.dirX);
+      this.tmp.rotation.set(0, yaw, 0);
+      const sides: [number, number, number, number][] = [
+        [p.length / 2, 0, 0.15, p.width], [-p.length / 2, 0, 0.15, p.width],
+        [0, p.width / 2, p.length, 0.15], [0, -p.width / 2, p.length, 0.15],
+      ];
+      sides.forEach(([along, across, sl, sw], j) => {
+        this.tmp.position.set(p.x + p.dirX * along - p.dirZ * across, y - GARDEN_DEPTH, p.z + p.dirZ * along + p.dirX * across);
+        this.tmp.scale.set(sl, GARDEN_DEPTH + PEN_FENCE_HEIGHT, sw);
+        this.tmp.updateMatrix();
+        fence.setMatrixAt(k * 4 + j, this.tmp.matrix);
+      });
+      // Cobertizo pegado por fuera al extremo más lejano del pueblo (dirección +dir): dentro, los animales andan libres.
+      const along = p.length / 2 + PEN_SHED_SIZE.length / 2;
+      this.tmp.position.set(p.x + p.dirX * along, y - GARDEN_DEPTH, p.z + p.dirZ * along);
+      this.tmp.scale.set(PEN_SHED_SIZE.length, GARDEN_DEPTH + PEN_SHED_SIZE.height, PEN_SHED_SIZE.width);
+      this.tmp.updateMatrix();
+      shed.setMatrixAt(k, this.tmp.matrix);
+    });
+    this.mapGroup.add(plot, rows, fence, shed);
+    this.gardens = { buildings, meshes: [plot, rows, fence, shed] };
   }
 
   /** Calles como franjas por tramo. */

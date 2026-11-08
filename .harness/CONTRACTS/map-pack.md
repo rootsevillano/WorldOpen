@@ -33,6 +33,7 @@ Lo genera `almensilla-3d` (`python -P tools/gis/run_pipeline.py --only logic pac
 7. **Lo que añade el motor al cargar** (no viene en el map-pack):
    - la ermita (ADR-0049);
    - las casas de campo (`role: 'farmhouse'`, ADR-0053), cada una con su huerto en `BuildingRecord.garden` (rectángulo
-     `x`, `z`, `length`, `width` y eje `dirX`, `dirZ`; ADR-0054).
+     `x`, `z`, `length`, `width` y eje `dirX`, `dirZ`; ADR-0054) y, al otro lado, su corral en `BuildingRecord.pen`
+     (misma forma, `GroundPlot`; ADR-0055).
    En un map-pack, las casas de campo solo van dentro del término: con edificios del mapa a menos de 400 m en los
    cuatro cuadrantes. El terreno no cubre todo el rectángulo de `bounds`.

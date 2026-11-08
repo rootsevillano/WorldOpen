@@ -1,12 +1,18 @@
 # CURRENT PHASE
 
-**Fase actual:** Huertos en el campo · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Animales del cortijo · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
 
-## Huertos en el campo — entregado (ADR-0054)
-- Cada casa de campo tiene un huerto al lado. Por la mañana y al caer la tarde, sus vecinos lo cuidan (`Action.Tend`)
-  y la cosecha va a la despensa de casa, según la estación. Se los ve entre los surcos.
-- En el mapa real, las casas de campo se colocan dentro del término, todas sobre el terreno.
-- Motor 0.42.0; protocolo v21.
+## Animales del cortijo — entregado (ADR-0055)
+- Cada casa de campo tiene un corral al otro lado del huerto (`BuildingRecord.pen`), con 4–8 gallinas y 1–3 ovejas
+  (× `economy.livestock`). De día andan por el corral; de noche se recogen.
+- Si vive alguien en la casa, sus huevos y su leche van cada noche a la despensa, con el tope del huerto.
+- En el render, cerca de madera y cobertizo; los 40 corrales del mapa real, sobre el terreno.
+- Motor 0.43.0; protocolo v21.
+
+## Huertos en el campo (anterior) — completado (ADR-0054)
+- Cada casa de campo tiene un huerto al lado, que sus vecinos cuidan por la mañana y al caer la tarde
+  (`Action.Tend`); la cosecha va a la despensa. En el mapa real, las casas de campo ya caen dentro del término.
+  Motor 0.42.0. 27/27 en ambos mapas; 192 tests.
 
 ## Casas de campo (anterior) — completado (ADR-0053)
 - Cada pueblo tiene casas sueltas en el campo (`society.ruralHomes`, 5 %, máx. 40), con su camino de tierra; en los
