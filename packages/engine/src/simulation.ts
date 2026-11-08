@@ -23,7 +23,8 @@ import { agentDetail, animalDetail, buildingDetail, economySummary } from './ins
 import { registerBuiltinCommands } from './commands/builtin';
 import { CommandRegistry } from './commands/registry';
 import { CriteriaRegistry } from './criteria/registry';
-import { hermitagePaths, withHermitages } from './map/hermitage';
+import { HERMITAGE_TRACK, countryPaths, withHermitages } from './map/hermitage';
+import { FARMHOUSE_TRACK, withFarmhouses } from './map/rural';
 import { NavMap } from './map/navigation';
 import { syntheticMap } from './map/synthetic';
 import { StateHasher } from './math/hash';
@@ -54,14 +55,14 @@ interface QueuedCommand {
   envelope: CommandEnvelope;
 }
 
-/** Mapas de las regiones, cada uno con su ermita en el campo (ADR-0049). */
-function loadMaps(manifest: WorldManifest, maps: Record<string, MapLogic> = {}): MapLogic[] {
-  return withHermitages(manifest.regions.map((region) => {
+/** Mapas de las regiones, cada uno con su ermita (ADR-0049) y sus casas de campo (ADR-0053). */
+function loadMaps(manifest: WorldManifest, maps: Record<string, MapLogic> = {}, ruralShare = 0): MapLogic[] {
+  return withFarmhouses(withHermitages(manifest.regions.map((region) => {
     const loaded = maps[region.id];
     if (loaded) return loaded;
     if (region.mapPack === null) return syntheticMap(manifest.seed, region, region.blocks ? { blocks: region.blocks } : {});
     throw new Error(`Falta el map-pack ${region.mapPack.id}@${region.mapPack.version} de la región ${region.id}`);
-  }));
+  })), ruralShare);
 }
 
 /**
@@ -90,13 +91,15 @@ export class Simulation {
     registerBuiltinCommands(this.commands);
     for (const def of ruleset.commands) this.commands.register(def);
 
+    const values = criteria.resolve(manifest.criteria);
+    const rural = values['society.ruralHomes'];
     this.world = new World(
       manifest.time,
       Rng.fromSeed(manifest.seed),
       criteria,
-      criteria.resolve(manifest.criteria),
+      values,
       options.agentCapacity ?? 10_000,
-      new NavMap(loadMaps(manifest, options.maps)),
+      new NavMap(loadMaps(manifest, options.maps, typeof rural === 'number' ? rural : 0)),
     );
 
     this.world.busRoads = this.world.map.towns.map((_, t) => buildRoad(this.world.map, t));
@@ -207,10 +210,10 @@ export class Simulation {
 
   /**
    * Mapas de los pueblos y, si hay varios, la carretera comarcal que los une (ADR-0036); en los map-packs, los caminos
-   * de las ermitas aparte, porque sus calles no se dibujan del mapa lógico (ADR-0049).
+   * de las ermitas y de las casas de campo aparte, porque sus calles no se dibujan del mapa lógico (ADR-0049, ADR-0053).
    */
   mapLogic(): MapLogic[] {
-    const extra = [this.world.map.linkLogic(), hermitagePaths(this.world.map.logic)].filter((m): m is MapLogic => m !== null);
+    const extra = [this.world.map.linkLogic(), countryPaths(this.world.map.logic, [HERMITAGE_TRACK, FARMHOUSE_TRACK])].filter((m): m is MapLogic => m !== null);
     return [...this.world.map.logic, ...extra];
   }
 

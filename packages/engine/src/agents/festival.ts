@@ -405,7 +405,7 @@ function buildRoute(world: World, town: number): Route | null {
   const sx = map.nodeX[start]!;
   const sz = map.nodeZ[start]!;
   const reach = (n: number) => Math.abs(Math.sqrt((map.nodeX[n]! - sx) * (map.nodeX[n]! - sx) + (map.nodeZ[n]! - sz) * (map.nodeZ[n]! - sz)) - ROUTE_REACH);
-  const candidates = [...map.towns[town]!.nodes].sort((p, q) => reach(p) - reach(q) || p - q).slice(0, 8);
+  const candidates = map.towns[town]!.nodes.filter((n) => !map.outskirts.has(n)).sort((p, q) => reach(p) - reach(q) || p - q).slice(0, 8);
   for (const turn of candidates) {
     const out = map.nodePath(start, turn);
     if (!out || out.length < 2) continue;

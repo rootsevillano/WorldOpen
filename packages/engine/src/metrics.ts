@@ -233,10 +233,24 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
     // En coche por la calle / con coche en el hogar (ADR-0025).
     case 'agents.drivingRatio': return ratio((i) => a.driving[i] === 1 && a.location[i]! < 0);
     case 'households.carRatio': {
-      const households = new Set(a.household.subarray(0, a.count));
+      const homes = new Map<number, number>();
+      for (let i = 0; i < a.count; i++) if (!homes.has(a.household[i]!)) homes.set(a.household[i]!, a.home[i]!);
       let cars = 0;
-      for (const hh of households) if (householdHasCar(sim.world, hh)) cars++;
-      return households.size === 0 ? 0 : cars / households.size;
+      for (const [hh, home] of homes) if (householdHasCar(sim.world, hh, home)) cars++;
+      return homes.size === 0 ? 0 : cars / homes.size;
+    }
+    // Casas de campo (ADR-0053): hogares que viven en ellas y cuántos tienen coche.
+    case 'households.rural':
+    case 'households.ruralCarRatio': {
+      const homes = new Map<number, number>();
+      for (let i = 0; i < a.count; i++) {
+        const h = a.home[i]!;
+        if (h >= 0 && a.occupation[i] !== Occupation.Visitor && sim.world.map.buildings[h]!.role === 'farmhouse') homes.set(a.household[i]!, h);
+      }
+      if (name === 'households.rural') return homes.size;
+      let cars = 0;
+      for (const [hh, home] of homes) if (householdHasCar(sim.world, hh, home)) cars++;
+      return homes.size === 0 ? 0 : cars / homes.size;
     }
     // Salidas del pueblo (ADR-0031): fuera, esperando el autobús, trabajando fuera; autobuses en la carretera.
     case 'agents.awayRatio': return ratio((i) => a.transit[i] === Transit.Away);

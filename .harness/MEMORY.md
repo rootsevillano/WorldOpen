@@ -188,3 +188,6 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-08) De noche la escena es muy oscura: un color oscuro en los agentes no se ve. Para que algo se lea de
   noche hace falta un elemento sin iluminación (`MeshBasicMaterial`, como las velas) o emisivo. Y las chispas
   aditivas se saturan si se emiten cada fotograma: mejor con probabilidad.
+- (2026-11-08) El terreno de un map-pack no cubre todo el rectángulo de `bounds`: para colocar algo nuevo en un
+  map-pack, hay que exigir cercanía a nodos del propio mapa y tomar su cota (`y`). Cambiar el parque de viviendas
+  mueve escenarios calibrados con pocas casas (crisis de vivienda, hogares).

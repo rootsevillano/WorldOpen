@@ -159,7 +159,7 @@ export function agentDetail(world: World, id: number): AgentDetail | null {
       spare: a.spare[i]!,
       tenants: tenantsOf(world, a.household[i]!),
     },
-    car: { household: householdHasCar(world, a.household[i]!), driving: a.driving[i] === 1 },
+    car: { household: householdHasCar(world, a.household[i]!, a.home[i]!), driving: a.driving[i] === 1 },
     away: a.transit[i]
       ? {
           stage: STAGES[a.transit[i]!]!,

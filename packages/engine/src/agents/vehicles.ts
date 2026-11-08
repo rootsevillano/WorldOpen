@@ -15,11 +15,18 @@ const FUEL_PER_KM = 0.15;
 /** Edad mínima para conducir. */
 const DRIVING_AGE = 18;
 
-/** ¿Tiene coche el hogar? Del hash del id del hogar (sin consumir el PRNG): cambiar el criterio se aplica al momento. */
-export function householdHasCar(world: World, household: number): boolean {
+
+/**
+ * ¿Tiene coche el hogar? Del hash del id del hogar (sin consumir el PRNG): cambiar el criterio se aplica al momento.
+ * `home`, si se conoce, es su vivienda: en una casa de campo es más probable.
+ */
+export function householdHasCar(world: World, household: number, home = -1): boolean {
   if (world.criteria['world.era'] === 'historical') return false;
   const u = (Math.imul(household ^ 0x5bd1e995, 0x85ebca6b) >>> 0) / 0x100000000;
-  return u < world.num('society.carOwnership');
+  const own = world.num('society.carOwnership');
+  // En una casa de campo (ADR-0053) es más probable: 1 − (1 − p)² (0,75 → 0,94; sin coches en el pueblo, tampoco aquí).
+  const rural = home >= 0 && world.map.buildings[home]?.role === 'farmhouse';
+  return u < (rural ? 1 - (1 - own) * (1 - own) : own);
 }
 
 /** Longitud de una ruta (pares x, z) desde (x, z). */
@@ -55,7 +62,7 @@ export function shouldDrive(world: World, i: number, length: number, busy: Set<n
     length >= DRIVE_MIN_M &&
     a.age[i]! >= DRIVING_AGE &&
     !busy.has(hh) &&
-    householdHasCar(world, hh) &&
+    householdHasCar(world, hh, a.home[i]!) &&
     a.money[i]! >= fuelCost(world, 2 * length)
   );
 }

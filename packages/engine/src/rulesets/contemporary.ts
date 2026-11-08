@@ -141,6 +141,12 @@ export const contemporary: Ruleset = {
       mutableBy: 'admin',
     },
     {
+      key: 'society.ruralHomes',
+      type: 'number', min: 0, max: 0.3, default: 0.05,
+      description: 'Casas de campo de cada pueblo, como parte de sus edificios de viviendas (como mucho 40): se fija al crear el mundo.',
+      mutableBy: 'system',
+    },
+    {
       key: 'society.tourism',
       type: 'number', min: 0, max: 3, default: 1,
       description: 'Turismo: multiplica los visitantes (×2 en verano, ×0,5 en invierno) y cuántos se alojan en el hostal.',

@@ -358,7 +358,7 @@ describe('Varios pueblos (ADR-0036)', () => {
     const sim = threeTowns(50);
     const map = sim.world.map;
     const core = (t: number) => {
-      const xs = map.towns[t]!.homes.map((h) => map.buildings[h]!.centroid);
+      const xs = map.towns[t]!.homes.filter((h) => map.buildings[h]!.role === undefined).map((h) => map.buildings[h]!.centroid);
       return { x: xs.reduce((n, c) => n + c.x, 0) / xs.length, z: xs.reduce((n, c) => n + c.z, 0) / xs.length };
     };
     const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -370,7 +370,8 @@ describe('Varios pueblos (ADR-0036)', () => {
       expect(map.townOfBuilding[h]).toBe(t);
       // En el campo: más allá de todas las viviendas de su pueblo y más cerca de él que de los demás.
       const own = core(t);
-      const farthestHome = Math.max(...town.homes.map((k) => dist(map.buildings[k]!.centroid, own)));
+      // (Las casas de campo, ADR-0053, están fuera del casco y no cuentan.)
+      const farthestHome = Math.max(...town.homes.filter((k) => map.buildings[k]!.role === undefined).map((k) => dist(map.buildings[k]!.centroid, own)));
       expect(dist(b.centroid, own)).toBeGreaterThan(farthestHome + 200);
       for (let s = 0; s < map.towns.length; s++) if (s !== t) expect(dist(b.centroid, core(s))).toBeGreaterThan(dist(b.centroid, own));
       // Se llega andando desde el pueblo por el camino de la ermita.
@@ -379,7 +380,7 @@ describe('Varios pueblos (ADR-0036)', () => {
       // No es un local: nadie va a trabajar ni a pasar el rato allí fuera de la romería.
       expect(town.venues).not.toContain(h);
     });
-    expect(sim.mapLogic().some((m) => m.regionId === 'ermitas')).toBe(false);
+    expect(sim.mapLogic().some((m) => m.regionId === 'campo')).toBe(false);
     // El día de la romería, quien está en la ermita se ve fuera, en la pradera de alrededor.
     const day = threeTowns(400, { 'fiestas.r1.romeriaMonth': 3, 'fiestas.r1.romeriaDay': 21 });
     day.step(6 * 7); // 13:00
@@ -394,6 +395,37 @@ describe('Varios pueblos (ADR-0036)', () => {
       expect(d).toBeGreaterThanOrEqual(11.9);
       expect(d).toBeLessThanOrEqual(40.1);
     }
+  });
+
+  it('casas de campo: cada pueblo tiene unas cuantas, sueltas en el campo y con su camino; se tiene más coche (ADR-0053)', () => {
+    const sim = threeTowns(900);
+    const map = sim.world.map;
+    const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+    map.towns.forEach((town, t) => {
+      const casco = town.homes.filter((h) => map.buildings[h]!.role === undefined);
+      const target = Math.min(40, Math.round(casco.length * 0.05));
+      expect(town.farmhouses.length).toBeGreaterThan(0);
+      expect(town.farmhouses.length).toBeLessThanOrEqual(target);
+      expect(town.farmhouses.length).toBeGreaterThanOrEqual(Math.floor(target * 0.8));
+      const plaza = festivalVenues(sim.world, t)[0]!;
+      for (const h of town.farmhouses) {
+        const b = map.buildings[h]!;
+        expect(b).toMatchObject({ use: 'residential', role: 'farmhouse', dwellings: 1 });
+        expect(town.homes).toContain(h);
+        // Suelta: a 40 m o más de cualquier otro edificio.
+        const nearest = Math.min(...map.buildings.filter((_, k) => k !== h).map((o) => dist(o.centroid, b.centroid)));
+        expect(nearest).toBeGreaterThanOrEqual(39.9);
+        // Se llega a la plaza por su camino.
+        expect(map.nodePath(map.entranceNode[h]!, map.entranceNode[plaza]!)).not.toBeNull();
+      }
+    });
+    // La carretera comarcal no sale de los caminos del campo.
+    for (const [x, y] of map.links) expect(map.outskirts.has(x) || map.outskirts.has(y)).toBe(false);
+    // Viven hogares en ellas, y tienen más coche que la media.
+    expect(Number(metric(sim, 'households.rural'))).toBeGreaterThan(5);
+    expect(Number(metric(sim, 'households.ruralCarRatio'))).toBeGreaterThan(Number(metric(sim, 'households.carRatio')));
+    // Sin casas de campo, si así se elige al crear el mundo.
+    expect(threeTowns(50, { 'society.ruralHomes': 0 }).world.map.towns.every((town) => town.farmhouses.length === 0)).toBe(true);
   });
 });
 

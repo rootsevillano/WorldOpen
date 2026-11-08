@@ -149,7 +149,7 @@ export function busDemand(world: World): Demand {
     if (h < 0 || a.occupation[i] === Occupation.Visitor) continue;
     const t = map.townOfBuilding[h]!;
     res[t]!++;
-    if (a.occupation[i] === Occupation.Commuter && !householdHasCar(world, a.household[i]!)) riders[t]!++;
+    if (a.occupation[i] === Occupation.Commuter && !householdHasCar(world, a.household[i]!, a.home[i]!)) riders[t]!++;
   }
   demandCache = { world, tick: world.tick, residents: res, riders };
   return demandCache;

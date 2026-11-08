@@ -18,6 +18,7 @@
       }
     },
     "criteria": {
+      "society.ruralHomes": 0,
       "society.initialPopulation": 300,
       "society.immigration": 3,
       "society.emigration": 3

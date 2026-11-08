@@ -2,4 +2,4 @@
 export const PROTOCOL_VERSION = 21;
 
 /** Versión del motor. Un replay exacto exige la misma versión (ADR-0004). */
-export const ENGINE_VERSION = '0.40.0';
+export const ENGINE_VERSION = '0.41.0';

@@ -1,0 +1,22 @@
+{
+  "name": "rural",
+  "description": "ADR-0053: cada pueblo tiene casas sueltas en el campo, unidas por caminos de tierra; viven hogares en ellas y tienen más coche que la media.",
+  "seeds": [
+    1,
+    2
+  ],
+  "days": 1,
+  "manifest": {
+    "time": {
+      "minutesPerTick": 10
+    },
+    "criteria": {
+      "society.initialPopulation": 800
+    }
+  },
+  "assertions": [
+    { "kind": "deterministic" },
+    { "kind": "metric", "metric": "households.rural", "op": ">=", "value": 3, "at": { "day": 0, "hour": 12, "minute": 0 } },
+    { "kind": "metric", "metric": "households.ruralCarRatio", "op": ">=", "value": 0.6, "at": { "day": 0, "hour": 12, "minute": 0 } }
+  ]
+}

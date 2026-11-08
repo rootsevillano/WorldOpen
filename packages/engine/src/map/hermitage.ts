@@ -9,6 +9,7 @@ import { regionNodeBase } from './mappack';
  */
 
 export const HERMITAGE_ROLE = 'hermitage';
+export const HERMITAGE_TRACK = 'Camino de la ermita';
 /** Distancia de la ermita al borde del casco (m). */
 const BEYOND_M = 400;
 const S = 0.7071067811865476;
@@ -17,7 +18,7 @@ const DIRECTIONS: [number, number][] = [[1, 0], [S, S], [0, 1], [-S, S], [-1, 0]
 const NODE_OFFSET = 999_999;
 
 /** Centro (mediana de las viviendas) y radio (90 % de las viviendas) del casco de un pueblo. */
-function core(m: MapLogic): { x: number; z: number; r: number } {
+export function core(m: MapLogic): { x: number; z: number; r: number } {
   const homes = m.buildings.filter((b) => b.use === 'residential' && b.dwellings > 0);
   const src = homes.length > 0 ? homes : m.buildings;
   if (src.length === 0) return { x: (m.bounds.minX + m.bounds.maxX) / 2, z: (m.bounds.minZ + m.bounds.maxZ) / 2, r: 0 };
@@ -30,7 +31,7 @@ function core(m: MapLogic): { x: number; z: number; r: number } {
 }
 
 /** Valor en [0, 1) para la región y la clave `k` (FNV-1a). */
-function unit(text: string, k: number): number {
+export function unit(text: string, k: number): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
   return (Math.imul(h ^ Math.imul(k + 1, 0x9e3779b1), 0x85ebca6b) >>> 0) / 0x100000000;
@@ -87,6 +88,8 @@ export function withHermitages(maps: MapLogic[]): MapLogic[] {
       footprintAreaM2: 160,
       centroid: { x: x + best[0] * 12, z: z + best[1] * 12 },
       entrances: [{ x, z, streetNodeId: id }],
+      // Cota del terreno: la del nodo de calle más cercano (ADR-0053).
+      baseY: near.y,
     };
     return {
       ...m,
@@ -102,7 +105,7 @@ export function withHermitages(maps: MapLogic[]): MapLogic[] {
             lengthM: Math.sqrt(nearD),
             kind: 'track',
             oneway: false,
-            name: 'Camino de la ermita',
+            name: HERMITAGE_TRACK,
           },
         ],
       },
@@ -110,15 +113,18 @@ export function withHermitages(maps: MapLogic[]): MapLogic[] {
   });
 }
 
-/** Caminos de las ermitas de los pueblos con huellas (map-pack): su red de calles se dibuja aparte (para el render). */
-export function hermitagePaths(maps: MapLogic[]): MapLogic | null {
+/**
+ * Caminos del campo que añade el motor (de las ermitas y de las casas de campo, ADR-0053) en los pueblos con huellas
+ * (map-pack): su red de calles no se dibuja del mapa lógico, así que van aparte (para el render).
+ */
+export function countryPaths(maps: MapLogic[], tracks: readonly string[]): MapLogic | null {
   const nodes: MapLogic['streets']['nodes'] = [];
   const edges: MapLogic['streets']['edges'] = [];
   for (const m of maps) {
     if (!m.buildings.some((b) => b.footprint?.length)) continue;
     const byId = new Map(m.streets.nodes.map((n) => [n.id, n]));
     for (const e of m.streets.edges) {
-      if (e.name !== 'Camino de la ermita') continue;
+      if (e.name === null || !tracks.includes(e.name)) continue;
       nodes.push(byId.get(e.from)!, byId.get(e.to)!);
       edges.push(e);
     }
@@ -134,5 +140,5 @@ export function hermitagePaths(maps: MapLogic[]): MapLogic | null {
     maxX = Math.max(maxX, n.x);
     maxZ = Math.max(maxZ, n.z);
   }
-  return { regionId: 'ermitas', bounds: { minX, minZ, maxX, maxZ }, buildings: [], streets: { nodes, edges } };
+  return { regionId: 'campo', bounds: { minX, minZ, maxX, maxZ }, buildings: [], streets: { nodes, edges } };
 }

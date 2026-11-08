@@ -48,9 +48,9 @@ function mergeBoxes(...parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
 const FLOOR_HEIGHT = 3;
 const STREET_WIDTH = { carriageway: 10, track: 5, pedestrian: 4 } as const;
 
-/** Ermita en el campo (ADR-0049): encalada. */
-const HERMITAGE_COLOR = 0xf7f3ea;
-const colorOf = (b: { use: BuildingUse; role?: string }): number => (b.role === 'hermitage' ? HERMITAGE_COLOR : USE_COLORS[b.use]);
+/** Ermita en el campo (ADR-0049): encalada; casas de campo (ADR-0053): cal con ocre. */
+const ROLE_COLORS: Record<string, number> = { hermitage: 0xf7f3ea, farmhouse: 0xf0dfb8 };
+const colorOf = (b: { use: BuildingUse; role?: string }): number => (b.role !== undefined ? ROLE_COLORS[b.role] : undefined) ?? USE_COLORS[b.use];
 
 const USE_COLORS: Record<BuildingUse, number> = {
   residential: 0xe9dcc4,
@@ -402,7 +402,7 @@ export class WorldRenderer {
     const color = new THREE.Color();
     buildings.forEach((b, i) => {
       const side = include(b) ? Math.sqrt(b.footprintAreaM2) : 0;
-      this.tmp.position.set(b.centroid.x, 0, b.centroid.z);
+      this.tmp.position.set(b.centroid.x, b.baseY ?? 0, b.centroid.z);
       this.tmp.rotation.set(0, 0, 0);
       this.tmp.scale.set(side, Math.max(1, b.floorsAboveGround) * FLOOR_HEIGHT, side);
       this.tmp.updateMatrix();
@@ -425,8 +425,10 @@ export class WorldRenderer {
         const len = Math.hypot(b.x - a.x, b.z - a.z);
         // Se alarga media anchura por cada extremo para cerrar los cruces.
         const g = new THREE.PlaneGeometry(len + w, w).rotateX(-Math.PI / 2);
+        // Con cota (caminos del campo en un map-pack, ADR-0053): la franja sigue la pendiente entre sus extremos.
+        if (b.y !== a.y) g.rotateZ(Math.atan2(b.y - a.y, len));
         g.rotateY(-Math.atan2(b.z - a.z, b.x - a.x));
-        g.translate((a.x + b.x) / 2, 0.05, (a.z + b.z) / 2);
+        g.translate((a.x + b.x) / 2, (a.y + b.y) / 2 + 0.05, (a.z + b.z) / 2);
         geoms.push(g);
       }
     }

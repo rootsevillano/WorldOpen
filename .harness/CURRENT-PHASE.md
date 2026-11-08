@@ -1,8 +1,13 @@
 # CURRENT PHASE
 
-**Fase actual:** Entierro de la sardina · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Casas de campo · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
 
-## Entierro de la sardina — entregado (ADR-0052)
+## Casas de campo — entregado (ADR-0053)
+- Cada pueblo tiene casas sueltas en el campo (`society.ruralHomes`, 5 %, máx. 40), con su camino de tierra; en los
+  map-packs, junto a caminos del mapa y sobre el terreno. Sus hogares tienen más coche. Motor 0.41.0. 27/27 en ambos
+  mapas; 191 tests.
+
+## Entierro de la sardina (anterior) — completado (ADR-0052)
 - Cuarto día del carnaval: cortejo de luto con velas a las 20:00, quema de la sardina en la plaza a las 21:30 (hoguera
   en el frame) y baile. Varias procesiones por fiesta. Protocolo v21; motor 0.40.0. 26/26 en ambos mapas; 190 tests.
 
