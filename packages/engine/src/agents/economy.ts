@@ -4,6 +4,7 @@ import { Action, Memory, Occupation, Resource } from '../world/agents';
 import type { World } from '../world/world';
 import { harvestFactor, minuteOfDay, shopsOpen, temperature } from './environment';
 import { picnicSites } from './festival';
+import { gardenSystem } from './garden';
 import { WHOLESALE_PRICE, buy, cannotPay, clockWork, exportSurplus, priceAt, updatePrices } from './money';
 import { recalls, remember } from './social';
 
@@ -159,6 +160,8 @@ export function economySystem(world: World): void {
   for (const f of map.byUse.agriculture) {
     if (usable(world, f)) bs.food[f] = Math.min(storageCap(world, f), bs.food[f]! + dt * FARM_FOOD * bs.workers[f]! * foodAbundance * harvest);
   }
+  // Huertos de las casas de campo (ADR-0054): a la despensa de la casa.
+  gardenSystem(world);
   for (const s of map.byUse.industrial) if (usable(world, s)) bs.wood[s] = Math.min(storageCap(world, s), bs.wood[s]! + dt * SAWMILL_WOOD * bs.workers[s]!);
   for (const p of map.byUse.publicServices) if (usable(world, p)) bs.water[p] = Math.min(FOUNTAIN_CAP, bs.water[p]! + dt * FOUNTAIN_REFILL);
   for (const h of map.homes) {

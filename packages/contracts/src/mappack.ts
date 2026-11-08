@@ -61,6 +61,11 @@ export interface BuildingRecord {
   baseY?: number;
   /** Altura del edificio (m). */
   heightM?: number;
+  /**
+   * Huerto anejo (casas de campo, ADR-0054): rectángulo de cultivo centrado en (x, z), de `length` m a lo largo del
+   * vector unitario (dirX, dirZ) y `width` m de ancho. Su cota es la del edificio (`baseY`).
+   */
+  garden?: { x: number; z: number; length: number; width: number; dirX: number; dirZ: number };
 }
 
 export interface StreetGraph {

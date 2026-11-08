@@ -17,8 +17,8 @@ const DIRECTIONS: [number, number][] = [[1, 0], [S, S], [0, 1], [-S, S], [-1, 0]
 /** Id del nodo de la ermita dentro del espacio de ids de su región. */
 const NODE_OFFSET = 999_999;
 
-/** Centro (mediana de las viviendas) y radio (90 % de las viviendas) del casco de un pueblo. */
-export function core(m: MapLogic): { x: number; z: number; r: number } {
+/** Centro (mediana de las viviendas) y radio (por defecto, el 90 % de las viviendas: cuantil `q`) del casco de un pueblo. */
+export function core(m: MapLogic, q = 0.9): { x: number; z: number; r: number } {
   const homes = m.buildings.filter((b) => b.use === 'residential' && b.dwellings > 0);
   const src = homes.length > 0 ? homes : m.buildings;
   if (src.length === 0) return { x: (m.bounds.minX + m.bounds.maxX) / 2, z: (m.bounds.minZ + m.bounds.maxZ) / 2, r: 0 };
@@ -27,7 +27,7 @@ export function core(m: MapLogic): { x: number; z: number; r: number } {
   const x = xs[Math.floor(xs.length / 2)]!;
   const z = zs[Math.floor(zs.length / 2)]!;
   const d = src.map((b) => Math.sqrt((b.centroid.x - x) * (b.centroid.x - x) +(b.centroid.z - z) * (b.centroid.z - z))).sort((a, b) => a - b);
-  return { x, z, r: d[Math.floor(0.9 * (d.length - 1))]! };
+  return { x, z, r: d[Math.floor(q * (d.length - 1))]! };
 }
 
 /** Valor en [0, 1) para la región y la clave `k` (FNV-1a). */
@@ -39,7 +39,7 @@ export function unit(text: string, k: number): number {
 
 /** Mapas con su ermita y el camino que la une al nodo de calle más cercano del pueblo. */
 export function withHermitages(maps: MapLogic[]): MapLogic[] {
-  const cores = maps.map(core);
+  const cores = maps.map((m) => core(m));
   return maps.map((m, t) => {
     if (m.buildings.some((b) => b.role === HERMITAGE_ROLE) || m.streets.nodes.length === 0) return m;
     const c = cores[t]!;

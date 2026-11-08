@@ -50,6 +50,11 @@ const STREET_WIDTH = { carriageway: 10, track: 5, pedestrian: 4 } as const;
 
 /** Ermita en el campo (ADR-0049): encalada; casas de campo (ADR-0053): cal con ocre. */
 const ROLE_COLORS: Record<string, number> = { hermitage: 0xf7f3ea, farmhouse: 0xf0dfb8 };
+/** Huertos (ADR-0054): tierra labrada, surcos verdes y separación entre surcos (m). */
+const GARDEN_SOIL = 0x6b4a2e;
+const GARDEN_CROP = 0x5e9a3a;
+const GARDEN_ROW_SPACING = 1.6;
+const GARDEN_DEPTH = 3;
 const colorOf = (b: { use: BuildingUse; role?: string }): number => (b.role !== undefined ? ROLE_COLORS[b.role] : undefined) ?? USE_COLORS[b.use];
 
 const USE_COLORS: Record<BuildingUse, number> = {
@@ -128,6 +133,8 @@ export class WorldRenderer {
   private heights: Heights | null = null;
   private ground: THREE.Mesh;
   private mapSeq = 0;
+  /** Huertos dibujados (ADR-0054): se recolocan sobre el relieve al cargar las cotas del map-pack. */
+  private gardens: { buildings: MapLogic['buildings']; meshes: THREE.Object3D[] } | null = null;
   private buildingIds: string[] = [];
   private buildingBase: THREE.Color[] = [];
   private buildingStates: Uint8Array = new Uint8Array(0);
@@ -354,6 +361,7 @@ export class WorldRenderer {
    */
   setMap(maps: MapLogic[], packs: RenderPack[] = []): void {
     this.mapGroup.clear();
+    this.gardens = null;
     this.buildingMesh = null;
     this.footprints = null;
     this.heights = null;
@@ -373,11 +381,13 @@ export class WorldRenderer {
         this.addBoxes(buildings, (b) => !b.footprint?.length);
         this.addStreets(plain);
       }
+      this.addGardens(buildings);
       this.frameCamera(buildings, true);
       return;
     }
     this.addBoxes(buildings, () => true);
     this.addStreets(maps);
+    this.addGardens(buildings);
 
     const bounds = maps.reduce(
       (acc, m) => ({
@@ -410,6 +420,51 @@ export class WorldRenderer {
       mesh.setColorAt(i, color.setHex(colorOf(b)));
     });
     this.mapGroup.add(mesh);
+  }
+
+  /**
+   * Huertos de las casas de campo (ADR-0054): una parcela de tierra labrada con surcos verdes a lo largo, sobre la cota
+   * de la casa.
+   */
+  private addGardens(buildings: MapLogic['buildings']): void {
+    if (this.gardens) for (const m of this.gardens.meshes) this.mapGroup.remove(m);
+    this.gardens = null;
+    const gardens = buildings.filter((b) => b.garden !== undefined);
+    if (gardens.length === 0) return;
+    const rowsOf = (w: number) => Math.max(1, Math.floor(w / GARDEN_ROW_SPACING));
+    const rowCount = gardens.reduce((n, b) => n + rowsOf(b.garden!.width), 0);
+    const plot = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: GARDEN_SOIL, roughness: 1 }), gardens.length);
+    const rows = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: GARDEN_CROP, roughness: 0.9 }), rowCount);
+    plot.name = 'GARDENS';
+    rows.name = 'GARDEN_ROWS';
+    let r = 0;
+    gardens.forEach((b, k) => {
+      const g = b.garden!;
+      // Con relieve (map-pack), sobre el punto más alto del huerto; la parcela baja hasta GARDEN_DEPTH m por debajo
+      // para no dejar huecos en la parte baja de la pendiente.
+      const corners = ([[-1, -1], [-1, 1], [1, -1], [1, 1], [0, 0]] as const).map(([u, v]) => {
+        const px = g.x + g.dirX * u * (g.length / 2) - g.dirZ * v * (g.width / 2);
+        const pz = g.z + g.dirZ * u * (g.length / 2) + g.dirX * v * (g.width / 2);
+        return this.heights?.at(px, pz) ?? b.baseY ?? 0;
+      });
+      const y = Math.max(...corners) + 0.05;
+      const yaw = -Math.atan2(g.dirZ, g.dirX);
+      this.tmp.rotation.set(0, yaw, 0);
+      this.tmp.position.set(g.x, y + 0.12 - GARDEN_DEPTH, g.z);
+      this.tmp.scale.set(g.length, GARDEN_DEPTH, g.width);
+      this.tmp.updateMatrix();
+      plot.setMatrixAt(k, this.tmp.matrix);
+      const n = rowsOf(g.width);
+      for (let j = 0; j < n; j++) {
+        const across = (j + 0.5) * (g.width / n) - g.width / 2;
+        this.tmp.position.set(g.x - g.dirZ * across, y + 0.12, g.z + g.dirX * across);
+        this.tmp.scale.set(g.length - 1.5, 0.45, 0.6);
+        this.tmp.updateMatrix();
+        rows.setMatrixAt(r++, this.tmp.matrix);
+      }
+    });
+    this.mapGroup.add(plot, rows);
+    this.gardens = { buildings, meshes: [plot, rows] };
   }
 
   /** Calles como franjas por tramo. */
@@ -456,6 +511,7 @@ export class WorldRenderer {
       if (stale()) return;
       this.heights = new Heights(g);
       this.ground.visible = false;
+      if (this.gardens) this.addGardens(this.gardens.buildings);
     }
     const tasks: Promise<void>[] = [];
     for (const key of ['terrain', 'roads'] as const) {

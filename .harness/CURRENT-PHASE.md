@@ -1,8 +1,14 @@
 # CURRENT PHASE
 
-**Fase actual:** Casas de campo · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
+**Fase actual:** Huertos en el campo · ✅ **completada** (2026-11-08) · ⏸️ revisión del usuario (O3)
 
-## Casas de campo — entregado (ADR-0053)
+## Huertos en el campo — entregado (ADR-0054)
+- Cada casa de campo tiene un huerto al lado. Por la mañana y al caer la tarde, sus vecinos lo cuidan (`Action.Tend`)
+  y la cosecha va a la despensa de casa, según la estación. Se los ve entre los surcos.
+- En el mapa real, las casas de campo se colocan dentro del término, todas sobre el terreno.
+- Motor 0.42.0; protocolo v21.
+
+## Casas de campo (anterior) — completado (ADR-0053)
 - Cada pueblo tiene casas sueltas en el campo (`society.ruralHomes`, 5 %, máx. 40), con su camino de tierra; en los
   map-packs, junto a caminos del mapa y sobre el terreno. Sus hogares tienen más coche. Motor 0.41.0. 27/27 en ambos
   mapas; 191 tests.

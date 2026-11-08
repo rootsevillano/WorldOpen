@@ -9,6 +9,7 @@ import { nightFactor, temperature } from './agents/environment';
 import { householdHasCar, linkTraffic } from './agents/vehicles';
 import { Transit, busesNow, hostalGuests, hostalRooms, residents, visitorsNow } from './agents/transit';
 import { partnerId } from './agents/social';
+import { gardenPantry } from './agents/garden';
 import type { Simulation } from './simulation';
 import { ticksPerDay } from './time/clock';
 import { Action, Occupation, Resource } from './world/agents';
@@ -252,6 +253,13 @@ export function metric(sim: Simulation, name: string): CriterionValue | undefine
       for (const [hh, home] of homes) if (householdHasCar(sim.world, hh, home)) cars++;
       return homes.size === 0 ? 0 : cars / homes.size;
     }
+    // Huertos (ADR-0054): quien cuida ahora el huerto de su casa de campo y la despensa por residente de esas casas.
+    case 'households.gardeners': {
+      let n = 0;
+      for (let i = 0; i < a.count; i++) if (a.action[i] === Action.Tend && a.location[i] === a.home[i]) n++;
+      return n;
+    }
+    case 'households.gardenPantry': return gardenPantry(sim.world);
     // Salidas del pueblo (ADR-0031): fuera, esperando el autobús, trabajando fuera; autobuses en la carretera.
     case 'agents.awayRatio': return ratio((i) => a.transit[i] === Transit.Away);
     case 'agents.waitingBusRatio': return ratio((i) => a.transit[i] === Transit.Waiting);

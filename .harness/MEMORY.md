@@ -191,3 +191,8 @@ Las decisiones detalladas viven en `DECISIONS/` (ADR); aquí solo el resumen y e
 - (2026-11-08) El terreno de un map-pack no cubre todo el rectángulo de `bounds`: para colocar algo nuevo en un
   map-pack, hay que exigir cercanía a nodos del propio mapa y tomar su cota (`y`). Cambiar el parque de viviendas
   mueve escenarios calibrados con pocas casas (crisis de vivienda, hogares).
+- (2026-11-08) Si se añade un parámetro opcional a una función que se usa como `arr.map(fn)`, recibe el índice
+  (`maps.map(core)` pasó el índice como cuantil): usar siempre `arr.map((x) => fn(x))`. Y lo que coloca el motor en
+  un map-pack se comprueba entero en el navegador (raycast contra `TERRAIN` de cada pieza), no mirando dos o tres: el
+  terreno solo cubre el término. Con el panel del navegador oculto no hay rAF: forzar el dibujado con
+  `renderer.loop()`. Para probar la colocación sin recargar el mundo: `import('/@fs/C:/…/rural.ts?t=…')` en la página.

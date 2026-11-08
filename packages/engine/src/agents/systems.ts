@@ -26,6 +26,7 @@ import { SWITCH_PREMIUM, canAfford, dailyWageAt, hireAt, isBusiness, openings, p
 import { ticksPerDay } from '../time/clock';
 import { dogsToWalk } from './animals';
 import { festivalVenues, festivities, partyVenues, processionGathering, processionParticipant, processionPlaza, processionTime, romeriaParticipant, romeriaSite, romeriaTime, verbena, verbenaDay } from './festival';
+import { gardenHours, tendScore } from './garden';
 import { remember } from './social';
 import { AwayReason, Transit, commute, dayTrip, reachedRoadEnd } from './transit';
 import { DRIVE_SPEED, JAMMED_BELOW, carsInUse, fuelCost, linkTraffic, pathLength, shouldDrive } from './vehicles';
@@ -171,6 +172,8 @@ export function decisionSystem(world: World): void {
   const schoolT = map.towns.map((_, t) => inSchool(world, t));
   const shift = shiftT.some((s) => s);
   const minute = minuteOfDay(world);
+  // Huertos de las casas de campo (ADR-0054): por la mañana y al caer la tarde.
+  const garden = gardenHours(world) && night < 0.5;
   // Buscar trabajo (ADR-0041): en horario laboral, si hay algún puesto libre en el mundo.
   const jobsOpen = shift && openings(world).open.length > 0;
   const today = searchDay(world);
@@ -295,6 +298,10 @@ export function decisionSystem(world: World): void {
         consider(Action.Provision, bestP);
         if (best === Action.Provision) a.seeking[i] = bestR;
       }
+      if (garden && !sleepTime) {
+        const t = tendScore(world, i, outdoorAppeal);
+        if (t > 0) consider(Action.Tend, t);
+      }
     }
     // Romería (ADR-0046): quien va (los niños, con su familia) pasa el día en el merendero.
     if (romeriaT[town] && !carrying && !sleepTime && romeriaParticipant(world, i)) {
@@ -326,6 +333,7 @@ export function startAction(world: World, i: number, action: Action, home: numbe
   a.action[i] = action;
   let target = -1;
   if (action === Action.GoHome || action === Action.Sleep) target = action === Action.GoHome ? home : -1;
+  else if (action === Action.Tend) target = usable(world, a.home[i]!) ? a.home[i]! : -1;
   else if (action === Action.Work) target = a.workplace[i]!;
   else if (action === Action.GoOut) {
     // Un local cercano (y distinto del actual), con preferencia por la cercanía.
@@ -465,6 +473,7 @@ function activityAt(world: World, i: number): AgentActivity {
   if (loc < 0) return AgentActivity.Idle;
   if (a.action[i] === Action.Sleep) return AgentActivity.Sleeping;
   if (a.action[i] === Action.Work && loc === a.workplace[i]) return AgentActivity.Working;
+  if (a.action[i] === Action.Tend && loc === a.home[i]) return AgentActivity.Working;
   if (loc === a.home[i]) return AgentActivity.Idle;
   return AgentActivity.Socializing;
 }
@@ -490,7 +499,7 @@ function arrive(world: World, i: number, target: number): void {
   if (action === Action.SeekJob && hireAt(world, i, target)) remember(world, i, Memory.NewJob, target);
   if (action === Action.Provision && target !== a.home[i] && a.seeking[i] !== Resource.None) {
     a.busyLeft[i] = SERVICE_MINUTES;
-  } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter && action !== Action.Procession) {
+  } else if (action !== Action.Sleep && action !== Action.Work && action !== Action.SeekShelter && action !== Action.Procession && action !== Action.Tend) {
     // Quien llega refugiándose sigue "refugiado" (no es ocio) hasta su siguiente decisión.
     a.action[i] = Action.Stay;
   }

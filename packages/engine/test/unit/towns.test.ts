@@ -9,6 +9,7 @@ import { hostal } from '../../src/agents/transit';
 import { metric } from '../../src/metrics';
 import { JAMMED_BELOW, jamFactor, linkTraffic } from '../../src/agents/vehicles';
 import { busStops } from '../../src/agents/transit';
+import { gardenSystem } from '../../src/agents/garden';
 
 const neighbours = (side?: TownSide, dwellings = countDwellings(syntheticMap(3, SYNTHETIC_REGION))) =>
   neighbourTowns({ seed: 3, count: 2, bounds: syntheticBounds(SYNTHETIC_REGION), dwellings, taken: [SYNTHETIC_REGION.displayName], ...(side ? { side } : {}) });
@@ -426,6 +427,47 @@ describe('Varios pueblos (ADR-0036)', () => {
     expect(Number(metric(sim, 'households.ruralCarRatio'))).toBeGreaterThan(Number(metric(sim, 'households.carRatio')));
     // Sin casas de campo, si así se elige al crear el mundo.
     expect(threeTowns(50, { 'society.ruralHomes': 0 }).world.map.towns.every((town) => town.farmhouses.length === 0)).toBe(true);
+  });
+
+  it('cada casa de campo tiene su huerto al lado; por la mañana se cuida y llena la despensa (ADR-0054)', () => {
+    const sim = threeTowns(900);
+    const map = sim.world.map;
+    const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+    const houses = map.towns.flatMap((t) => t.farmhouses);
+    expect(houses.length).toBeGreaterThan(5);
+    for (const h of houses) {
+      const b = map.buildings[h]!;
+      const g = b.garden!;
+      expect(g).toBeDefined();
+      // Al lado de la casa, sin pisar ningún otro edificio.
+      expect(dist(g, b.centroid)).toBeCloseTo(Math.sqrt(110) / 2 + 3 + g.width / 2, 5);
+      for (let k = 0; k < map.buildings.length; k++) if (k !== h) expect(dist(map.buildings[k]!.centroid, g)).toBeGreaterThanOrEqual(39.9);
+    }
+    // Solo las casas de campo tienen huerto.
+    expect(map.buildings.filter((b) => b.garden !== undefined).length).toBe(houses.length);
+    sim.step(6 * 2); // 08:00
+    sim.step(6 * 1 + 3); // 09:30
+    const a = sim.world.agents;
+    const tending = Array.from({ length: a.count }, (_, k) => k).filter((k) => a.action[k] === Action.Tend && a.location[k] === a.home[k]);
+    expect(tending.length).toBeGreaterThan(0);
+    // Cada minuto en el huerto suma comida a la despensa de su casa.
+    const homes = [...new Set(tending.map((k) => a.home[k]!))];
+    const pantry = homes.map((h) => sim.world.buildings.food[h]!);
+    gardenSystem(sim.world);
+    homes.forEach((h, n) => expect(sim.world.buildings.food[h]!).toBeGreaterThan(pantry[n]!));
+    // Se ve en el huerto, fuera de casa.
+    const f = sim.frame();
+    for (const k of tending) {
+      const g = map.buildings[a.home[k]!]!.garden!;
+      expect(f.agentFlags[k]! & 1).toBe(0);
+      const dx = f.agentPositions[k * 3]! - g.x;
+      const dz = f.agentPositions[k * 3 + 2]! - g.z;
+      expect(Math.abs(dx * g.dirX + dz * g.dirZ)).toBeLessThanOrEqual(g.length / 2);
+      expect(Math.abs(-dx * g.dirZ + dz * g.dirX)).toBeLessThanOrEqual(g.width / 2);
+    }
+    // A media tarde no hay nadie en el huerto.
+    sim.step(6 * 6); // 15:30
+    expect(Number(metric(sim, 'households.gardeners'))).toBe(0);
   });
 });
 

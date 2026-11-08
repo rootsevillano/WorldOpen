@@ -16,6 +16,7 @@ import {
 import { seedStocks } from './agents/economy';
 import { seedCash, seedWages } from './agents/money';
 import { bonfireSites, costumeFlags, fireworkSites, meadowFrame, processionPasos } from './agents/festival';
+import { gardenFrame } from './agents/garden';
 import { seedAnimals } from './agents/animals';
 import { buildRoad, busesNow, seedCommuters, busStops } from './agents/transit';
 import { populate } from './agents/population';
@@ -230,6 +231,7 @@ export class Simulation {
     const agentPositions = a.positions.slice(0, n * 3);
     const agentFlags = costumeFlags(this.world, a.flags.slice(0, n));
     meadowFrame(this.world, agentFlags, agentPositions);
+    gardenFrame(this.world, agentFlags, agentPositions);
     return {
       tick: this.world.tick,
       date: tickToDate(this.world.tick, this.manifest.time),

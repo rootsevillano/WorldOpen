@@ -58,3 +58,4 @@ Un ADR aceptado no se edita: se sustituye por otro nuevo.
 | [0051](0051-pilgrimage-return.md) | Vuelta de la romería en procesión | Aceptada |
 | [0052](0052-sardine-burial.md) | Entierro de la sardina | Aceptada |
 | [0053](0053-farmhouses.md) | Casas de campo | Aceptada |
+| [0054](0054-gardens.md) | Huertos en el campo | Aceptada |
